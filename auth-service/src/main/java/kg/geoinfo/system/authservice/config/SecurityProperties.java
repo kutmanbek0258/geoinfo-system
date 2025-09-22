@@ -1,0 +1,44 @@
+package kg.geoinfo.system.authservice.config;
+
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
+
+@Configuration
+public class SecurityProperties {
+
+    @Getter
+    @Setter
+    @Configuration
+    @ConfigurationProperties(prefix = "spring.security.headers")
+    public static class Headers {
+        private List<String> csp;
+        private HSTS hsts;
+        private List<String> permissionPolicy;
+
+        @Getter
+        @Setter
+        public static class HSTS {
+            private Integer maxAge;
+            private Boolean includeSubDomains;
+            private Boolean preload;
+        }
+
+        public String getCSPLikeString() {
+            if (this.csp != null) {
+                return String.join("; ", this.csp);
+            }
+            return null;
+        }
+
+        public String getPermissionPolicyLikeString() {
+            if (this.csp != null) {
+                return String.join(", ", this.csp);
+            }
+            return null;
+        }
+    }
+}

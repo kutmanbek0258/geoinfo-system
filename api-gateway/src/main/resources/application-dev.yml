@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        # Примеры маршрутов, дополнять по мере добавления сервисов
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+        - id: product-service
+          uri: http://localhost:9003
+          predicates:
+            - Path=/api/products/**
+          filters:
+            - StripPrefix=2
+  security:
+    oauth2:
+      resourceserver:
+        opaquetoken:
+          client-id: j-service-client
+          client-secret: j-service-client
+          introspection-uri: ${SSO_URL:http://localhost:9001}/oauth2/token-info

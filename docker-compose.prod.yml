@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # ====== Databases (оставлены без изменений) ======
+  postgres-auth:
+    networks:
+      - internal
+
+  redis-auth:
+    networks:
+      - internal
+
+  postgres-geodata:
+    networks:
+      - internal
+
+  # ====== Message Broker ======
+  kafka:
+    depends_on:
+      - zookeeper
+    networks:
+      - internal
+
+  zookeeper:
+    networks:
+      - internal
+
+  # ====== Elasticsearch for Search Service ======
+  elasticsearch:
+    networks:
+      - internal
+
+  # ====== Config, Discovery, Gateway ======
+  config-server:
+    networks:
+      - internal
+
+  discovery-server:
+    networks:
+      - internal
+
+  api-gateway:
+    ports:
+      - "80:8080"
+    networks:
+      - internal
+      - external
+    depends_on:
+      - config-server
+      - discovery-server
+
+  # ====== Microservices ======
+  auth-service:
+    networks:
+      - internal
+    depends_on:
+      - postgres-auth
+      - redis-auth
+      - kafka
+      - config-server
+      - discovery-server
+
+  geodata-service:
+    networks:
+      - internal
+    depends_on:
+      - postgres-geodata
+      - kafka
+      - config-server
+      - discovery-server
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  external:
+    driver: bridge

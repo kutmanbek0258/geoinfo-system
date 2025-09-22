@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # ====== Databases (оставлены без изменений) ======
+  postgres-auth:
+    ports:
+      - "5433:5432"
+    networks:
+      - dev-net
+
+  redis-auth:
+    ports:
+      - '6379:6379'
+    networks:
+      - dev-net
+
+  postgres-geodata:
+    ports:
+      - "5434:5432"
+    networks:
+      - dev-net
+
+  # ====== Message Broker ======
+  kafka:
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    networks:
+      - dev-net
+
+  zookeeper:
+    ports:
+      - "2181:2181"
+    networks:
+      - dev-net
+
+  # ====== Elasticsearch for Search Service ======
+  elasticsearch:
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - dev-net
+
+  # ====== Config, Discovery, Gateway ======
+  config-server:
+    ports:
+      - "8888:8888"
+    networks:
+      - dev-net
+
+  discovery-server:
+    ports:
+      - "8761:8761"
+    networks:
+      - dev-net
+
+  api-gateway:
+    ports:
+      - "8080:8080"
+    networks:
+      - dev-net
+    depends_on:
+      - config-server
+      - discovery-server
+
+  # ====== Microservices ======
+  auth-service:
+    ports:
+      - "9001:9001"
+    networks:
+      - dev-net
+    depends_on:
+      - postgres-auth
+      - redis-auth
+      - kafka
+      - config-server
+      - discovery-server
+
+  geodata-service:
+    ports:
+      - "9002:9002"
+    networks:
+      - dev-net
+    command: ["java", "-jar", "app.jar", "--spring.profiles.active=dev"]
+    depends_on:
+      - postgres-geodata
+      - kafka
+      - config-server
+      - discovery-server
+
+networks:
+  dev-net:
+    driver: bridge

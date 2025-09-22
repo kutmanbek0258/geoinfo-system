@@ -1,0 +1,15 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/kutmanbek0258/cloud-configs
+          # username: your-username
+          # password: your-token
+          search-paths:
+            - '{application}'

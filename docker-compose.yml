@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # ====== Databases (оставлены без изменений) ======
+  postgres-auth:
+    image: postgres:15
+    container_name: postgres-auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+
+  redis-auth:
+    image: redis:7.4.0
+    container_name: redis-auth
+    restart: always
+    environment:
+      - REDIS_DATABASES=0
+      - REDIS_PASSWORD=qwerty12345678
+
+  postgres-geodata:
+    image: postgis/postgis:16-3.4
+    container_name: postgres-geodata
+    environment:
+      POSTGRES_DB: geodata_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+
+  # ====== Message Broker ======
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+
+  zookeeper:
+    image: bitnami/zookeeper:3.8
+    container_name: zookeeper
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+
+  # ====== Elasticsearch for Search Service ======
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.2
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cat/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ====== Config, Discovery, Gateway ======
+  config-server:
+    build:
+      context: ./config-server
+    container_name: config-server
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+  discovery-server:
+    build:
+      context: ./discovery-server
+    container_name: discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: api-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+  # ====== Microservices ======
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: auth-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:postgresql://postgres-auth:5432/auth_db
+      DB_USER: postgres
+      DB_PASS: password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  geodata-service:
+    build:
+      context: ./geodata-service
+    container_name: geodata-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:postgresql://postgres-user:5432/user_db
+      DB_USER: postgres
+      DB_PASS: password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
