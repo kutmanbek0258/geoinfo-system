@@ -17,6 +17,7 @@
     "date-fns": "^2.29.3",
     "lodash": "^4.17.21",
     "maska": "^1.5.0",
+    "ol": "^10.6.1",
     "vite-plugin-vuetify": "1.0.2",
     "vue": "3.3.0",
     "vue-router": "4.0.12",
