@@ -90,6 +90,10 @@ services:
       - config-server
       - discovery-server
 
+  geoserver:
+    ports:
+      - "8085:8080"
+
 networks:
   dev-net:
     driver: bridge

@@ -101,3 +101,11 @@ services:
       DB_USER: postgres
       DB_PASS: password
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  geoserver:
+    image: kartoza/geoserver:2.23.2
+    volumes:
+      - ./geoserver_data:/opt/geoserver/data_dir
+    environment:
+      - GEOSERVER_ADMIN_USER=admin
+      - GEOSERVER_ADMIN_PASSWORD=geoserver

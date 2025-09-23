@@ -3,8 +3,5 @@ databaseChangeLog:
       file: extensions.sql
       relativeToChangelogFile: true
   - include:
-      file: schemas.sql
-      relativeToChangelogFile: true
-  - include:
       file: release-1.0.0/release.changelog.yaml
       relativeToChangelogFile: true

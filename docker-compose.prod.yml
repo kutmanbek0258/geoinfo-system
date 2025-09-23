@@ -69,6 +69,10 @@ services:
       - config-server
       - discovery-server
 
+  geoserver:
+    networks:
+      - external
+
 networks:
   internal:
     driver: bridge
