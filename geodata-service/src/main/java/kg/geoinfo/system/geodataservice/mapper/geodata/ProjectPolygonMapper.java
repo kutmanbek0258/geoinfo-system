@@ -18,6 +18,7 @@ public interface ProjectPolygonMapper {
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")
     ProjectPolygon toEntity(CreateProjectPolygonDto createProjectPolygonDto);
 
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void update(@MappingTarget ProjectPolygon projectPolygon, UpdateProjectPolygonDto updateProjectPolygonDto);
 
     @Named("mapProject")

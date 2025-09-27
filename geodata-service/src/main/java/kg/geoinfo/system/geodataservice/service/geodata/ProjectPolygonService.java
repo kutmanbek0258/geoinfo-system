@@ -7,12 +7,15 @@ import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPolygonDto;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 public interface ProjectPolygonService {
     ProjectPolygonDto create(CreateProjectPolygonDto createProjectPolygonDto);
 
     ProjectPolygonDto findById(UUID id);
 
-    List<ProjectPolygonDto> findAll();
+    Page<ProjectPolygonDto> findAll(Pageable pageable);
 
     ProjectPolygonDto update(UUID id, UpdateProjectPolygonDto updateProjectPolygonDto);
 

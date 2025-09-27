@@ -1,0 +1,499 @@
+{
+	"info": {
+		"_postman_id": "5efe2fae-4028-403b-89b7-9630abc43c30",
+		"name": "GeoInfoSystem",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "13605726"
+	},
+	"item": [
+		{
+			"name": "geodata-service",
+			"item": [
+				{
+					"name": "Projects",
+					"item": [
+						{
+							"name": "Get Projects (Paginated)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl_geodata}}/project/page-query?page=0&size=10",
+									"host": [
+										"{{baseUrl_geodata}}"
+									],
+									"path": [
+										"project",
+										"page-query"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "0"
+										},
+										{
+											"key": "size",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Project",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\": \"New Test Project\",\r\n    \"description\": \"A description for the new test project.\",\r\n    \"startDate\": \"2025-01-01T00:00:00.000Z\",\r\n    \"endDate\": \"2025-12-31T00:00:00.000Z\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/project"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Project By ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Project",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\": \"Updated Test Project\",\r\n    \"description\": \"An updated description.\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Project",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Imagery Layers",
+					"item": [
+						{
+							"name": "Get Imagery Layers (Paginated)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl_geodata}}/imagery-layer/page-query?page=0&size=10",
+									"host": [
+										"{{baseUrl_geodata}}"
+									],
+									"path": [
+										"imagery-layer",
+										"page-query"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "0"
+										},
+										{
+											"key": "size",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Imagery Layer",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\": \"My Awesome Satellite Layer\",\r\n    \"url\": \"https://example.com/tiles/{z}/{x}/{y}.png\",\r\n    \"layer_name\": \"my-awesome-layer\",\r\n    \"use_proxy\": false\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/imagery-layer"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Imagery Layer By ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/imagery-layer/some-uuid"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Imagery Layer",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\": \"Updated Satellite Layer\",\r\n    \"use_proxy\": true\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/imagery-layer/some-uuid"
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Imagery Layer",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/imagery-layer/some-uuid"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Points",
+					"item": [
+						{
+							"name": "Get Points (Paginated)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl_geodata}}/api/geodata/points?page=0&size=10",
+									"host": [
+										"{{baseUrl_geodata}}"
+									],
+									"path": [
+										"api",
+										"geodata",
+										"points"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "0"
+										},
+										{
+											"key": "size",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Point",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"projectId\": \"24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8\",\r\n    \"name\": \"Test point\",\r\n    \"description\": \"test point description\",\r\n    \"status\": \"COMPLETED\",\r\n    \"geom\": {\r\n        \"type\": \"Point\",\r\n        \"coordinates\": [\r\n            73.8391,\r\n            42.8208\r\n        ]\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/api/geodata/points"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Point By ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/api/geodata/points/some-uuid"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Point",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\": \"Updated Point Name\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/api/geodata/points/some-uuid"
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Point",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/api/geodata/points/some-uuid"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Multilines",
+					"item": [
+						{
+							"name": "Get Multilines (Paginated)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl_geodata}}/api/geodata/multilines?page=0&size=10",
+									"host": [
+										"{{baseUrl_geodata}}"
+									],
+									"path": [
+										"api",
+										"geodata",
+										"multilines"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "0"
+										},
+										{
+											"key": "size",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Multiline",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"projectId\": \"24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8\",\r\n    \"name\": \"Test Line\",\r\n    \"status\": \"IN_PROCESS\",\r\n    \"geom\": {\r\n        \"type\": \"MultiLineString\",\r\n        \"coordinates\": [\r\n            [ [10, 10], [20, 20], [10, 40] ],\r\n            [ [40, 40], [30, 30], [40, 20] ]\r\n        ]\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/api/geodata/multilines"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Multiline By ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/api/geodata/multilines/some-uuid"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Multiline",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\": \"Updated Line Name\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/api/geodata/multilines/some-uuid"
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Multiline",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/api/geodata/multilines/some-uuid"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Polygons",
+					"item": [
+						{
+							"name": "Get Polygons (Paginated)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl_geodata}}/api/geodata/polygons?page=0&size=10",
+									"host": [
+										"{{baseUrl_geodata}}"
+									],
+									"path": [
+										"api",
+										"geodata",
+										"polygons"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "0"
+										},
+										{
+											"key": "size",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Polygon",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"projectId\": \"24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8\",\r\n    \"name\": \"Test Polygon\",\r\n    \"status\": \"COMPLETED\",\r\n    \"geom\": {\r\n        \"type\": \"Polygon\",\r\n        \"coordinates\": [\r\n            [ [35, 10], [45, 45], [15, 40], [10, 20], [35, 10] ],\r\n            [ [20, 30], [35, 35], [30, 20], [20, 30] ]\r\n        ]\r\n    }\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/api/geodata/polygons"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Polygon By ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/api/geodata/polygons/some-uuid"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Polygon",
+							"request": {
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"name\": \"Updated Polygon Name\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": "{{baseUrl_geodata}}/api/geodata/polygons/some-uuid"
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Polygon",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": "{{baseUrl_geodata}}/api/geodata/polygons/some-uuid"
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "oauth2",
+		"oauth2": {
+			"accessTokenUrl": "http://localhost:9001/oauth2/token",
+			"authUrl": "http://localhost:9001/oauth2/authorize",
+			"refreshRequestParams": [],
+			"tokenRequestParams": [],
+			"authRequestParams": [],
+			"challengeAlgorithm": "S256",
+			"useBrowser": true,
+			"scope": "SSO.USER_PROFILE_INFO SSO.USER_AVATAR SSO.USER_IDENTIFICATION SSO.USER_AUTHORITIES",
+			"grant_type": "authorization_code",
+			"clientSecret": "test-client",
+			"clientId": "test-client",
+			"addTokenTo": "header",
+			"client_authentication": "header"
+		}
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl_geodata",
+			"value": "localhost:9002"
+		}
+	]
+}

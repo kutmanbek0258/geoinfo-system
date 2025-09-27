@@ -8,6 +8,8 @@ import kg.geoinfo.system.geodataservice.models.ProjectMultiline;
 import kg.geoinfo.system.geodataservice.repository.ProjectMultilineRepository;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectMultilineService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,10 +42,9 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProjectMultilineDto> findAll() {
-        return projectMultilineRepository.findAll().stream()
-                .map(projectMultilineMapper::toDto)
-                .collect(Collectors.toList());
+    public Page<ProjectMultilineDto> findAll(Pageable pageable) {
+        return projectMultilineRepository.findAll(pageable)
+                .map(projectMultilineMapper::toDto);
     }
 
     @Override

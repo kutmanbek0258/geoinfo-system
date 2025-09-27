@@ -18,6 +18,7 @@ public interface ProjectPointMapper {
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")
     ProjectPoint toEntity(CreateProjectPointDto createProjectPointDto);
 
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void update(@MappingTarget ProjectPoint projectPoint, UpdateProjectPointDto updateProjectPointDto);
 
     @Named("mapProject")

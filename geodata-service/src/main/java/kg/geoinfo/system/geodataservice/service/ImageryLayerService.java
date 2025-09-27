@@ -47,9 +47,8 @@ public class ImageryLayerService {
     }
 
     public ImageryLayerDto update(ImageryLayerDto imageryLayerDto, UUID id) {
-        ImageryLayerDto data = findById(id);
-        ImageryLayer entity = imageryLayerMapper.toEntity(imageryLayerDto);
-        BeanUtil.copyProperties(entity, data, "id");
-        return save(data);
+        ImageryLayer entity = repository.findById(id).orElseThrow(() -> new RuntimeException("ImageryLayer not found"));
+        imageryLayerMapper.update(entity, imageryLayerDto);
+        return imageryLayerMapper.toDto(repository.save(entity));
     }
 }

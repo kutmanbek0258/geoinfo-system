@@ -47,9 +47,8 @@ public class ProjectService {
     }
 
     public ProjectDto update(ProjectDto projectDto, UUID id) {
-        ProjectDto data = findById(id);
-        Project entity = projectMapper.toEntity(projectDto);
-        BeanUtil.copyProperties(data, entity);
-        return save(projectMapper.toDto(entity));
+        Project entity = repository.findById(id).orElseThrow(() -> new RuntimeException("Project not found"));
+        projectMapper.update(entity, projectDto);
+        return projectMapper.toDto(repository.save(entity));
     }
 }

@@ -16,13 +16,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate # Managed by Liquibase
-    database-platform:
-      org:
-        hibernate:
-          spatial:
-            dialect:
-              postgis:
-                PostgisDialect:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
   liquibase:
     enabled: false
     change-log: classpath:database/db.changelog.yaml

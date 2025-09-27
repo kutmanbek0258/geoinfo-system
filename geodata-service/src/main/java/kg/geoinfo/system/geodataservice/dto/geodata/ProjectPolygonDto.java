@@ -1,8 +1,6 @@
 package kg.geoinfo.system.geodataservice.dto.geodata;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.bedatadriven.jackson.datatype.jts.serialization.GeometrySerializer;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,7 +18,6 @@ public class ProjectPolygonDto {
     private String description;
     private Status status;
 
-    @JsonSerialize(using = GeometrySerializer.class)
     private Polygon geom;
 
     private Double areaM2;

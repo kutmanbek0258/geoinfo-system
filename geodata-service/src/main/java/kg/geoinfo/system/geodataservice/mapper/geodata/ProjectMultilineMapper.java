@@ -18,6 +18,7 @@ public interface ProjectMultilineMapper {
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")
     ProjectMultiline toEntity(CreateProjectMultilineDto createProjectMultilineDto);
 
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void update(@MappingTarget ProjectMultiline projectMultiline, UpdateProjectMultilineDto updateProjectMultilineDto);
 
     @Named("mapProject")

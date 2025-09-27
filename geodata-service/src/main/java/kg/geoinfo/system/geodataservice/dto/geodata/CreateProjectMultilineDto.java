@@ -1,7 +1,5 @@
 package kg.geoinfo.system.geodataservice.dto.geodata;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.bedatadriven.jackson.datatype.jts.serialization.GeometryDeserializer;
 import jakarta.validation.constraints.NotNull;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.Data;
@@ -24,6 +22,5 @@ public class CreateProjectMultilineDto {
     private Status status;
 
     @NotNull
-    @JsonDeserialize(using = GeometryDeserializer.class)
     private MultiLineString geom;
 }

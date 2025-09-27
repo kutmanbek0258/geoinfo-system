@@ -5,11 +5,14 @@ import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPointDto;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPointService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -30,8 +33,8 @@ public class ProjectPointController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProjectPointDto>> findAll() {
-        return ResponseEntity.ok(projectPointService.findAll());
+    public ResponseEntity<Page<ProjectPointDto>> findAll(@PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectPointService.findAll(pageable));
     }
 
     @PutMapping("/{id}")

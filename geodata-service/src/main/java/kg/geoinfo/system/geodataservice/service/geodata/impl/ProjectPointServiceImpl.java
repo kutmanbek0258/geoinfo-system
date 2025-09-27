@@ -8,6 +8,8 @@ import kg.geoinfo.system.geodataservice.models.ProjectPoint;
 import kg.geoinfo.system.geodataservice.repository.ProjectPointRepository;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPointService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,10 +42,9 @@ public class ProjectPointServiceImpl implements ProjectPointService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProjectPointDto> findAll() {
-        return projectPointRepository.findAll().stream()
-                .map(projectPointMapper::toDto)
-                .collect(Collectors.toList());
+    public Page<ProjectPointDto> findAll(Pageable pageable) {
+        return projectPointRepository.findAll(pageable)
+                .map(projectPointMapper::toDto);
     }
 
     @Override

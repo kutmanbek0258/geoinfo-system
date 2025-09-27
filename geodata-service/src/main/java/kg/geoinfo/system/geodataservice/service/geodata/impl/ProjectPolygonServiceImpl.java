@@ -8,6 +8,8 @@ import kg.geoinfo.system.geodataservice.models.ProjectPolygon;
 import kg.geoinfo.system.geodataservice.repository.ProjectPolygonRepository;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPolygonService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,10 +42,9 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProjectPolygonDto> findAll() {
-        return projectPolygonRepository.findAll().stream()
-                .map(projectPolygonMapper::toDto)
-                .collect(Collectors.toList());
+    public Page<ProjectPolygonDto> findAll(Pageable pageable) {
+        return projectPolygonRepository.findAll(pageable)
+                .map(projectPolygonMapper::toDto);
     }
 
     @Override
