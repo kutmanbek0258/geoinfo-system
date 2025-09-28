@@ -28,7 +28,8 @@
 		<module>api-gateway</module>
 		<module>auth-service</module>
 		<module>geodata-service</module>
-	</modules>
+        <module>document-service</module>
+    </modules>
 	<properties>
 		<java.version>17</java.version>
 		<maven.compiler.target>17</maven.compiler.target>

@@ -1,0 +1,53 @@
+server:
+  port: 9003
+
+spring:
+  application:
+    name: document-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5435/docs_db}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASS:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate # Managed by Liquibase
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  liquibase:
+    enabled: false
+    change-log: classpath:database/db.changelog.yaml
+    contexts: prod, dev
+  cloud:
+    config:
+      import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  eureka:
+    client:
+      serviceUrl:
+        defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AUTH_SERVICE_URL:http://localhost:9001} # URL of the Auth Service
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+minio:
+  endpoint: http://localhost:9000
+  access-key: minio_access_key
+  secret-key: minio_secret_key
+  bucket: documents

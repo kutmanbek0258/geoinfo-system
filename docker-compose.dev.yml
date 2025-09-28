@@ -20,6 +20,12 @@ services:
     networks:
       - dev-net
 
+  postgres-docs:
+    ports:
+      - "5435:5432"
+    networks:
+      - dev-net
+
   # ====== Message Broker ======
   kafka:
     ports:
@@ -93,6 +99,18 @@ services:
   geoserver:
     ports:
       - "8085:8080"
+
+  minio:
+    networks:
+      - dev-net
+    ports:
+      - "9000:9000"
+
+  onlyoffice-doc-server:
+    networks:
+      - dev-net
+    ports:
+      - "8081:80" # Открываем на порту 8081 для доступа
 
 networks:
   dev-net:
