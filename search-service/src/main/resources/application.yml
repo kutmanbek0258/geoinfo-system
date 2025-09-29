@@ -1,0 +1,30 @@
+server:
+  port: 9004
+
+spring:
+  application:
+    name: search-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  cloud:
+    config:
+      import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  eureka:
+    client:
+      serviceUrl:
+        defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AUTH_SERVICE_URL:http://localhost:9001} # URL of the Auth Service
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000

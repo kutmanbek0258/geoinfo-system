@@ -1,21 +1,19 @@
 server:
-  port: 8080
+  port: 9005
 
 spring:
   cloud:
     gateway:
       routes:
-        # Примеры маршрутов, дополнять по мере добавления сервисов
-        - id: user-service
-          uri: lb://user-service
+        - id: geodata-service
+          uri: lb://geodata-service
           predicates:
-            - Path=/api/users/**
-        - id: product-service
-          uri: http://localhost:9003
+            - Path=/api/geodata/**
+
+        - id: document-service
+          uri: lb://document-service
           predicates:
-            - Path=/api/products/**
-          filters:
-            - StripPrefix=2
+            - Path=/api/documents/**
   security:
     oauth2:
       resourceserver:

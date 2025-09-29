@@ -37,6 +37,11 @@ public class ProjectPointController {
         return ResponseEntity.ok(projectPointService.findAll(pageable));
     }
 
+    @GetMapping("/by-project-id/{projectId}")
+    public ResponseEntity<Page<ProjectPointDto>> findAllByProjectId(@PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectPointService.findByProjectId(pageable, projectId));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ProjectPointDto> update(@PathVariable UUID id, @RequestBody UpdateProjectPointDto updateProjectPointDto) {
         return ResponseEntity.ok(projectPointService.update(id, updateProjectPointDto));

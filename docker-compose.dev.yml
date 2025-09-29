@@ -64,7 +64,7 @@ services:
 
   api-gateway:
     ports:
-      - "8080:8080"
+      - "9005:9005"
     networks:
       - dev-net
     depends_on:

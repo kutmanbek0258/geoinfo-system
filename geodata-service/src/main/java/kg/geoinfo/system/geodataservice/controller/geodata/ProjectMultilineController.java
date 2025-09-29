@@ -37,6 +37,11 @@ public class ProjectMultilineController {
         return ResponseEntity.ok(projectMultilineService.findAll(pageable));
     }
 
+    @GetMapping("/by-project-id/{projectId}")
+    public ResponseEntity<Page<ProjectMultilineDto>> findAllByProjectId(@PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectMultilineService.findAllByProjectId(pageable, projectId));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ProjectMultilineDto> update(@PathVariable UUID id, @RequestBody UpdateProjectMultilineDto updateProjectMultilineDto) {
         return ResponseEntity.ok(projectMultilineService.update(id, updateProjectMultilineDto));

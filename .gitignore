@@ -34,5 +34,6 @@ build/
 
 /geoserver_data/
 /minio_data/
+.gemini
 
 *.node/

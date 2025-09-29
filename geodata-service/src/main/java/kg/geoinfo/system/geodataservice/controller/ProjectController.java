@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Optional;
 import java.util.UUID;
 
-@RequestMapping("/project")
+@RequestMapping("/api/project")
 @RestController
 @Slf4j
 public class ProjectController {

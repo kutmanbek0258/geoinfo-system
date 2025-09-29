@@ -37,6 +37,11 @@ public class ProjectPolygonController {
         return ResponseEntity.ok(projectPolygonService.findAll(pageable));
     }
 
+    @GetMapping("/by-project-id/{projectId}")
+    public ResponseEntity<Page<ProjectPolygonDto>> findAllByProjectId(@PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectPolygonService.findAllByProjectId(pageable, projectId));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ProjectPolygonDto> update(@PathVariable UUID id, @RequestBody UpdateProjectPolygonDto updateProjectPolygonDto) {
         return ResponseEntity.ok(projectPolygonService.update(id, updateProjectPolygonDto));

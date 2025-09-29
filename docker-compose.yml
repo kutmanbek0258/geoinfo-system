@@ -132,6 +132,5 @@ services:
     image: onlyoffice/documentserver:latest
     container_name: onlyoffice-doc-server
     environment:
-      # Важно: URL, по которому Document Server сможет обратиться к нашему API Gateway
-      # Это внешний адрес, используемый в Callback URL
-      DS_COAU_CALLBACK_URL: http://api-gateway:8080/api/v1/doc/callback
+      - JWT_ENABLED=true
+      - JWT_SECRET=a_very_long_and_secure_secret_key_for_onlyoffice_jwt_32_chars

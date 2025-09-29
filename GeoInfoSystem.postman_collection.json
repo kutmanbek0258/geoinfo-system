@@ -18,11 +18,12 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/project/page-query?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/api/project/page-query?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
+										"api",
 										"project",
 										"page-query"
 									],
@@ -54,7 +55,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/project"
+								"url": "{{baseUrl_geodata}}/api/project"
 							},
 							"response": []
 						},
@@ -63,7 +64,7 @@
 							"request": {
 								"method": "GET",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
+								"url": "{{baseUrl_geodata}}/api/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
 							},
 							"response": []
 						},
@@ -81,7 +82,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
+								"url": "{{baseUrl_geodata}}/api/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
 							},
 							"response": []
 						},
@@ -90,7 +91,7 @@
 							"request": {
 								"method": "DELETE",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
+								"url": "{{baseUrl_geodata}}/api/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
 							},
 							"response": []
 						}
@@ -105,11 +106,12 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/imagery-layer/page-query?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/api/imagery-layer/page-query?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
+										"api",
 										"imagery-layer",
 										"page-query"
 									],
@@ -141,7 +143,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/imagery-layer"
+								"url": "{{baseUrl_geodata}}/api/imagery-layer"
 							},
 							"response": []
 						},
@@ -150,7 +152,7 @@
 							"request": {
 								"method": "GET",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/imagery-layer/some-uuid"
+								"url": "{{baseUrl_geodata}}/api/imagery-layer/some-uuid"
 							},
 							"response": []
 						},
@@ -168,7 +170,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/imagery-layer/some-uuid"
+								"url": "{{baseUrl_geodata}}/api/imagery-layer/some-uuid"
 							},
 							"response": []
 						},
@@ -177,7 +179,7 @@
 							"request": {
 								"method": "DELETE",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/imagery-layer/some-uuid"
+								"url": "{{baseUrl_geodata}}/api/imagery-layer/some-uuid"
 							},
 							"response": []
 						}
@@ -187,7 +189,7 @@
 					"name": "Points",
 					"item": [
 						{
-							"name": "Get Points (Paginated)",
+							"name": "Get All Points (Paginated)",
 							"request": {
 								"method": "GET",
 								"header": [],
@@ -200,6 +202,37 @@
 										"api",
 										"geodata",
 										"points"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "0"
+										},
+										{
+											"key": "size",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Points by project id (Paginated)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl_geodata}}/api/geodata/points/by-project-id/some-uuid?page=0&size=10",
+									"host": [
+										"{{baseUrl_geodata}}"
+									],
+									"path": [
+										"api",
+										"geodata",
+										"points",
+										"by-project-id",
+										"some-uuid"
 									],
 									"query": [
 										{
@@ -275,7 +308,7 @@
 					"name": "Multilines",
 					"item": [
 						{
-							"name": "Get Multilines (Paginated)",
+							"name": "Get All Multilines (Paginated)",
 							"request": {
 								"method": "GET",
 								"header": [],
@@ -288,6 +321,37 @@
 										"api",
 										"geodata",
 										"multilines"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "0"
+										},
+										{
+											"key": "size",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Multilines by project id (Paginated)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl_geodata}}/api/geodata/multilines/by-project-id/some-uuid?page=0&size=10",
+									"host": [
+										"{{baseUrl_geodata}}"
+									],
+									"path": [
+										"api",
+										"geodata",
+										"multilines",
+										"by-project-id",
+										"some-uuid"
 									],
 									"query": [
 										{
@@ -363,7 +427,7 @@
 					"name": "Polygons",
 					"item": [
 						{
-							"name": "Get Polygons (Paginated)",
+							"name": "Get All Polygons (Paginated)",
 							"request": {
 								"method": "GET",
 								"header": [],
@@ -376,6 +440,37 @@
 										"api",
 										"geodata",
 										"polygons"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "0"
+										},
+										{
+											"key": "size",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Polygons by project id (Paginated)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl_geodata}}/api/geodata/polygons/by-project-id/some-uuid?page=0&size=10",
+									"host": [
+										"{{baseUrl_geodata}}"
+									],
+									"path": [
+										"api",
+										"geodata",
+										"polygons",
+										"by-project-id",
+										"some-uuid"
 									],
 									"query": [
 										{
@@ -448,6 +543,168 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "document-service",
+			"item": [
+				{
+					"name": "Get documents for geo-object",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl_document}}/api/documents/geo/47b6ae26-737b-4eb0-af16-73ca38f07f8a"
+					},
+					"response": []
+				},
+				{
+					"name": "Upload document",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "geoObjectId",
+									"value": "47b6ae26-737b-4eb0-af16-73ca38f07f8a",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Test point",
+									"type": "text"
+								},
+								{
+									"key": "tags",
+									"value": "test,testpoint",
+									"type": "text"
+								},
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/C:/Users/EBT32945/OneDrive - ETI BAKIR A.S/Электроцех/equipment.xlsx"
+								}
+							]
+						},
+						"url": "{{baseUrl_document}}/api/documents"
+					},
+					"response": []
+				},
+				{
+					"name": "Download document",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl_document}}/api/documents/some-uuid/download"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete document",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": "{{baseUrl_document}}/api/documents/some-uuid"
+					},
+					"response": []
+				},
+				{
+					"name": "Update document",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"description\": \"New description\",\r\n    \"tags\": [\"tag1\", \"tag2\"]\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "{{baseUrl_document}}/api/documents/some-uuid"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Presigned URL for document",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl_document}}/api/documents/some-uuid/presigned-url?expiresInSeconds=600",
+							"host": [
+								"{{baseUrl_document}}"
+							],
+							"path": [
+								"api",
+								"documents",
+								"some-uuid",
+								"presigned-url"
+							],
+							"query": [
+								{
+									"key": "expiresInSeconds",
+									"value": "600"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "OnlyOffice config",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl_document}}/api/documents/f37274b4-f159-4bfd-8a63-15819d0b85df/onlyoffice-config?userId=0760879&userName=Kutman",
+							"host": [
+								"{{baseUrl_document}}"
+							],
+							"path": [
+								"api",
+								"documents",
+								"f37274b4-f159-4bfd-8a63-15819d0b85df",
+								"onlyoffice-config"
+							],
+							"query": [
+								{
+									"key": "mode",
+									"value": "view"
+								},
+								{
+									"key": "userId",
+									"value": "0760879"
+								},
+								{
+									"key": "userName",
+									"value": "Kutman"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "OnlyOffice Callback",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"status\": 2\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "{{baseUrl_document}}/api/documents/f37274b4-f159-4bfd-8a63-15819d0b85df/onlyoffice-callback"
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"auth": {
@@ -494,6 +751,10 @@
 		{
 			"key": "baseUrl_geodata",
 			"value": "localhost:9002"
+		},
+		{
+			"key": "baseUrl_document",
+			"value": "localhost:9004"
 		}
 	]
 }

@@ -2,6 +2,8 @@ package kg.geoinfo.system.docservice.service.filestore;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
+import java.net.URL;
 import java.util.Optional;
 
 public interface FileStoreService {
@@ -28,4 +30,14 @@ public interface FileStoreService {
      * @param key the unique key of the file to delete
      */
     void delete(String key);
+
+    /**
+     * Generate a presigned URL to access a file (for view/edit).
+     * @param fileKey ключ объекта в MinIO
+     * @param expirySeconds срок жизни ссылки
+     * @return URL (или throw если ошибка)
+     */
+    URL generatePresignedUrl(String fileKey, long expirySeconds);
+
+    void overwrite(String fileKey, InputStream in);
 }

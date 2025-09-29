@@ -1,19 +1,24 @@
 package kg.geoinfo.system.docservice.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.docservice.dto.DocumentDto;
+import kg.geoinfo.system.docservice.dto.PresignedUrlResponse;
 import kg.geoinfo.system.docservice.dto.UpdateDocumentRequest;
+import kg.geoinfo.system.docservice.dto.kafka.DocumentEvent;
 import kg.geoinfo.system.docservice.mapper.DocumentMapper;
 import kg.geoinfo.system.docservice.models.Document;
 import kg.geoinfo.system.docservice.models.Tag;
 import kg.geoinfo.system.docservice.repository.DocumentRepository;
 import kg.geoinfo.system.docservice.repository.TagRepository;
 import kg.geoinfo.system.docservice.service.filestore.FileStoreService;
+import kg.geoinfo.system.docservice.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -27,6 +32,8 @@ public class DocumentServiceImpl implements DocumentService {
     private final TagRepository tagRepository;
     private final FileStoreService fileStoreService;
     private final DocumentMapper documentMapper;
+    private final KafkaProducerService kafkaProducerService;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -58,6 +65,9 @@ public class DocumentServiceImpl implements DocumentService {
 
         Document savedDocument = documentRepository.save(document);
 
+        Map<String, Object> payload = objectMapper.convertValue(savedDocument, Map.class);
+        kafkaProducerService.sendDocumentEvent(payload, DocumentEvent.EventType.CREATED);
+
         return documentMapper.toDto(savedDocument);
     }
 
@@ -81,6 +91,9 @@ public class DocumentServiceImpl implements DocumentService {
 
         // Then delete metadata
         documentRepository.delete(document);
+
+        Map<String, Object> payload = Map.of("id", documentId);
+        kafkaProducerService.sendDocumentEvent(payload, DocumentEvent.EventType.DELETED);
     }
 
     @Override
@@ -99,6 +112,21 @@ public class DocumentServiceImpl implements DocumentService {
 
         Document updatedDocument = documentRepository.save(document);
 
+        Map<String, Object> payload = objectMapper.convertValue(updatedDocument, Map.class);
+        kafkaProducerService.sendDocumentEvent(payload, DocumentEvent.EventType.UPDATED);
+
         return documentMapper.toDto(updatedDocument);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PresignedUrlResponse generatePresignedUrl(UUID documentId, long expiresInSeconds) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found"));
+
+        String fileKey = document.getMinioObjectKey();
+        var url = fileStoreService.generatePresignedUrl(fileKey, expiresInSeconds);
+
+        return new PresignedUrlResponse(url.toString(), expiresInSeconds);
     }
 }

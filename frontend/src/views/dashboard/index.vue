@@ -6,12 +6,6 @@ import MonthlyEarning from '@/components/dashboard/MonthlyEarnings.vue';
 import RecentTransaction from '@/components/dashboard/RecentTransaction.vue';
 import ProductPerformance from '@/components/dashboard/ProductPerformance.vue';
 import ProductCards from '@/components/dashboard/ProductCards.vue';
-import Companies from '@/components/references/Companies.vue';
-import Persons from '@/components/references/Persons.vue';
-import ProductGroups from '@/components/references/ProductGroups.vue';
-import PriceTemplates from '@/components/references/PriceTemplates.vue';
-import Depots from '@/components/references/Depots.vue';
-import Products from '@/components/references/Products.vue';
 
 </script>
 <template>
@@ -38,13 +32,6 @@ import Products from '@/components/references/Products.vue';
                 <!-- Product performence -->
                 <v-col cols="12" lg="8">
                     <ProductPerformance />
-                </v-col>
-                <!-- Product Cards -->
-                <v-col cols="12">
-                    <ProductCards />
-                </v-col>
-                <v-col cols="12">
-                    <Companies />
                 </v-col>
             </v-row>
         </v-col>

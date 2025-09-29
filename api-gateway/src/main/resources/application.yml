@@ -1,13 +1,23 @@
 server:
-  port: 8080
+  port: 9005
 
 spring:
   cloud:
     gateway:
+      routes:
+        - id: geodata-service
+          uri: lb://geodata-service
+          predicates:
+            - Path=/api/geodata/**
+
+        - id: document-service
+          uri: lb://document-service
+          predicates:
+            - Path=/api/documents/**
       globalcors:
         cors-configurations:
           '[/**]':
-            allowed-origins: "http://localhost:3000"
+            allowed-origins: "http://localhost:8080"
             allowed-methods:
               - GET
               - POST
@@ -16,11 +26,3 @@ spring:
               - OPTIONS
             allowed-headers: "*"
             allow-credentials: true
-      mvc:
-        routes:
-          # Примеры маршрутов, дополнять по мере добавления сервисов
-          - id: user-service
-            uri: lb://user-service
-            predicates:
-              - Path=/api/users/**
-          # и т.д.

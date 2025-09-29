@@ -1,11 +1,7 @@
 package kg.geoinfo.system.docservice.service.filestore;
 
-import io.minio.BucketExistsArgs;
-import io.minio.MakeBucketArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.GetObjectArgs;
-import io.minio.RemoveObjectArgs;
+import io.minio.*;
+import io.minio.http.Method;
 import kg.geoinfo.system.docservice.config.MinioProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -14,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -73,5 +70,37 @@ public class MinioFileStoreServiceImpl implements FileStoreService {
                         .bucket(minioProperties.getBucket())
                         .object(key)
                         .build());
+    }
+
+    @Override
+    public URL generatePresignedUrl(String fileKey, long expirySeconds) {
+        try {
+            String urlStr = minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .bucket(minioProperties.getBucket())
+                            .object(fileKey)
+                            .method(Method.GET)
+                            .expiry((int) expirySeconds)
+                            .build()
+            );
+            return new URL(urlStr);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate presigned url", e);
+        }
+    }
+
+    @Override
+    public void overwrite(String fileKey, InputStream in) {
+        try {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(minioProperties.getBucket())
+                            .object(fileKey)
+                            .stream(in, -1, 10485760) // 10MB parts
+                            .build()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to overwrite file in MinIO", e);
+        }
     }
 }

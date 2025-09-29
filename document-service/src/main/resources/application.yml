@@ -47,7 +47,11 @@ resilience4j:
         failureRateThreshold: 50
         waitDurationInOpenState: 10000
 minio:
-  endpoint: http://localhost:9000
+  endpoint: http://minio:9000
   access-key: minio_access_key
   secret-key: minio_secret_key
   bucket: documents
+
+onlyoffice:
+  jwt-secret: a_very_long_and_secure_secret_key_for_onlyoffice_jwt_32_chars
+  callback-base-url: http://minio:9000/api/documents

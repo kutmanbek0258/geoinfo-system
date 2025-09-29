@@ -1,6 +1,7 @@
 package kg.geoinfo.system.docservice.controller;
 
 import kg.geoinfo.system.docservice.dto.DocumentDto;
+import kg.geoinfo.system.docservice.dto.PresignedUrlResponse;
 import kg.geoinfo.system.docservice.dto.UpdateDocumentRequest;
 import kg.geoinfo.system.docservice.service.DocumentService;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -55,5 +57,19 @@ public class DocumentController {
     @PutMapping("/{documentId}")
     public ResponseEntity<DocumentDto> updateDocument(@PathVariable UUID documentId, @RequestBody UpdateDocumentRequest request) {
         return ResponseEntity.ok(documentService.updateDocument(documentId, request));
+    }
+
+    /**
+     * Generate a presigned URL for downloading/viewing a document.
+     * @param documentId UUID документа
+     * @param expiresInSeconds срок жизни ссылки (сек), по умолчанию 300
+     */
+    @GetMapping("/{documentId}/presigned-url")
+//    @PreAuthorize("hasAuthority('DOCUMENT_VIEW')") // актуализируйте права
+    public ResponseEntity<PresignedUrlResponse> getPresignedUrl(
+            @PathVariable UUID documentId,
+            @RequestParam(value = "expiresInSeconds", defaultValue = "300") long expiresInSeconds
+    ) {
+        return ResponseEntity.ok(documentService.generatePresignedUrl(documentId, expiresInSeconds));
     }
 }

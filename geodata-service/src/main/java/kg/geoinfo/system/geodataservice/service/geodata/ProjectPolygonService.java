@@ -17,6 +17,8 @@ public interface ProjectPolygonService {
 
     Page<ProjectPolygonDto> findAll(Pageable pageable);
 
+    Page<ProjectPolygonDto> findAllByProjectId(Pageable pageable, UUID projectId);
+
     ProjectPolygonDto update(UUID id, UpdateProjectPolygonDto updateProjectPolygonDto);
 
     void delete(UUID id);

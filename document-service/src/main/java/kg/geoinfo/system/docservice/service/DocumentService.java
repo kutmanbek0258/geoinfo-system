@@ -1,6 +1,7 @@
 package kg.geoinfo.system.docservice.service;
 
 import kg.geoinfo.system.docservice.dto.DocumentDto;
+import kg.geoinfo.system.docservice.dto.PresignedUrlResponse;
 import kg.geoinfo.system.docservice.dto.UpdateDocumentRequest;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,5 +22,7 @@ public interface DocumentService {
     void deleteDocument(UUID documentId);
 
     DocumentDto updateDocument(UUID documentId, UpdateDocumentRequest request);
+
+    PresignedUrlResponse generatePresignedUrl(UUID documentId, long expiresInSeconds);
 
 }

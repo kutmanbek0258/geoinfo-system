@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OnlyOffice Editor</title>
+    <!-- ЗАМЕНИТЕ НА АКТУАЛЬНЫЙ URL ВАШЕГО ONLYOFFICE DOCUMENT SERVER -->
+    <script type="text/javascript" src="http://localhost:8081/web-apps/apps/api/documents/api.js"></script>
+</head>
+<body>
+<div id="placeholder" style="width: 100vw; height: 100vh;"></div>
+
+<script>
+    // Функция для получения параметров из URL
+    function getQueryParam(param) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(param);
+    }
+
+    // Получаем ID документа из URL (?docId=...)
+    const documentId = getQueryParam('docId');
+    // Можно также передавать mode, userId, userName
+    const mode = getQueryParam('mode') || 'edit';
+    const userId = getQueryParam('userId') || 'user-1';
+    const userName = getQueryParam('userName') || 'John Doe';
+
+
+    if (documentId) {
+        // Формируем URL для запроса конфигурации
+        // ЗАМЕНИТЕ НА АКТУАЛЬНЫЙ URL ВАШЕГО API GATEWAY ИЛИ DOCUMENT SERVICE
+        const configApiUrl = `http://localhost:9003/api/documents/${documentId}/onlyoffice-config?mode=${mode}&userId=${userId}&userName=${userName}`;
+
+        // Запрашиваем конфигурацию с бэкенда
+        fetch(configApiUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(config => {
+                // Инициализируем редактор с полученной конфигурацией
+                new DocsAPI.DocEditor("placeholder", config);
+            })
+            .catch(error => {
+                console.error("Error fetching OnlyOffice config:", error);
+                document.getElementById("placeholder").innerText = "Ошибка при загрузке конфигурации редактора.";
+            });
+    } else {
+        document.getElementById("placeholder").innerText = "Ошибка: ID документа не указан в URL (добавьте ?docId=...).";
+    }
+</script>
+
+</body>
+</html>

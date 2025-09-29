@@ -17,6 +17,8 @@ public interface ProjectMultilineService {
 
     Page<ProjectMultilineDto> findAll(Pageable pageable);
 
+    Page<ProjectMultilineDto> findAllByProjectId(Pageable pageable, UUID projectId);
+
     ProjectMultilineDto update(UUID id, UpdateProjectMultilineDto updateProjectMultilineDto);
 
     void delete(UUID id);

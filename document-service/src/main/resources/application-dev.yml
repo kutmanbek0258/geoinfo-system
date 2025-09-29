@@ -47,3 +47,6 @@ minio:
   access-key: minio_access_key
   secret-key: minio_secret_key
   bucket: documents
+onlyoffice:
+  jwt-secret: a_very_long_and_secure_secret_key_for_onlyoffice_jwt_32_chars
+  callback-base-url: http://localhost:9000/api/documents

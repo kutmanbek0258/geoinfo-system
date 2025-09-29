@@ -17,6 +17,8 @@ public interface ProjectPointService {
 
     Page<ProjectPointDto> findAll(Pageable pageable);
 
+    Page<ProjectPointDto> findByProjectId(Pageable pageable, UUID projectId);
+
     ProjectPointDto update(UUID id, UpdateProjectPointDto updateProjectPointDto);
 
     void delete(UUID id);

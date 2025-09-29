@@ -1,97 +1,159 @@
-# Сервис Документов (Document Service)
+# Document Service
 
-## Обзор
-
-Этот сервис отвечает за управление документами и их метаданными в рамках системы GeoInfoSystem. Он полностью изолирован и не имеет прямых зависимостей от других сервисов на уровне базы данных. Связь с гео-объектами из `geodata-service` осуществляется по полю `geoObjectId` без использования внешних ключей.
-
-Сервис выступает в роли посредника между клиентскими приложениями (фронтендом) и файловым хранилищем MinIO. Он обрабатывает загрузку, скачивание и удаление файлов, сохраняя связанную метаинформацию в собственной базе данных PostgreSQL.
-
-Аудит (запись информации о создании и изменении) выполняется автоматически.
-
-Сервис является приложением Spring Boot, настроенным как OAuth2 Resource Server и регистрирующимся в Eureka Discovery Server.
+Микросервис для управления документами и их метаданными в составе системы GeoInfoSystem.  
+Document Service обеспечивает загрузку, хранение, выдачу, редактирование и удаление документов, интеграцию с MinIO (файловое хранилище) и OnlyOffice (онлайн-редактирование), а также хранение метаданных в PostgreSQL.
 
 ---
 
-## API Эндпоинты
+## Основные возможности
 
-Следующие эндпоинты доступны по базовому пути `/api/documents`:
+- Загрузка документов (PDF, DOCX, XLSX, изображения и др.) через API.
+- Хранение файлов в MinIO (S3-совместимое объектное хранилище).
+- Хранение и управление метаданными документов (имя, тип, размеры, описание, теги, связь с гео-объектами).
+- Получение списка всех документов, связанных с определённым гео-объектом.
+- Получение метаданных и скачивание файла по documentId.
+- Генерация временных (presigned) ссылок для прямого доступа к файлам (например, для OnlyOffice).
+- Получение конфига для OnlyOffice (режимы просмотра и редактирования).
+- Callback endpoint для сохранения изменений из OnlyOffice обратно в MinIO.
+- Удаление документов и их файлов.
+- Обновление метаданных (описание, теги и др.).
+- Авторизация на основе OAuth2/JWT, интеграция с Eureka Discovery и Config Server.
 
-| Метод  | Путь                               | Описание                                                      |
-|--------|------------------------------------|---------------------------------------------------------------|
-| `GET`    | `/geo/{geoObjectId}`               | Получить метаданные всех документов для указанного гео-объекта. |
-| `POST`   | `/`                                | Загрузить новый документ. (Multipart запрос)                  |
-| `GET`    | `/{documentId}/download`           | Скачать бинарный файл указанного документа.                   |
-| `DELETE` | `/{documentId}`                    | Удалить документ и его файл из хранилища.                     |
-| `PUT`    | `/{documentId}`                    | Обновить метаданные (описание, теги) документа.               |
+---
 
-**Пример тела ответа (JSON) для одного документа:**
+## Архитектура и компоненты
+
+- **Spring Boot** — основной фреймворк приложения.
+- **PostgreSQL** — хранение метаданных документов и тегов.
+- **MinIO** — объектное файловое хранилище (S3-совместимый API).
+- **OnlyOffice** — онлайн-редактирование офисных документов, интеграция через API и callback.
+- **Spring Data JPA** — работа с БД.
+- **Spring Security** — авторизация и разграничение доступа.
+- **Docker** — контейнеризация сервиса.
+- **Kafka** — интеграция для событий и поиска (опционально).
+
+---
+
+## Основные эндпоинты API
+
+Базовый путь: `/api/documents`
+
+| Метод   | Путь                                      | Описание                                                 |
+|---------|-------------------------------------------|----------------------------------------------------------|
+| GET     | `/geo/{geoObjectId}`                      | Получить все документы для указанного гео-объекта        |
+| POST    | `/`                                       | Загрузить новый документ (multipart/form-data)           |
+| GET     | `/{documentId}/download`                  | Скачать бинарный файл документа                          |
+| GET     | `/{documentId}/presigned-url`             | Получить presigned URL на файл для прямого доступа       |
+| GET     | `/{documentId}/onlyoffice-config`         | Получить конфиг для OnlyOffice (режимы view/edit)        |
+| POST    | `/{documentId}/onlyoffice-callback`       | Callback OnlyOffice для сохранения изменений             |
+| DELETE  | `/{documentId}`                           | Удалить документ и файл                                  |
+| PUT     | `/{documentId}`                           | Обновить метаданные документа (описание, теги)           |
+
+---
+
+## Пример загрузки документа
+
+**POST** `/api/documents`
+
+- `multipart/form-data` с полями:
+    - `geoObjectId` (UUID) — ID гео-объекта
+    - `description` (String) — описание документа
+    - `tags` (Set<String>) — теги
+    - `file` (File) — загружаемый файл
+
+---
+
+## Пример получения presigned URL
+
+**GET** `/api/documents/{documentId}/presigned-url?expiresInSeconds=600`
+
+Ответ:
 ```json
 {
-  "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
-  "geoObjectId": "f0e9d8c7-b6a5-4321-fedc-ba9876543210",
-  "fileName": "report.pdf",
-  "mimeType": "application/pdf",
-  "fileSizeBytes": 123456,
-  "description": "Ежегодный отчет",
-  "tags": [
-    { "id": 1, "name": "отчет" },
-    { "id": 2, "name": "2024" }
-  ],
-  "isLatestVersion": true,
-  "createdBy": "user@example.com",
-  "createdDate": "2024-09-28T10:30:00Z",
-  "lastModifiedBy": "user@example.com",
-  "lastModifiedDate": "2024-09-28T10:30:00Z"
+  "url": "https://minio.example.com/documents/abc123?X-Amz-...",
+  "expiresInSeconds": 600
 }
 ```
-
-**Пример запроса на загрузку (`POST /api/documents`):**
-
-Это `multipart/form-data` запрос со следующими частями:
-- `geoObjectId`: (UUID) ID гео-объекта, с которым связывается документ.
-- `description`: (String) Описание документа.
-- `tags`: (Set<String>) Набор тегов.
-- `file`: (File) Загружаемый файл документа.
+Используйте эту ссылку для прямого доступа к файлу (например, в OnlyOffice).
 
 ---
 
-## Конфигурация
+## Интеграция с OnlyOffice
 
-В Docker-окружении сервис настраивается через Spring Cloud Config Server. Для локальной разработки можно использовать файл `src/main/resources/application.yml`.
+1. **Получение конфига**
+    - **GET** `/api/documents/{documentId}/onlyoffice-config?mode=edit&userId=123&userName=Ivan`
+    - Возвращает JSON-конфиг для инициализации OnlyOffice на фронте.
 
-### Обязательные параметры
+2. **Callback**
+    - **POST** `/api/documents/{documentId}/onlyoffice-callback`
+    - OnlyOffice отправляет результат редактирования, сервис обновляет файл в MinIO.
 
-Для работы сервиса необходимо настроить следующие свойства:
+---
+
+## Конфигурация через переменные окружения
+
+- **PostgreSQL**:
+    - `spring.datasource.url`
+    - `spring.datasource.username`
+    - `spring.datasource.password`
+- **MinIO**:
+    - `minio.endpoint`
+    - `minio.access-key`
+    - `minio.secret-key`
+    - `minio.bucket`
+- **OnlyOffice**:
+    - `onlyoffice.callback-base-url` — базовый url для callback'а
+
+Для production и dev окружения используйте Spring Cloud Config Server или стандартные переменные.
+
+---
+
+## Пример docker-compose (фрагмент)
 
 ```yaml
-# Подключение к PostgreSQL
-spring:
-  datasource:
-    url: jdbc:postgresql://<host>:<port>/<database_name>
-    username: <db_user>
-    password: <db_password>
-
-# Подключение к файловому хранилищу MinIO
-minio:
-  endpoint: http://<minio_host>:<minio_port>
-  access-key: <your_minio_access_key>
-  secret-key: <your_minio_secret_key>
-  bucket: <bucket_name_for_documents> # например, documents
+services:
+  document-service:
+    build: ./document-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_URL=jdbc:postgresql://postgres-docs:5432/docs_db
+      - DB_USER=postgres
+      - DB_PASS=password
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=documents
+      - ONLYOFFICE_CALLBACK_BASE_URL=http://document-service/api/documents
+    depends_on:
+      - postgres-docs
+      - minio
+      - onlyoffice-doc-server
 ```
-
-При запуске через `docker-compose.yml` подключение к БД настраивается через переменные окружения (`DB_URL`, `DB_USER`, `DB_PASS`), а подключение к MinIO должно быть задано в центральном репозитории Config Server.
 
 ---
 
-## Как запустить
+## Безопасность
 
-### Локальная разработка
+- Все методы защищены OAuth2/JWT, доступ только для авторизованных пользователей.
+- Генерируемые ссылки (presigned url) живут ограниченное время (по умолчанию 5-10 минут).
+- Callback endpoint OnlyOffice можно защитить секретом или проверкой подписи.
 
-1.  Убедитесь, что у вас запущены PostgreSQL и MinIO.
-2.  Настройте параметры подключения в файле `src/main/resources/application.yml`.
-3.  Запустите главный класс `DocumentServiceApplication.java` из вашей IDE.
+---
 
-### Docker
+## Разработка и запуск
 
-1.  Убедитесь, что центральный репозиторий конфигурации (`https://github.com/kutmanbek0258/cloud-configs`) содержит корректную конфигурацию для `document-service.yml`.
-2.  Выполните команду `docker-compose up` из корневой директории проекта.
+- Соберите сервис:
+  ```bash
+  mvn clean install
+  ```
+- Запустите с помощью Docker Compose или напрямую (указав конфиги).
+- Для локальной разработки настройте application.yml с параметрами подключения к PostgreSQL и MinIO.
+
+---
+
+## Контакты и поддержка
+
+- Вопросы и баги — через GitHub Issues.
+- Предложения по улучшению — pull requests приветствуются!
+
+---
