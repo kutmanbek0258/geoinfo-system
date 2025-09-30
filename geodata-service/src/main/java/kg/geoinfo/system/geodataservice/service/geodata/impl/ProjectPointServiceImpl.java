@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPointDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPointDto;
-import kg.geoinfo.system.geodataservice.dto.kafka.GeoObjectEvent;
+import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectPointMapper;
 import kg.geoinfo.system.geodataservice.models.ProjectPoint;
 import kg.geoinfo.system.geodataservice.repository.ProjectPointRepository;

@@ -1,7 +1,7 @@
 package kg.geoinfo.system.searchservice.consumer;
 
-import kg.geoinfo.system.searchservice.dto.DocumentEvent;
-import kg.geoinfo.system.searchservice.dto.GeoObjectEvent;
+import kg.geoinfo.system.common.DocumentEvent;
+import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.searchservice.service.IndexingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

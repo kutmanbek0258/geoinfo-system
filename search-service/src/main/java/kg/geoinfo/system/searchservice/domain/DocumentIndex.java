@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -21,7 +22,7 @@ public class DocumentIndex {
     private String geo_object_id;
     private String file_name;
     private String description;
-    private List<String> tags;
+    private ArrayList<Object> tags;
     private String mime_type;
     private Date upload_date;
     private String content; // Optional: Full text content of the document

@@ -1,5 +1,5 @@
 
-package kg.geoinfo.system.geodataservice.dto.kafka;
+package kg.geoinfo.system.common;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

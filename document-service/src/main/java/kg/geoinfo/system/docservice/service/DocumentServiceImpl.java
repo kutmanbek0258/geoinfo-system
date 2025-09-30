@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.docservice.dto.DocumentDto;
 import kg.geoinfo.system.docservice.dto.PresignedUrlResponse;
 import kg.geoinfo.system.docservice.dto.UpdateDocumentRequest;
-import kg.geoinfo.system.docservice.dto.kafka.DocumentEvent;
+import kg.geoinfo.system.common.DocumentEvent;
 import kg.geoinfo.system.docservice.mapper.DocumentMapper;
 import kg.geoinfo.system.docservice.models.Document;
 import kg.geoinfo.system.docservice.models.Tag;

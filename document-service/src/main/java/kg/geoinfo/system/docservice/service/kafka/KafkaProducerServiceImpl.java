@@ -1,7 +1,7 @@
 
 package kg.geoinfo.system.docservice.service.kafka;
 
-import kg.geoinfo.system.docservice.dto.kafka.DocumentEvent;
+import kg.geoinfo.system.common.DocumentEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;

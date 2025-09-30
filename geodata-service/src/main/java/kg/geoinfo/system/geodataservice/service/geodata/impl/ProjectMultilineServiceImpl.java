@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectMultilineDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectMultilineDto;
-import kg.geoinfo.system.geodataservice.dto.kafka.GeoObjectEvent;
+import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectMultilineMapper;
 import kg.geoinfo.system.geodataservice.models.ProjectMultiline;
 import kg.geoinfo.system.geodataservice.repository.ProjectMultilineRepository;

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPolygonDto;
-import kg.geoinfo.system.geodataservice.dto.kafka.GeoObjectEvent;
+import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectPolygonMapper;
 import kg.geoinfo.system.geodataservice.models.ProjectPolygon;
 import kg.geoinfo.system.geodataservice.repository.ProjectPolygonRepository;

@@ -1,5 +1,5 @@
 
-package kg.geoinfo.system.searchservice.dto;
+package kg.geoinfo.system.common;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +12,7 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GeoObjectEvent {
+public class DocumentEvent {
 
     private EventType eventType;
     private Map<String, Object> payload;

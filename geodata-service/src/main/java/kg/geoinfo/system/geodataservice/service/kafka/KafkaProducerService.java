@@ -1,7 +1,7 @@
 
 package kg.geoinfo.system.geodataservice.service.kafka;
 
-import kg.geoinfo.system.geodataservice.dto.kafka.GeoObjectEvent;
+import kg.geoinfo.system.common.GeoObjectEvent;
 
 import java.util.Map;
 

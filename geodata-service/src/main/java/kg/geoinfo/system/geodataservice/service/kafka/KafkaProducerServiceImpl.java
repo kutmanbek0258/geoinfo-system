@@ -1,8 +1,7 @@
 
 package kg.geoinfo.system.geodataservice.service.kafka;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import kg.geoinfo.system.geodataservice.dto.kafka.GeoObjectEvent;
+import kg.geoinfo.system.common.GeoObjectEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -26,6 +25,7 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
                     .eventType(eventType)
                     .payload(payload)
                     .build();
+            log.info(event.toString());
             kafkaTemplate.send(TOPIC, event);
             log.info("Sent {} event to topic {}: {}", eventType, TOPIC, payload.get("id"));
         } catch (Exception e) {

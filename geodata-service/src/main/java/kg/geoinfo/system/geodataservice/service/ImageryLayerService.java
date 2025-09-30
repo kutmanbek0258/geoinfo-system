@@ -3,7 +3,7 @@ package kg.geoinfo.system.geodataservice.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.geodataservice.dto.ImageryLayerDto;
-import kg.geoinfo.system.geodataservice.dto.kafka.GeoObjectEvent;
+import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.mapper.ImageryLayerMapper;
 import kg.geoinfo.system.geodataservice.models.ImageryLayer;
 import kg.geoinfo.system.geodataservice.repository.ImageryLayerRepository;

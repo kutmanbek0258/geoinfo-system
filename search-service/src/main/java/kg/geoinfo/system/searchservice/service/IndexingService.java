@@ -1,8 +1,8 @@
 
 package kg.geoinfo.system.searchservice.service;
 
-import kg.geoinfo.system.searchservice.dto.DocumentEvent;
-import kg.geoinfo.system.searchservice.dto.GeoObjectEvent;
+import kg.geoinfo.system.common.DocumentEvent;
+import kg.geoinfo.system.common.GeoObjectEvent;
 
 public interface IndexingService {
 

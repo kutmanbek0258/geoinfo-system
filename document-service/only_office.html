@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OnlyOffice Demo</title>
+    <script type="text/javascript" src="http://localhost:8081/web-apps/apps/api/documents/api.js"></script>
+</head>
+<body>
+<div id="placeholder" style="width: 100%; height: 100%"></div>
+<script>
+    var config = {
+        "document": {
+            "title": "equipment.xlsx",
+            "url": "http://localhost:9000/documents/69de0258-aa6e-446a-9e16-bd47f274651e?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minio_access_key%2F20250929%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250929T072333Z&X-Amz-Expires=6000&X-Amz-SignedHeaders=host&X-Amz-Signature=44dfb5927a279e6034731bfc5d8a678ae89dd341c9867ad9e7479f5964d8dd66",
+            "fileType": "xlsx",
+            "key": "f37274b4-f159-4bfd-8a63-15819d0b85df-1759129421363"
+        },
+        "editorConfig": {
+            "mode": "view",
+            "callbackUrl": "http://localhost:9000/api/documents/f37274b4-f159-4bfd-8a63-15819d0b85df/onlyoffice-callback",
+            "userId": "0760879",
+            "userName": "Kutman"
+        },
+        "token": "eyJhbGciOiJIUzI1NiJ9.eyJlZGl0b3JDb25maWciOnsibW9kZSI6InZpZXciLCJjYWxsYmFja1VybCI6Imh0dHA6Ly9taW5pby9hcGkvZG9jdW1lbnRzL2YzNzI3NGI0LWYxNTktNGJmZC04YTYzLTE1ODE5ZDBiODVkZi9vbmx5b2ZmaWNlLWNhbGxiYWNrIiwidXNlcklkIjoiMDc2MDg3OSIsInVzZXJOYW1lIjoiS3V0bWFuIn0sImRvY3VtZW50Ijp7InRpdGxlIjoiZXF1aXBtZW50Lnhsc3giLCJ1cmwiOiJodHRwOi8vbG9jYWxob3N0OjkwMDAvZG9jdW1lbnRzLzY5ZGUwMjU4LWFhNmUtNDQ2YS05ZTE2LWJkNDdmMjc0NjUxZT9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPW1pbmlvX2FjY2Vzc19rZXklMkYyMDI1MDkyOSUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNTA5MjlUMDcyMzMzWiZYLUFtei1FeHBpcmVzPTYwMDAmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JlgtQW16LVNpZ25hdHVyZT00NGRmYjU5MjdhMjc5ZTYwMzQ3MzFiZmM1ZDhhNjc4YWU4OWRkMzQxYzk4NjdhZDllNzQ3OWY1OTY0ZDhkZDY2IiwiZmlsZVR5cGUiOiJ4bHN4Iiwia2V5IjoiZjM3Mjc0YjQtZjE1OS00YmZkLThhNjMtMTU4MTlkMGI4NWRmLTE3NTkxMjk0MjEzNjMifX0.f3gnhijqe4BHLtTU65UVSm8lII7g83QHGEhObo9gx9I"
+    };
+    var docEditor = new DocsAPI.DocEditor("placeholder", config);
+</script>
+</body>
+</html>
