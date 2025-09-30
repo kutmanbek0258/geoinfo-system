@@ -34,14 +34,34 @@ services:
     networks:
       - internal
 
+  # ====== GEOSERVER ======
+  geoserver:
+    networks:
+      - external
+
+  # ======= MINIO STORAGE ======
+  minio:
+    networks:
+      - internal
+
+  # ====== ONLYOFFICE DOC SERVER ======
+  onlyoffice-doc-server:
+    networks:
+      - internal
+      - external
+
   # ====== Config, Discovery, Gateway ======
   config-server:
     networks:
       - internal
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
 
   discovery-server:
     networks:
       - internal
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
 
   api-gateway:
     ports:
@@ -52,6 +72,8 @@ services:
     depends_on:
       - config-server
       - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
 
   # ====== Microservices ======
   auth-service:
@@ -63,6 +85,8 @@ services:
       - kafka
       - config-server
       - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
 
   geodata-service:
     networks:
@@ -72,19 +96,30 @@ services:
       - kafka
       - config-server
       - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
 
-  geoserver:
-    networks:
-      - external
-
-  minio:
+  document-service:
     networks:
       - internal
+    depends_on:
+      - postgres-docs
+      - kafka
+      - config-server
+      - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
 
-  onlyoffice-doc-server:
+  search-service:
     networks:
       - internal
-      - external
+    depends_on:
+      - elasticsearch
+      - kafka
+      - config-server
+      - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
 
 networks:
   internal:

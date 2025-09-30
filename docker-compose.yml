@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # ====== Databases (оставлены без изменений) ======
+  # ====== Databases ======
   postgres-auth:
     image: postgres:15
     container_name: postgres-auth
@@ -65,51 +65,7 @@ services:
       timeout: 10s
       retries: 5
 
-  # ====== Config, Discovery, Gateway ======
-  config-server:
-    build:
-      context: ./config-server
-    container_name: config-server
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-
-  discovery-server:
-    build:
-      context: ./discovery-server
-    container_name: discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-
-  api-gateway:
-    build:
-      context: ./api-gateway
-    container_name: api-gateway
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-
-  # ====== Microservices ======
-  auth-service:
-    build:
-      context: ./auth-service
-    container_name: auth-service
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres-auth:5432/auth_db
-      DB_USER: postgres
-      DB_PASS: password
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-
-  geodata-service:
-    build:
-      context: ./geodata-service
-    container_name: geodata-service
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres-user:5432/geodata_db
-      DB_USER: postgres
-      DB_PASS: password
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-
+  # ====== GEOSERVER ======
   geoserver:
     image: kartoza/geoserver:2.23.2
     volumes:
@@ -118,6 +74,7 @@ services:
       - GEOSERVER_ADMIN_USER=admin
       - GEOSERVER_ADMIN_PASSWORD=geoserver
 
+  # ======= MINIO STORAGE ======
   minio:
     image: minio/minio
     container_name: minio
@@ -128,9 +85,65 @@ services:
     volumes:
       - /minio_data:/data
 
+  # ====== ONLYOFFICE DOC SERVER ======
   onlyoffice-doc-server:
     image: onlyoffice/documentserver:latest
     container_name: onlyoffice-doc-server
     environment:
       - JWT_ENABLED=true
       - JWT_SECRET=a_very_long_and_secure_secret_key_for_onlyoffice_jwt_32_chars
+
+  # ====== Config, Discovery, Gateway ======
+  config-server:
+    build:
+      context: ./config-server
+    container_name: config-server
+
+  discovery-server:
+    build:
+      context: ./discovery-server
+    container_name: discovery-server
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: api-gateway
+
+  # ====== Microservices ======
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: auth-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres-auth:5432/auth_db
+      DB_USER: postgres
+      DB_PASS: password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  geodata-service:
+    build:
+      context: ./geodata-service
+    container_name: geodata-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres-geodata:5432/geodata_db
+      DB_USER: postgres
+      DB_PASS: password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  document-service:
+    build:
+      context: ./document-service
+    container_name: document-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres-docs:5432/docs_db
+      DB_USER: postgres
+      DB_PASS: password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  search-service:
+    build:
+      context: ./search-service
+    container_name: search-service
+    environment:
+      ELASTICSEARCH_URI: elasticsearch:9200
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092

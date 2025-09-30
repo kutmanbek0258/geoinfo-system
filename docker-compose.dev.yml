@@ -49,18 +49,41 @@ services:
     networks:
       - dev-net
 
+  # ===== GEOSERVER ======
+  geoserver:
+    ports:
+      - "8085:8080"
+
+  # ====== MINIO STORAGE ======
+  minio:
+    networks:
+      - dev-net
+    ports:
+      - "9000:9000"
+
+  # ====== ONLYOFFICE DOC-SERVER ======
+  onlyoffice-doc-server:
+    networks:
+      - dev-net
+    ports:
+      - "8081:80" # Открываем на порту 8081 для доступа
+
   # ====== Config, Discovery, Gateway ======
   config-server:
     ports:
       - "8888:8888"
     networks:
       - dev-net
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
 
   discovery-server:
     ports:
       - "8761:8761"
     networks:
       - dev-net
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
 
   api-gateway:
     ports:
@@ -70,6 +93,8 @@ services:
     depends_on:
       - config-server
       - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
 
   # ====== Microservices ======
   auth-service:
@@ -83,34 +108,47 @@ services:
       - kafka
       - config-server
       - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
 
   geodata-service:
     ports:
       - "9002:9002"
     networks:
       - dev-net
-    command: ["java", "-jar", "app.jar", "--spring.profiles.active=dev"]
     depends_on:
       - postgres-geodata
       - kafka
       - config-server
       - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
 
-  geoserver:
+  document-service:
     ports:
-      - "8085:8080"
-
-  minio:
+      - "9003:9003"
     networks:
       - dev-net
-    ports:
-      - "9000:9000"
+    depends_on:
+      - postgres-geodata
+      - kafka
+      - config-server
+      - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
 
-  onlyoffice-doc-server:
+  search-service:
+    ports:
+      - "9004:9004"
     networks:
       - dev-net
-    ports:
-      - "8081:80" # Открываем на порту 8081 для доступа
+    depends_on:
+      - elasticsearch
+      - kafka
+      - config-server
+      - discovery-server
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
 
 networks:
   dev-net:

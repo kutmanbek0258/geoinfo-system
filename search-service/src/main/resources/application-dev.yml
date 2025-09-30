@@ -8,8 +8,6 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   elasticsearch:
     uris: ${ELASTICSEARCH_URI:localhost:9200}
-    #    username: ${ELASTICSEARCH_USER:}
-    #    password: ${ELASTICSEARCH_PASS:}
     connection-timeout: 2s
     socket-timeout: 10s
   auth-types:
