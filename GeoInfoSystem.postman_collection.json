@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "5efe2fae-4028-403b-89b7-9630abc43c30",
+		"_postman_id": "b6ab9f64-594d-4424-abb4-626b328a02a0",
 		"name": "GeoInfoSystem",
 		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
 		"_exporter_id": "13605726"
@@ -18,12 +18,11 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/api/project/page-query?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/project/page-query?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
-										"api",
 										"project",
 										"page-query"
 									],
@@ -55,7 +54,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/project"
+								"url": "{{baseUrl_geodata}}/project"
 							},
 							"response": []
 						},
@@ -64,7 +63,7 @@
 							"request": {
 								"method": "GET",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
+								"url": "{{baseUrl_geodata}}/project/f23c9882-69b0-4192-a41c-0b9a07e7e141"
 							},
 							"response": []
 						},
@@ -82,7 +81,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
+								"url": "{{baseUrl_geodata}}/project/f23c9882-69b0-4192-a41c-0b9a07e7e141"
 							},
 							"response": []
 						},
@@ -91,7 +90,7 @@
 							"request": {
 								"method": "DELETE",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/project/24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8"
+								"url": "{{baseUrl_geodata}}/project/f23c9882-69b0-4192-a41c-0b9a07e7e141"
 							},
 							"response": []
 						}
@@ -106,12 +105,11 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/api/imagery-layer/page-query?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/imagery-layer/page-query?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
-										"api",
 										"imagery-layer",
 										"page-query"
 									],
@@ -143,7 +141,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/imagery-layer"
+								"url": "{{baseUrl_geodata}}imagery-layer"
 							},
 							"response": []
 						},
@@ -152,7 +150,7 @@
 							"request": {
 								"method": "GET",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/imagery-layer/some-uuid"
+								"url": "{{baseUrl_geodata}}/imagery-layer/some-uuid"
 							},
 							"response": []
 						},
@@ -170,7 +168,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/imagery-layer/some-uuid"
+								"url": "{{baseUrl_geodata}}/imagery-layer/some-uuid"
 							},
 							"response": []
 						},
@@ -179,7 +177,7 @@
 							"request": {
 								"method": "DELETE",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/imagery-layer/some-uuid"
+								"url": "{{baseUrl_geodata}}/imagery-layer/some-uuid"
 							},
 							"response": []
 						}
@@ -194,13 +192,11 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/api/geodata/points?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/points?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
-										"api",
-										"geodata",
 										"points"
 									],
 									"query": [
@@ -223,13 +219,11 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/api/geodata/points/by-project-id/some-uuid?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/points/by-project-id/some-uuid?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
-										"api",
-										"geodata",
 										"points",
 										"by-project-id",
 										"some-uuid"
@@ -262,7 +256,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/geodata/points"
+								"url": "{{baseUrl_geodata}}/points"
 							},
 							"response": []
 						},
@@ -271,7 +265,7 @@
 							"request": {
 								"method": "GET",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/geodata/points/some-uuid"
+								"url": "{{baseUrl_geodata}}/points/some-uuid"
 							},
 							"response": []
 						},
@@ -289,7 +283,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/geodata/points/some-uuid"
+								"url": "{{baseUrl_geodata}}/points/some-uuid"
 							},
 							"response": []
 						},
@@ -298,7 +292,7 @@
 							"request": {
 								"method": "DELETE",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/geodata/points/some-uuid"
+								"url": "{{baseUrl_geodata}}/points/some-uuid"
 							},
 							"response": []
 						}
@@ -313,13 +307,11 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/api/geodata/multilines?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/multilines?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
-										"api",
-										"geodata",
 										"multilines"
 									],
 									"query": [
@@ -342,13 +334,11 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/api/geodata/multilines/by-project-id/some-uuid?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/multilines/by-project-id/some-uuid?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
-										"api",
-										"geodata",
 										"multilines",
 										"by-project-id",
 										"some-uuid"
@@ -381,7 +371,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/geodata/multilines"
+								"url": "{{baseUrl_geodata}}/multilines"
 							},
 							"response": []
 						},
@@ -390,7 +380,7 @@
 							"request": {
 								"method": "GET",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/geodata/multilines/some-uuid"
+								"url": "{{baseUrl_geodata}}/multilines/some-uuid"
 							},
 							"response": []
 						},
@@ -408,7 +398,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/geodata/multilines/some-uuid"
+								"url": "{{baseUrl_geodata}}/multilines/some-uuid"
 							},
 							"response": []
 						},
@@ -417,7 +407,7 @@
 							"request": {
 								"method": "DELETE",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/geodata/multilines/some-uuid"
+								"url": "{{baseUrl_geodata}}/multilines/some-uuid"
 							},
 							"response": []
 						}
@@ -432,13 +422,11 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/api/geodata/polygons?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/polygons?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
-										"api",
-										"geodata",
 										"polygons"
 									],
 									"query": [
@@ -461,13 +449,11 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "{{baseUrl_geodata}}/api/geodata/polygons/by-project-id/some-uuid?page=0&size=10",
+									"raw": "{{baseUrl_geodata}}/polygons/by-project-id/some-uuid?page=0&size=10",
 									"host": [
 										"{{baseUrl_geodata}}"
 									],
 									"path": [
-										"api",
-										"geodata",
 										"polygons",
 										"by-project-id",
 										"some-uuid"
@@ -500,7 +486,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/geodata/polygons"
+								"url": "{{baseUrl_geodata}}/polygons"
 							},
 							"response": []
 						},
@@ -509,7 +495,7 @@
 							"request": {
 								"method": "GET",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/geodata/polygons/some-uuid"
+								"url": "{{baseUrl_geodata}}/polygons/some-uuid"
 							},
 							"response": []
 						},
@@ -527,7 +513,7 @@
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}/api/geodata/polygons/some-uuid"
+								"url": "{{baseUrl_geodata}}/polygons/some-uuid"
 							},
 							"response": []
 						},
@@ -536,7 +522,7 @@
 							"request": {
 								"method": "DELETE",
 								"header": [],
-								"url": "{{baseUrl_geodata}}/api/geodata/polygons/some-uuid"
+								"url": "{{baseUrl_geodata}}/polygons/some-uuid"
 							},
 							"response": []
 						}
@@ -552,7 +538,7 @@
 					"request": {
 						"method": "GET",
 						"header": [],
-						"url": "{{baseUrl_document}}/api/documents/geo/47b6ae26-737b-4eb0-af16-73ca38f07f8a"
+						"url": "{{baseUrl_document}}/geo/47b6ae26-737b-4eb0-af16-73ca38f07f8a"
 					},
 					"response": []
 				},
@@ -586,7 +572,7 @@
 								}
 							]
 						},
-						"url": "{{baseUrl_document}}/api/documents"
+						"url": "{{baseUrl_document}}"
 					},
 					"response": []
 				},
@@ -595,7 +581,7 @@
 					"request": {
 						"method": "GET",
 						"header": [],
-						"url": "{{baseUrl_document}}/api/documents/some-uuid/download"
+						"url": "{{baseUrl_document}}/some-uuid/download"
 					},
 					"response": []
 				},
@@ -604,7 +590,7 @@
 					"request": {
 						"method": "DELETE",
 						"header": [],
-						"url": "{{baseUrl_document}}/api/documents/some-uuid"
+						"url": "{{baseUrl_document}}/some-uuid"
 					},
 					"response": []
 				},
@@ -622,7 +608,7 @@
 								}
 							}
 						},
-						"url": "{{baseUrl_document}}/api/documents/some-uuid"
+						"url": "{{baseUrl_document}}/some-uuid"
 					},
 					"response": []
 				},
@@ -632,13 +618,11 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl_document}}/api/documents/some-uuid/presigned-url?expiresInSeconds=600",
+							"raw": "{{baseUrl_document}}/some-uuid/presigned-url?expiresInSeconds=600",
 							"host": [
 								"{{baseUrl_document}}"
 							],
 							"path": [
-								"api",
-								"documents",
 								"some-uuid",
 								"presigned-url"
 							],
@@ -658,14 +642,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{baseUrl_document}}/api/documents/f37274b4-f159-4bfd-8a63-15819d0b85df/onlyoffice-config?userId=0760879&userName=Kutman",
+							"raw": "{{baseUrl_document}}/some-uuid/onlyoffice-config?mode=view&userId=0760879&userName=Kutman",
 							"host": [
 								"{{baseUrl_document}}"
 							],
 							"path": [
-								"api",
-								"documents",
-								"f37274b4-f159-4bfd-8a63-15819d0b85df",
+								"some-uuid",
 								"onlyoffice-config"
 							],
 							"query": [
@@ -700,7 +682,32 @@
 								}
 							}
 						},
-						"url": "{{baseUrl_document}}/api/documents/f37274b4-f159-4bfd-8a63-15819d0b85df/onlyoffice-callback"
+						"url": "{{baseUrl_document}}/some-uuid/onlyoffice-callback"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Search-service",
+			"item": [
+				{
+					"name": "Search request",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl_search}}?query=Test",
+							"host": [
+								"{{baseUrl_search}}"
+							],
+							"query": [
+								{
+									"key": "query",
+									"value": "Test"
+								}
+							]
+						}
 					},
 					"response": []
 				}
@@ -755,6 +762,10 @@
 		{
 			"key": "baseUrl_document",
 			"value": "localhost:9004"
+		},
+		{
+			"key": "baseUrl_search",
+			"value": ""
 		}
 	]
 }

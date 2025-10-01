@@ -2,6 +2,13 @@ server:
   port: 9005
 
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        opaquetoken:
+          client-id: j-service-client
+          client-secret: j-service-client
+          introspection-uri: ${SSO_URL:http://localhost:9001}/oauth2/token-info
   cloud:
     gateway:
       routes:
@@ -14,10 +21,15 @@ spring:
           uri: lb://document-service
           predicates:
             - Path=/api/documents/**
-  security:
-    oauth2:
-      resourceserver:
-        opaquetoken:
-          client-id: j-service-client
-          client-secret: j-service-client
-          introspection-uri: ${SSO_URL:http://localhost:9001}/oauth2/token-info
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: "http://localhost:8080"
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowed-headers: "*"
+            allow-credentials: true

@@ -38,7 +38,7 @@ spring:
     change-log: classpath:database/db.changelog.yaml
     contexts: prod, dev
   datasource:
-    url: ${PG_URL:jdbc:postgresql://postgres-auth:5433/auth_db}
+    url: ${PG_URL:jdbc:postgresql://postgres-auth:5432/auth_db}
     username: ${PG_USER:postgres}
     password: ${PG_PASS:password}
     driver-class-name: org.postgresql.Driver

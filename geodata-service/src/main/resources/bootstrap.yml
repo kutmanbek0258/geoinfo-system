@@ -6,7 +6,7 @@ spring:
       uri: http://config-server:8888
       fail-fast: true
 
-  eureka:
-    client:
-      service-url:
-        defaultZone: http://discovery-server:8761/eureka/
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://discovery-server:8761/eureka/

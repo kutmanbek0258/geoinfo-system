@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Optional;
 import java.util.UUID;
 
-@RequestMapping("/api/imagery-layer")
+@RequestMapping("/api/geodata/imagery-layer")
 @RestController
 @Slf4j
 public class ImageryLayerController {

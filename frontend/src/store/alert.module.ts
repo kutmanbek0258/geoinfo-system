@@ -1,13 +1,21 @@
-const state = {
+import type { Module } from 'vuex';
+import type { RootState } from './index';
+
+export interface AlertState {
+    type: 'alert-success' | 'alert-danger' | null;
+    message: string | null;
+}
+
+const state: AlertState = {
     type: null,
     message: null
 };
 
 const actions = {
-    success({ commit }, message) {
+    success({ commit }, message: string) {
         commit('success', message);
     },
-    error({ commit }, message) {
+    error({ commit }, message: string) {
         commit('error', message);
     },
     clear({ commit }) {
@@ -16,21 +24,21 @@ const actions = {
 };
 
 const mutations = {
-    success(state, message) {
+    success(state: AlertState, message: string) {
         state.type = 'alert-success';
         state.message = message;
     },
-    error(state, message) {
+    error(state: AlertState, message: string) {
         state.type = 'alert-danger';
         state.message = message;
     },
-    clear(state) {
+    clear(state: AlertState) {
         state.type = null;
         state.message = null;
     }
 };
 
-export const alertModule = {
+export const alert: Module<AlertState, RootState> = {
     namespaced: true,
     state,
     actions,

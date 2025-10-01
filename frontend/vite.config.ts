@@ -33,7 +33,7 @@ export default defineConfig({
     port: 8080,
     proxy: {
       '/api': {
-        target: 'http://localhost:9002',
+        target: 'http://localhost:9005',
         changeOrigin: true
       }
     }

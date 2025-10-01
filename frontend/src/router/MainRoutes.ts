@@ -6,11 +6,11 @@ const MainRoutes = {
     redirect: '/main',
     component: () => import('@/layouts/full/FullLayout.vue'),
     children: [
-        {
-            name: 'Dashboard',
-            path: '/',
-            component: () => import('@/views/Dashboard.vue')
-        },
+        // {
+        //     name: 'Dashboard',
+        //     path: '/',
+        //     component: () => import('@/views/Dashboard.vue')
+        // },
         {
             name: 'Typography',
             path: '/ui/typography',

@@ -74,8 +74,6 @@ services:
       - "8888:8888"
     networks:
       - dev-net
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
 
   discovery-server:
     ports:
@@ -83,7 +81,7 @@ services:
     networks:
       - dev-net
     environment:
-      SPRING_PROFILES_ACTIVE: dev
+      EUREKA_INSTANCE_HOSTNAME: discovery-server
 
   api-gateway:
     ports:
@@ -93,8 +91,6 @@ services:
     depends_on:
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
 
   # ====== Microservices ======
   auth-service:
@@ -108,8 +104,6 @@ services:
       - kafka
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
 
   geodata-service:
     ports:
@@ -121,8 +115,6 @@ services:
       - kafka
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
 
   document-service:
     ports:
@@ -134,8 +126,6 @@ services:
       - kafka
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
 
   search-service:
     ports:
@@ -147,8 +137,6 @@ services:
       - kafka
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
 
 networks:
   dev-net:

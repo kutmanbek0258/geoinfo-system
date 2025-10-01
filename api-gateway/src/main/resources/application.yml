@@ -2,6 +2,13 @@ server:
   port: 9005
 
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        opaquetoken:
+          client-id: j-service-client
+          client-secret: j-service-client
+          introspection-uri: ${SSO_URL:http://auth-service:9001}/oauth2/token-info
   cloud:
     gateway:
       routes:
@@ -14,6 +21,12 @@ spring:
           uri: lb://document-service
           predicates:
             - Path=/api/documents/**
+
+        - id: search-service
+          uri: lb://search-service
+          predicates:
+            - Path=/api/search/**
+
       globalcors:
         cors-configurations:
           '[/**]':
