@@ -31,6 +31,17 @@ class DocumentService {
     getDocumentDownloadUrl(id: string): string {
         return `${api.defaults.baseURL}/documents/${id}/download`;
     }
+
+    // --- OnlyOffice Integration ---
+    getOnlyOfficeConfig(documentId: string, mode: 'view' | 'edit', userId: string, userName: string) {
+        return api.get<any>(`/documents/${documentId}/onlyoffice-config`, {
+            params: { mode, userId, userName }
+        });
+    }
+
+    handleOnlyOfficeCallback(documentId: string, callbackData: any) {
+        return api.post<void>(`/documents/${documentId}/onlyoffice-callback`, callbackData);
+    }
 }
 
 export default new DocumentService();

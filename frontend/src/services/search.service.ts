@@ -1,9 +1,9 @@
 import api from './api';
-import type { SearchResult } from '@/types/api';
+import type { Page, SearchResult } from '@/types/api';
 
 class SearchService {
-    search(query: string) {
-        return api.get<SearchResult[]>('/search', { params: { query } });
+    search(query: string, page = 0, size = 20) {
+        return api.get<Page<SearchResult>>('/search', { params: { query, page, size } });
     }
 }
 

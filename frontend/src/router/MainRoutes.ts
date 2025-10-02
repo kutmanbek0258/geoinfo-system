@@ -6,11 +6,11 @@ const MainRoutes = {
     redirect: '/main',
     component: () => import('@/layouts/full/FullLayout.vue'),
     children: [
-        // {
-        //     name: 'Dashboard',
-        //     path: '/',
-        //     component: () => import('@/views/Dashboard.vue')
-        // },
+        {
+            name: 'Dashboard',
+            path: '/',
+            component: () => import('@/views/dashboard/index.vue')
+        },
         {
             name: 'Typography',
             path: '/ui/typography',
@@ -31,6 +31,11 @@ const MainRoutes = {
             path: '/sample-page',
             component: () => import('@/views/pages/SamplePage.vue')
         },
+        {
+            name: 'ProjectMapView',
+            path: '/projects/:id',
+            component: () => import('@/views/ProjectMapView.vue')
+        }
     ]
 };
 

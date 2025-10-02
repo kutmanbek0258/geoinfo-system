@@ -1,71 +1,77 @@
-import { Point, MultiLineString, Polygon } from 'geojson';
-
 export interface Page<T> {
     content: T[];
-    pageable: any;
     totalElements: number;
     totalPages: number;
-    last: boolean;
+    size: number;
+    number: number;
 }
 
+export type Status = 'ACTIVE' | 'INACTIVE' | 'DELETED';
+
 export interface Project {
-    id: string;
+    id: string; // UUID
     name: string;
     description?: string;
-    startDate: string;
-    endDate: string;
 }
 
 export interface ImageryLayer {
-    id: string;
+    id: string; // UUID
     name: string;
-    url: string;
-    layer_name: string;
-    use_proxy: boolean;
+    description?: string;
+    workspace: string;
+    layerName: string;
+    serviceUrl: string;
+    status: Status;
+    style?: string;
+    dateCaptured: string; // Date -> string
+    crs: string;
 }
 
-// Базовый интерфейс для всех векторных данных
-export interface BaseVectorData {
+export interface ProjectPoint {
     id: string;
     projectId: string;
     name: string;
     description?: string;
-    status: 'IN_PROCESS' | 'COMPLETED' | 'ARCHIVED';
+    status: Status;
+    geom: any; // GeoJSON Point
 }
 
-export interface ProjectPoint extends BaseVectorData {
-    geom: Point;
-}
-
-export interface ProjectMultiline extends BaseVectorData {
-    geom: MultiLineString;
-}
-
-export interface ProjectPolygon extends BaseVectorData {
-    geom: Polygon;
-}
-
-export interface Tag {
-    id: number;
+export interface ProjectMultiline {
+    id: string;
+    projectId: string;
     name: string;
+    description?: string;
+    status: Status;
+    geom: any; // GeoJSON MultiLineString
+    lengthM?: number;
+}
+
+export interface ProjectPolygon {
+    id: string;
+    projectId: string;
+    name: string;
+    description?: string;
+    status: Status;
+    geom: any; // GeoJSON Polygon
+    areaM2?: number;
 }
 
 export interface Document {
     id: string;
-    fileName: string;
-    fileType: string;
-    fileSize: number;
-    description: string;
     geoObjectId: string;
-    tags: Tag[];
-    createdAt: string;
+    fileName: string;
+    mimeType: string;
+    fileSizeBytes: number;
+    description?: string;
+    uploadedByUserId: string;
+    uploadDate: string;
+    isLatestVersion: boolean;
+    tags: { id: number; name: string }[];
 }
 
 export interface SearchResult {
     id: string;
-    type: 'point' | 'multiline' | 'polygon' | 'document';
-    name: string;
-    highlight?: {
-        [key: string]: string[];
-    };
+    type: string;
+    title: string;
+    snippet: string;
 }

@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance } from "axios";
+import axios, { AxiosInstance } from "axios";
 
 const serverURL = import.meta.env.VITE_API_GATEWAY_URL || '/api';
 

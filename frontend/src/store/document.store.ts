@@ -58,7 +58,26 @@ const actions = {
         }
     },
     async deleteDocument({ commit }: ActionContext<DocumentState, any>, documentId: string) {
-        // ... реализация с вызовом documentService.deleteDocument и мутацией REMOVE_DOCUMENT
+        commit('SET_LOADING', true);
+        try {
+            await documentService.deleteDocument(documentId);
+            commit('REMOVE_DOCUMENT', documentId);
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to delete document.');
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+    async getOnlyOfficeConfig({ commit }, { documentId, mode, userId, userName }: { documentId: string, mode: 'view' | 'edit', userId: string, userName: string }) {
+        commit('SET_LOADING', true);
+        try {
+            const response = await documentService.getOnlyOfficeConfig(documentId, mode, userId, userName);
+            return response.data; // Возвращаем конфиг напрямую компоненту
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to get OnlyOffice config.');
+        } finally {
+            commit('SET_LOADING', false);
+        }
     }
 };
 
