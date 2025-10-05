@@ -35,7 +35,7 @@
         <v-btn value="Point" title="Add Point">
           <v-icon>mdi-map-marker</v-icon>
         </v-btn>
-        <v-btn value="LineString" title="Add Line">
+        <v-btn value="MultiLineString" title="Add Line">
           <v-icon>mdi-vector-polyline</v-icon>
         </v-btn>
         <v-btn value="Polygon" title="Add Polygon">
@@ -95,10 +95,10 @@ let drawInteraction: Draw | null = null;
 
 // --- Векторные слои для гео-объектов ---
 const vectorSource = new VectorSource();
-const vectorLayer = new VectorLayer({ source: vectorSource });
+const vectorLayer = new VectorLayer({ source: vectorSource, zIndex: 100 });
 
 // --- Состояние компонента ---
-const drawMode = ref<'Point' | 'LineString' | 'Polygon' | null>(null);
+const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
 const visibleLayerIds = ref<string[]>([]);
 const activeImageLayers = ref<Map<string, ImageLayer<ImageWMS>>>(new Map());
 
@@ -120,8 +120,8 @@ onMounted(() => {
     map = new Map({
       target: mapContainer.value,
       layers: [
-        new TileLayer({ source: new OSM() }),
         vectorLayer, // Слой для всех наших гео-объектов
+        new TileLayer({ source: new OSM() }),
       ],
       view: new View({
         center: [0, 0],
@@ -171,7 +171,7 @@ const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
     if (isVisible) {
         const wmsSource = new ImageWMS({
             url: layerInfo.serviceUrl,
-            params: { 'LAYERS': layerInfo.layerName },
+            params: { 'LAYERS': layerInfo.workspace + ":" +layerInfo.layerName },
             serverType: 'geoserver',
         });
         const imageLayer = new ImageLayer({ source: wmsSource });
@@ -235,7 +235,7 @@ const saveNewFeature = async () => {
         case 'Point':
             await store.dispatch('geodata/createPoint', payload);
             break;
-        case 'LineString':
+        case 'MultiLineString':
             await store.dispatch('geodata/createMultiline', payload);
             break;
         case 'Polygon':
