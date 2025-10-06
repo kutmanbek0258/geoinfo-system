@@ -35,6 +35,11 @@ const MainRoutes = {
             name: 'ProjectMapView',
             path: '/projects/:id',
             component: () => import('@/views/ProjectMapView.vue')
+        },
+        {
+            name: 'OnlyOfficeEditor',
+            path: '/editor/:id',
+            component: () => import('@/views/pages/OnlyOfficeEditor.vue')
         }
     ]
 };

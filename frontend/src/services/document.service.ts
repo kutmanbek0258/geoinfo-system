@@ -2,46 +2,47 @@ import api from './api';
 import type { Document } from '@/types/api';
 
 class DocumentService {
-    getDocumentsForGeoObject(geoObjectId: string) {
-        return api.get<Document[]>(`/documents/geo/${geoObjectId}`);
-    }
 
-    uploadDocument(file: File, geoObjectId: string, description: string, tags: string) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('geoObjectId', geoObjectId);
+  getDocumentsByGeoObjectId(geoObjectId: string) {
+    if (!geoObjectId) {
+        return Promise.resolve({ data: [] }); // Возвращаем пустой массив если нет ID
+    }
+    return api.get<Document[]>(`/documents/geo/${geoObjectId}`);
+  }
+
+  uploadDocument(geoObjectId: string, file: File, description?: string, tags?: string) {
+    const formData = new FormData();
+    formData.append('geoObjectId', geoObjectId);
+    formData.append('file', file);
+    if (description) {
         formData.append('description', description);
+    }
+    if (tags) {
         formData.append('tags', tags);
-
-        return api.post<Document>('/documents', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
     }
 
-    deleteDocument(id: string) {
-        return api.delete(`/documents/${id}`);
-    }
+    return api.post<Document>('/documents', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
 
-    updateDocument(id: string, data: { description?: string; tags?: string[] }) {
-        return api.put<Document>(`/documents/${id}`, data);
-    }
-    
-    getDocumentDownloadUrl(id: string): string {
-        return `${api.defaults.baseURL}/documents/${id}/download`;
-    }
+  deleteDocument(documentId: string) {
+    return api.delete(`/documents/${documentId}`);
+  }
 
-    // --- OnlyOffice Integration ---
-    getOnlyOfficeConfig(documentId: string, mode: 'view' | 'edit', userId: string, userName: string) {
-        return api.get<any>(`/documents/${documentId}/onlyoffice-config`, {
-            params: { mode, userId, userName }
-        });
-    }
+  downloadDocument(documentId: string) {
+    return api.get(`/documents/${documentId}/download`, {
+      responseType: 'blob', // Важно для скачивания файлов
+    });
+  }
 
-    handleOnlyOfficeCallback(documentId: string, callbackData: any) {
-        return api.post<void>(`/documents/${documentId}/onlyoffice-callback`, callbackData);
-    }
+  getOnlyOfficeConfig(documentId: string, mode: 'edit' | 'view' = 'view') {
+      // userId и userName должны получаться из состояния аутентификации
+      const params = { mode: 'view', userId: '1', userName: 'Guest' };
+      return api.get(`/documents/${documentId}/onlyoffice-config`, { params });
+  }
 }
 
 export default new DocumentService();

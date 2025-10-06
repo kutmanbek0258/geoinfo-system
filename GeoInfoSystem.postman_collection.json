@@ -134,14 +134,14 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\r\n    \"name\": \"My Awesome Satellite Layer\",\r\n    \"url\": \"https://example.com/tiles/{z}/{x}/{y}.png\",\r\n    \"layer_name\": \"my-awesome-layer\",\r\n    \"use_proxy\": false\r\n}",
+									"raw": "{\r\n    \"name\": \"My Awesome Satellite Layer\",\r\n    \"description\": \"test\",\r\n    \"workspace\": \"Geodata\",\r\n    \"layerName\": \"terekkan\",\r\n    \"serviceUrl\": \"http://localhost:8080/geoserver\",\r\n    \"status\": \"COMPLETED\",\r\n    \"style\": \"black\",\r\n    \"crs\": \"EPSG:4326\",\r\n    \"dateCaptured\": \"2025-10-02\"\r\n}",
 									"options": {
 										"raw": {
 											"language": "json"
 										}
 									}
 								},
-								"url": "{{baseUrl_geodata}}imagery-layer"
+								"url": "{{baseUrl_geodata}}/imagery-layer"
 							},
 							"response": []
 						},
@@ -249,7 +249,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\r\n    \"projectId\": \"24ec4d42-bd35-4fac-b8d8-d9a87ac30bc8\",\r\n    \"name\": \"Test point\",\r\n    \"description\": \"test point description\",\r\n    \"status\": \"COMPLETED\",\r\n    \"geom\": {\r\n        \"type\": \"Point\",\r\n        \"coordinates\": [\r\n            73.8391,\r\n            42.8208\r\n        ]\r\n    }\r\n}",
+									"raw": "{\r\n    \"projectId\": \"cc73ff52-6c4e-499f-af95-9679a6b1c377\",\r\n    \"name\": \"Test point\",\r\n    \"description\": \"test point description\",\r\n    \"status\": \"COMPLETED\",\r\n    \"geom\": {\r\n        \"type\": \"Point\",\r\n        \"coordinates\": [\r\n            73.8391,\r\n            42.8208\r\n        ]\r\n    }\r\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -552,7 +552,7 @@
 							"formdata": [
 								{
 									"key": "geoObjectId",
-									"value": "47b6ae26-737b-4eb0-af16-73ca38f07f8a",
+									"value": "a10cf705-11ca-4cbc-ac45-6e4f6a87ba78",
 									"type": "text"
 								},
 								{
@@ -568,7 +568,7 @@
 								{
 									"key": "file",
 									"type": "file",
-									"src": "/C:/Users/EBT32945/OneDrive - ETI BAKIR A.S/Электроцех/equipment.xlsx"
+									"src": "/C:/Users/EBT32945/OneDrive - ETI BAKIR A.S/Электроцех/ELEKTRIK BAKIM YAZLIK KIYAFFET ALIMI LİSTESİ.xlsx"
 								}
 							]
 						},

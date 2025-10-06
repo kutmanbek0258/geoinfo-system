@@ -9,6 +9,7 @@ interface GeodataState {
     multilines: ProjectMultiline[];
     polygons: ProjectPolygon[];
     selectedProjectId: string | null;
+    selectedFeatureId: string | null;
     isLoading: boolean;
     error: string | null;
 }
@@ -20,6 +21,7 @@ const state: GeodataState = {
     multilines: [],
     polygons: [],
     selectedProjectId: null,
+    selectedFeatureId: null,
     isLoading: false,
     error: null,
 };
@@ -36,6 +38,9 @@ const mutations = {
     SET_SELECTED_PROJECT_ID(state: GeodataState, projectId: string | null) {
         state.selectedProjectId = projectId;
     },
+    SET_SELECTED_FEATURE_ID(state: GeodataState, featureId: string | null) {
+        state.selectedFeatureId = featureId;
+    },
     SET_LOADING(state: GeodataState, isLoading: boolean) {
         state.isLoading = isLoading;
     },
@@ -46,6 +51,56 @@ const mutations = {
     // Imagery Layer Mutations
     SET_IMAGERY_LAYERS(state: GeodataState, layers: Page<ImageryLayer> | null) {
         state.imageryLayers = layers;
+    },
+
+    UPDATE_FEATURE(state: GeodataState, { type, data }: { type: 'Point' | 'MultiLineString' | 'Polygon', data: any }) {
+        let targetArrayName: 'points' | 'multilines' | 'polygons';
+        if (type === 'Point') {
+            targetArrayName = 'points';
+        } else if (type === 'MultiLineString') {
+            targetArrayName = 'multilines';
+        } else if (type === 'Polygon') {
+            targetArrayName = 'polygons';
+        } else {
+            return;
+        }
+        const targetArray = state[targetArrayName];
+        const index = targetArray.findIndex((f: any) => f.id === data.id);
+        if (index !== -1) {
+            state[targetArrayName] = [...targetArray.slice(0, index), data, ...targetArray.slice(index + 1)];
+        }
+    },
+
+    DELETE_FEATURE(state: GeodataState, { type, id }: { type: 'Point' | 'MultiLineString' | 'Polygon', id: string }) {
+        let targetArrayName: 'points' | 'multilines' | 'polygons';
+        if (type === 'Point') {
+            targetArrayName = 'points';
+        } else if (type === 'MultiLineString') {
+            targetArrayName = 'multilines';
+        } else if (type === 'Polygon') {
+            targetArrayName = 'polygons';
+        } else {
+            return;
+        }
+        const targetArray = state[targetArrayName];
+        const index = targetArray.findIndex((f: any) => f.id === id);
+        if (index !== -1) {
+            state[targetArrayName] = [...targetArray.slice(0, index), ...targetArray.slice(index + 1)];
+        }
+    },
+
+    ADD_FEATURE(state: GeodataState, { type, data }: { type: 'Point' | 'MultiLineString' | 'Polygon', data: any }) {
+        let targetArrayName: 'points' | 'multilines' | 'polygons';
+        if (type === 'Point') {
+            targetArrayName = 'points';
+        } else if (type === 'MultiLineString') {
+            targetArrayName = 'multilines';
+        } else if (type === 'Polygon') {
+            targetArrayName = 'polygons';
+        } else {
+            return;
+        }
+        state[targetArrayName] = [...state[targetArrayName], data];
     },
 };
 
@@ -99,6 +154,11 @@ const actions = {
     async deleteImageryLayer({ dispatch }, { layerId, page, size }: { layerId: string, page: number, size: number }) {
         await geodataService.deleteImageryLayer(layerId);
         dispatch('fetchImageryLayers', { page, size });
+    },
+
+    // Feature Selection
+    selectFeature({ commit }: ActionContext<GeodataState, any>, featureId: string | null) {
+        commit('SET_SELECTED_FEATURE_ID', featureId);
     },
 
     // Vector Data Actions
@@ -178,6 +238,117 @@ const actions = {
         await geodataService.deletePolygon(polygonId);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
+        }
+    },
+
+    // Generic Feature Actions
+    async updateFeature({ dispatch, state }, { id, type, data }) {
+        const { name, description } = data;
+        let featureData = {};
+        let feature;
+
+        switch (type) {
+            case 'Point':
+                feature = state.points.find(f => f.id === id);
+                break;
+            case 'MultiLineString':
+                feature = state.multilines.find(f => f.id === id);
+                break;
+            case 'Polygon':
+                feature = state.polygons.find(f => f.id === id);
+                break;
+        }
+
+        if (!feature) {
+            throw new Error(`Feature with id ${id} not found`);
+        }
+
+        featureData = { ...feature, name, description };
+
+        switch (type) {
+            case 'Point':
+                await dispatch('updatePoint', featureData);
+                break;
+            case 'MultiLineString':
+                await dispatch('updateMultiline', featureData);
+                break;
+            case 'Polygon':
+                await dispatch('updatePolygon', featureData);
+                break;
+        }
+    },
+
+    // Generic Feature Actions
+    async createFeature({ commit }, { type, data }) {
+        let newFeature;
+        switch (type) {
+            case 'Point':
+                newFeature = (await geodataService.createPoint(data)).data;
+                break;
+            case 'MultiLineString':
+                newFeature = (await geodataService.createMultiline(data)).data;
+                break;
+            case 'Polygon':
+                newFeature = (await geodataService.createPolygon(data)).data;
+                break;
+        }
+        commit('ADD_FEATURE', { type, data: newFeature });
+    },
+
+    // Generic Feature Actions
+    async updateFeature({ commit, state }, { id, type, data }) {
+        const { name, description } = data;
+        let featureData = {};
+        let feature;
+
+        switch (type) {
+            case 'Point':
+                feature = state.points.find(f => f.id === id);
+                break;
+            case 'MultiLineString':
+                feature = state.multilines.find(f => f.id === id);
+                break;
+            case 'Polygon':
+                feature = state.polygons.find(f => f.id === id);
+                break;
+        }
+
+        if (!feature) {
+            throw new Error(`Feature with id ${id} not found`);
+        }
+
+        featureData = { ...feature, name, description };
+
+        let updatedFeature;
+        switch (type) {
+            case 'Point':
+                updatedFeature = (await geodataService.updatePoint(id, featureData)).data;
+                break;
+            case 'MultiLineString':
+                updatedFeature = (await geodataService.updateMultiline(id, featureData)).data;
+                break;
+            case 'Polygon':
+                updatedFeature = (await geodataService.updatePolygon(id, featureData)).data;
+                break;
+        }
+        commit('UPDATE_FEATURE', { type, data: updatedFeature });
+    },
+
+    async deleteFeature({ commit }, { id, type }) {
+        switch (type) {
+            case 'Point':
+                await geodataService.deletePoint(id);
+                break;
+            case 'MultiLineString':
+                await geodataService.deleteMultiline(id);
+                break;
+            case 'Polygon':
+                await geodataService.deletePolygon(id);
+                break;
+        }
+        commit('DELETE_FEATURE', { type, id });
+        if (state.selectedFeatureId === id) {
+            commit('SET_SELECTED_FEATURE_ID', null);
         }
     }
 };

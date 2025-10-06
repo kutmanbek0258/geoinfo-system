@@ -5,7 +5,11 @@
 
     <!-- Оверлей 1: Переключатель слоев -->
     <v-card class="map-overlay top-right-layers">
-      <v-card-title>Imagery Layers</v-card-title>
+      <v-card-title class="d-flex align-center">
+        <span>Imagery Layers</span>
+        <v-spacer></v-spacer>
+        <v-btn icon="mdi-magnify-scan" variant="text" @click="zoomToExtent" title="Zoom to extent"></v-btn>
+      </v-card-title>
       <v-list dense>
         <v-list-item v-for="layer in imageryLayers" :key="layer.id">
           <v-checkbox
@@ -19,15 +23,15 @@
       </v-list>
     </v-card>
 
-    <!-- Оверлей 2: Список Гео-объектов -->
-    <v-card class="map-overlay top-right-objects">
-        <v-card-title>Geo-Objects</v-card-title>
-        <v-list dense>
-            <v-list-item v-for="point in points" :key="point.id" :title="point.name || 'Point'"></v-list-item>
-            <v-list-item v-for="line in multilines" :key="line.id" :title="line.name || 'Line'"></v-list-item>
-            <v-list-item v-for="polygon in polygons" :key="polygon.id" :title="polygon.name || 'Polygon'"></v-list-item>
-        </v-list>
-    </v-card>
+<!--    &lt;!&ndash; Оверлей 2: Список Гео-объектов &ndash;&gt;-->
+<!--    <v-card class="map-overlay top-right-objects">-->
+<!--        <v-card-title>Geo-Objects</v-card-title>-->
+<!--        <v-list dense>-->
+<!--            <v-list-item v-for="point in points" :key="point.id" :title="point.name || 'Point'"></v-list-item>-->
+<!--            <v-list-item v-for="line in multilines" :key="line.id" :title="line.name || 'Line'"></v-list-item>-->
+<!--            <v-list-item v-for="polygon in polygons" :key="polygon.id" :title="polygon.name || 'Polygon'"></v-list-item>-->
+<!--        </v-list>-->
+<!--    </v-card>-->
 
     <!-- Оверлей 3: Кнопки добавления -->
     <div class="map-overlay bottom-right">
@@ -42,6 +46,11 @@
           <v-icon>mdi-vector-polygon</v-icon>
         </v-btn>
       </v-btn-toggle>
+    </div>
+
+    <!-- Оверлей 4: Детали объекта -->
+    <div class="map-overlay top-right-details">
+        <ObjectDetails :feature-id="selectedFeatureId" :feature-name="selectedFeature?.name" :feature-description="selectedFeature?.description" :feature-type="selectedFeature?.type" v-if="selectedFeatureId" />
     </div>
 
     <!-- Диалог для ввода метаданных нового объекта -->
@@ -68,7 +77,7 @@
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { useStore } from 'vuex';
 import 'ol/ol.css';
-import { Map, View } from 'ol';
+import { Map, View, Feature } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import VectorLayer from 'ol/layer/Vector';
@@ -77,7 +86,9 @@ import ImageLayer from 'ol/layer/Image';
 import ImageWMS from 'ol/source/ImageWMS';
 import { GeoJSON } from 'ol/format';
 import { Draw } from 'ol/interaction';
+import { createEmpty, extend } from 'ol/extent';
 import type { ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
+import ObjectDetails from './ObjectDetails.vue'; // Импортируем новый компонент
 
 // --- Props & Store ---
 const props = defineProps({
@@ -95,12 +106,27 @@ let drawInteraction: Draw | null = null;
 
 // --- Векторные слои для гео-объектов ---
 const vectorSource = new VectorSource();
-const vectorLayer = new VectorLayer({ source: vectorSource, zIndex: 100 });
+const vectorLayer = new VectorLayer({ source: vectorSource, zIndex: 100, properties: { 'willReadFrequently': true } });
 
 // --- Состояние компонента ---
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
 const visibleLayerIds = ref<string[]>([]);
 const activeImageLayers = ref<Map<string, ImageLayer<ImageWMS>>>(new Map());
+const selectedFeatureId = computed(() => store.state.geodata.selectedFeatureId);
+const selectedFeature = computed(() => {
+  if (!selectedFeatureId.value) return null;
+
+  const point = points.value.find(f => f.id === selectedFeatureId.value);
+  if (point) return { ...point, type: 'Point' };
+
+  const multiline = multilines.value.find(f => f.id === selectedFeatureId.value);
+  if (multiline) return { ...multiline, type: 'MultiLineString' };
+
+  const polygon = polygons.value.find(f => f.id === selectedFeatureId.value);
+  if (polygon) return { ...polygon, type: 'Polygon' };
+
+  return null;
+});
 
 // --- Состояние для нового объекта ---
 const metadataDialog = ref(false);
@@ -128,6 +154,18 @@ onMounted(() => {
         zoom: 2,
       }),
     });
+
+    // Добавляем обработчик клика по карте
+    map.on('click', (event) => {
+      const feature = map?.forEachFeatureAtPixel(event.pixel, (f) => f);
+      if (feature) {
+        store.dispatch('geodata/selectFeature', feature.get('id')); // Получаем ID из свойств фичи
+      } else {
+        store.dispatch('geodata/selectFeature', null); // Сбрасываем выбор, если клик был по пустой области
+      }
+    });
+
+
   }
 });
 
@@ -144,11 +182,14 @@ const geoJsonFormat = new GeoJSON();
 
 const updateVectorSource = () => {
     vectorSource.clear();
-    const features = [
-        ...points.value.map(p => geoJsonFormat.readFeature(p.geom)),
-        ...multilines.value.map(l => geoJsonFormat.readFeature(l.geom)),
-        ...polygons.value.map(p => geoJsonFormat.readFeature(p.geom)),
-    ];
+    const allObjects = [...points.value, ...multilines.value, ...polygons.value];
+    
+    const features = allObjects.map(obj => {
+        const feature = geoJsonFormat.readFeature(obj.geom);
+        feature.set('id', obj.id); // Устанавливаем ID в свойства фичи
+        return feature;
+    });
+
     vectorSource.addFeatures(features);
 };
 
@@ -231,19 +272,24 @@ const saveNewFeature = async () => {
         ...newObjectMetadata.value
     };
 
-    switch (drawingType.value) {
-        case 'Point':
-            await store.dispatch('geodata/createPoint', payload);
-            break;
-        case 'MultiLineString':
-            await store.dispatch('geodata/createMultiline', payload);
-            break;
-        case 'Polygon':
-            await store.dispatch('geodata/createPolygon', payload);
-            break;
-    }
+    await store.dispatch('geodata/createFeature', { type: drawingType.value, data: payload });
 
     metadataDialog.value = false;
+};
+
+const zoomToExtent = () => {
+  if (!map) return;
+  const features = vectorSource.getFeatures();
+  if (features.length === 0) return;
+
+  const extent = createEmpty();
+  features.forEach(feature => {
+    extend(extent, feature.getGeometry().getExtent());
+  });
+
+  if (extent && extent.every(isFinite)) {
+    map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 1000 });
+  }
 };
 
 </script>
@@ -277,6 +323,14 @@ const saveNewFeature = async () => {
     top: 250px; /* Позиция под переключателем слоев */
     right: 10px;
     width: 250px;
+}
+
+.top-right-details {
+    top: 10px;
+    right: 10px;
+    width: 400px;
+    max-height: calc(100% - 20px);
+    overflow-y: auto;
 }
 
 .bottom-right {
