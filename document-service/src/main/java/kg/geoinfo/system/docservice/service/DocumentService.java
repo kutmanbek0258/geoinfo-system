@@ -21,6 +21,8 @@ public interface DocumentService {
 
     void deleteDocument(UUID documentId);
 
+    void deleteDocumentsByGeoObjectId(UUID geoObjectId);
+
     DocumentDto updateDocument(UUID documentId, UpdateDocumentRequest request);
 
     PresignedUrlResponse generatePresignedUrl(UUID documentId, long expiresInSeconds);

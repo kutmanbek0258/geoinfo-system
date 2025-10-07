@@ -35,6 +35,7 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
         projectMultiline = projectMultilineRepository.save(projectMultiline);
 
         Map<String, Object> payload = objectMapper.convertValue(projectMultiline, Map.class);
+        payload.put("type", "multiline");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
 
         return projectMultilineMapper.toDto(projectMultiline);
@@ -70,6 +71,7 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
         projectMultiline = projectMultilineRepository.save(projectMultiline);
 
         Map<String, Object> payload = objectMapper.convertValue(projectMultiline, Map.class);
+        payload.put("type", "multiline");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
 
         return projectMultilineMapper.toDto(projectMultiline);
@@ -79,7 +81,7 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
     @Transactional
     public void delete(UUID id) {
         projectMultilineRepository.deleteById(id);
-        Map<String, Object> payload = Map.of("id", id);
+        Map<String, Object> payload = Map.of("id", id, "type", "multiline");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.DELETED);
     }
 }

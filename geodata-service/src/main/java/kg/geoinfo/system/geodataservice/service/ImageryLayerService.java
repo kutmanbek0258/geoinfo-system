@@ -34,13 +34,14 @@ public class ImageryLayerService {
         ImageryLayer entity = imageryLayerMapper.toEntity(imageryLayerDto);
         entity = repository.save(entity);
         Map<String, Object> payload = objectMapper.convertValue(entity, Map.class);
+        payload.put("type", "imagery");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
         return imageryLayerMapper.toDto(entity);
     }
 
     public void deleteById(UUID id) {
         repository.deleteById(id);
-        Map<String, Object> payload = Map.of("id", id);
+        Map<String, Object> payload = Map.of("id", id, "type", "imagery");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.DELETED);
     }
 
@@ -59,6 +60,7 @@ public class ImageryLayerService {
         imageryLayerMapper.update(entity, imageryLayerDto);
         entity = repository.save(entity);
         Map<String, Object> payload = objectMapper.convertValue(entity, Map.class);
+        payload.put("type", "imagery");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
         return imageryLayerMapper.toDto(entity);
     }

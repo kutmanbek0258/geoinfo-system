@@ -34,13 +34,14 @@ public class ProjectService {
         Project entity = projectMapper.toEntity(projectDto);
         entity = repository.save(entity);
         Map<String, Object> payload = objectMapper.convertValue(entity, Map.class);
+        payload.put("type", "project");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
         return projectMapper.toDto(entity);
     }
 
     public void deleteById(UUID id) {
         repository.deleteById(id);
-        Map<String, Object> payload = Map.of("id", id);
+        Map<String, Object> payload = Map.of("id", id, "type", "project");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.DELETED);
     }
 
@@ -59,6 +60,7 @@ public class ProjectService {
         projectMapper.update(entity, projectDto);
         entity = repository.save(entity);
         Map<String, Object> payload = objectMapper.convertValue(entity, Map.class);
+        payload.put("type", "project");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
         return projectMapper.toDto(entity);
     }

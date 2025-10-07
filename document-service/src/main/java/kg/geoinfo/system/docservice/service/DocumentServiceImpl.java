@@ -66,6 +66,7 @@ public class DocumentServiceImpl implements DocumentService {
         Document savedDocument = documentRepository.save(document);
 
         Map<String, Object> payload = objectMapper.convertValue(savedDocument, Map.class);
+        payload.put("type", "document");
         kafkaProducerService.sendDocumentEvent(payload, DocumentEvent.EventType.CREATED);
 
         return documentMapper.toDto(savedDocument);
@@ -92,8 +93,30 @@ public class DocumentServiceImpl implements DocumentService {
         // Then delete metadata
         documentRepository.delete(document);
 
-        Map<String, Object> payload = Map.of("id", documentId);
+        Map<String, Object> payload = Map.of("id", documentId, "type", "document");
         kafkaProducerService.sendDocumentEvent(payload, DocumentEvent.EventType.DELETED);
+    }
+
+    @Override
+    public void deleteDocumentsByGeoObjectId(UUID geoObjectId) {
+        List<Document> documents = documentRepository.findByGeoObjectId(geoObjectId);
+        if (documents.isEmpty()) {
+            return;
+        }
+
+        // Delete files from MinIO
+        for (Document document : documents) {
+            fileStoreService.delete(document.getMinioObjectKey());
+        }
+
+        // Delete documents from the database
+        documentRepository.deleteAll(documents);
+
+        // Send a notification for each deleted document
+        for (Document document : documents) {
+            Map<String, Object> payload = Map.of("id", document.getId(), "type", "document");
+            kafkaProducerService.sendDocumentEvent(payload, DocumentEvent.EventType.DELETED);
+        }
     }
 
     @Override
@@ -113,6 +136,7 @@ public class DocumentServiceImpl implements DocumentService {
         Document updatedDocument = documentRepository.save(document);
 
         Map<String, Object> payload = objectMapper.convertValue(updatedDocument, Map.class);
+        payload.put("type", "document");
         kafkaProducerService.sendDocumentEvent(payload, DocumentEvent.EventType.UPDATED);
 
         return documentMapper.toDto(updatedDocument);

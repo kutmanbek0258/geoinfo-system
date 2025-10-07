@@ -35,6 +35,7 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
         projectPolygon = projectPolygonRepository.save(projectPolygon);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPolygon, Map.class);
+        payload.put("type", "polygon");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
 
         return projectPolygonMapper.toDto(projectPolygon);
@@ -70,6 +71,7 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
         projectPolygon = projectPolygonRepository.save(projectPolygon);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPolygon, Map.class);
+        payload.put("type", "polygon");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
 
         return projectPolygonMapper.toDto(projectPolygon);
@@ -79,7 +81,7 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
     @Transactional
     public void delete(UUID id) {
         projectPolygonRepository.deleteById(id);
-        Map<String, Object> payload = Map.of("id", id);
+        Map<String, Object> payload = Map.of("id", id, "type", "polygon");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.DELETED);
     }
 }

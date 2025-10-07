@@ -35,6 +35,7 @@ public class ProjectPointServiceImpl implements ProjectPointService {
         projectPoint = projectPointRepository.save(projectPoint);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPoint, Map.class);
+        payload.put("type", "point");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
 
         return projectPointMapper.toDto(projectPoint);
@@ -70,6 +71,7 @@ public class ProjectPointServiceImpl implements ProjectPointService {
         projectPoint = projectPointRepository.save(projectPoint);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPoint, Map.class);
+        payload.put("type", "point");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
 
         return projectPointMapper.toDto(projectPoint);
@@ -79,7 +81,7 @@ public class ProjectPointServiceImpl implements ProjectPointService {
     @Transactional
     public void delete(UUID id) {
         projectPointRepository.deleteById(id);
-        Map<String, Object> payload = Map.of("id", id);
+        Map<String, Object> payload = Map.of("id", id, "type", "point");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.DELETED);
     }
 }

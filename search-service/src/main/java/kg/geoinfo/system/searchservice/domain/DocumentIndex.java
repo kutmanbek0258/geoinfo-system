@@ -26,5 +26,6 @@ public class DocumentIndex {
     private String mime_type;
     private Date upload_date;
     private String content; // Optional: Full text content of the document
+    private String type;
 
 }
