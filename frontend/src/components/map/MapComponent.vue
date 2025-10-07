@@ -80,6 +80,7 @@ import 'ol/ol.css';
 import { Map, View, Feature } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
+import TileWMS from "ol/source/TileWMS.js";
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import ImageLayer from 'ol/layer/Image';
@@ -88,7 +89,7 @@ import { GeoJSON } from 'ol/format';
 import { Draw } from 'ol/interaction';
 import { createEmpty, extend } from 'ol/extent';
 import type { ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
-import ObjectDetails from './ObjectDetails.vue'; // Импортируем новый компонент
+import ObjectDetails from './ObjectDetails.vue';
 
 // --- Props & Store ---
 const props = defineProps({
@@ -165,7 +166,6 @@ onMounted(() => {
       }
     });
 
-
   }
 });
 
@@ -191,6 +191,7 @@ const updateVectorSource = () => {
     });
 
     vectorSource.addFeatures(features);
+    zoomToExtent();
 };
 
 // Наблюдаем за изменением projectId
@@ -202,7 +203,7 @@ watch(() => props.projectId, (newProjectId) => {
 }, { immediate: true });
 
 // Наблюдаем за обновлением данных в store и перерисовываем карту
-watch([points, multilines, polygons], updateVectorSource);
+watch([points, multilines, polygons], updateVectorSource)
 
 // --- Логика переключения слоев ---
 const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
@@ -210,12 +211,16 @@ const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
     const isVisible = event.target.checked;
 
     if (isVisible) {
-        const wmsSource = new ImageWMS({
-            url: layerInfo.serviceUrl,
-            params: { 'LAYERS': layerInfo.workspace + ":" +layerInfo.layerName },
-            serverType: 'geoserver',
+        const wmsSource = new TileWMS({
+          url: layerInfo.serviceUrl,
+          params: {
+            'LAYERS': layerInfo.workspace + ":" +layerInfo.layerName,
+            TILED: true,
+          },
+          serverType: 'geoserver',
+          transition: 0,
         });
-        const imageLayer = new ImageLayer({ source: wmsSource });
+        const imageLayer = new TileLayer({ source: wmsSource });
         map.addLayer(imageLayer);
         activeImageLayers.value.set(layerInfo.id, imageLayer);
     } else {
@@ -288,7 +293,7 @@ const zoomToExtent = () => {
   });
 
   if (extent && extent.every(isFinite)) {
-    map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 1000 });
+    map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
   }
 };
 
