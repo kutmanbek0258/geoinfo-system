@@ -47,7 +47,7 @@ const sDrawer = ref(true);
     <!------Header-------->
     <v-app-bar elevation="0" height="70">
         <div class="d-flex align-center justify-space-between w-100">
-            <div>
+            <div class="d-flex align-center">
                 <v-btn class="hidden-lg-and-up ms-md-3 ms-sm-5 ms-3 text-muted" @click="sDrawer = !sDrawer" icon variant="flat"
                     size="small">
                     <Menu2Icon size="20" stroke-width="1.5" />

@@ -53,6 +53,11 @@
         <ObjectDetails :feature-id="selectedFeatureId" :feature-name="selectedFeature?.name" :feature-description="selectedFeature?.description" :feature-type="selectedFeature?.type" v-if="selectedFeatureId" />
     </div>
 
+    <div class="map-overlay top-left-search">
+      <!-- Search -->
+      <SearchComponent/>
+    </div>
+
     <!-- Диалог для ввода метаданных нового объекта -->
     <v-dialog v-model="metadataDialog" max-width="500px">
         <v-card>
@@ -90,6 +95,7 @@ import { Draw } from 'ol/interaction';
 import { createEmpty, extend } from 'ol/extent';
 import type { ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
 import ObjectDetails from './ObjectDetails.vue';
+import SearchComponent from '@/components/search/SearchComponent.vue';
 
 // --- Props & Store ---
 const props = defineProps({
@@ -186,7 +192,8 @@ const updateVectorSource = () => {
     
     const features = allObjects.map(obj => {
         const feature = geoJsonFormat.readFeature(obj.geom);
-        feature.set('id', obj.id); // Устанавливаем ID в свойства фичи
+        feature.setId(obj.id); // Устанавливаем внутренний ID для OpenLayers
+        feature.set('id', obj.id); // Устанавливаем ID в свойства фичи для обратной совместимости
         return feature;
     });
 
@@ -204,6 +211,16 @@ watch(() => props.projectId, (newProjectId) => {
 
 // Наблюдаем за обновлением данных в store и перерисовываем карту
 watch([points, multilines, polygons], updateVectorSource)
+
+// Наблюдаем за выбором фичи и приближаемся к ней
+watch(selectedFeatureId, (newId) => {
+  if (!newId || !map) return;
+  const feature = vectorSource.getFeatureById(newId);
+  if (feature) {
+    const extent = feature.getGeometry().getExtent();
+    map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
+  }
+});
 
 // --- Логика переключения слоев ---
 const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
@@ -322,6 +339,18 @@ const zoomToExtent = () => {
   top: 10px;
   right: 10px;
   width: 250px;
+}
+
+.top-left-search {
+  top: 10px;
+  left: 10px;
+  width: 300px;
+}
+
+.top-center-layers {
+  top: 250px; /* Позиция под переключателем слоев */
+  right: 100px;
+  width: 100px;
 }
 
 .top-right-objects {
