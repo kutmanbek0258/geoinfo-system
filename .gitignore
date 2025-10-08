@@ -32,7 +32,7 @@ build/
 ### VS Code ###
 .vscode/
 
-/geoserver_data/
+/geoserver_uploads/
 /minio_data/
 .gemini
 

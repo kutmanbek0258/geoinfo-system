@@ -66,9 +66,11 @@ services:
 
   # ====== GEOSERVER ======
   geoserver:
-    image: kartoza/geoserver:2.23.2
+    build:
+      context: ./geoserver
+      dockerfile: Dockerfile
     volumes:
-      - ./geoserver_data:/opt/geoserver/data_dir
+      - ./geoserver_uploads:/opt/geoserver_data/uploads
     environment:
       - GEOSERVER_ADMIN_USER=admin
       - GEOSERVER_ADMIN_PASSWORD=geoserver
