@@ -9,6 +9,12 @@ services:
       POSTGRES_DB: auth_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d auth_db -h localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   redis-auth:
     image: redis:7.4.0
@@ -16,6 +22,12 @@ services:
     environment:
       - REDIS_DATABASES=0
       - REDIS_PASSWORD=qwerty12345678
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
 
   postgres-geodata:
     image: postgis/postgis:16-3.4
@@ -24,6 +36,12 @@ services:
       POSTGRES_DB: geodata_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d geodata_db -h localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   postgres-docs:
     image: postgres:15
@@ -32,6 +50,12 @@ services:
       POSTGRES_DB: docs_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d docs_db -h localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # ====== Message Broker ======
   kafka:
@@ -43,12 +67,24 @@ services:
       KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
       ALLOW_PLAINTEXT_LISTENER: "yes"
+    healthcheck:
+      test: [ "CMD", "bash", "-c", "echo > /dev/tcp/localhost/9092" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   zookeeper:
     image: bitnami/zookeeper:3.8
     container_name: zookeeper
     environment:
       ALLOW_ANONYMOUS_LOGIN: "yes"
+    healthcheck:
+      test: [ "CMD", "echo", "ruok", "|", "nc", "localhost", "2181" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # ====== Elasticsearch for Search Service ======
   elasticsearch:
@@ -85,6 +121,12 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - /minio_data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # ====== ONLYOFFICE DOC SERVER ======
   onlyoffice-doc-server:
@@ -93,17 +135,33 @@ services:
     environment:
       - JWT_ENABLED=true
       - JWT_SECRET=a_very_long_and_secure_secret_key_for_onlyoffice_jwt_32_chars
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsSL http://localhost/healthcheck || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
 
   # ====== Config, Discovery, Gateway ======
   config-server:
     build:
       context: ./config-server
     container_name: config-server
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8888/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   discovery-server:
     build:
       context: ./discovery-server
     container_name: discovery-server
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8761/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api-gateway:
     build:

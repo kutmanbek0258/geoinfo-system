@@ -8,7 +8,9 @@
 - `discovery-server` — сервис-реестр Eureka для обнаружения микросервисов.
 - `api-gateway` — единая точка входа, маршрутизация и фильтрация запросов.
 - `auth-service` — сервис аутентификации и авторизации пользователей.
-- `user-service` — управление пользователями, профили.
+- `geodata-service` — сервис управления геообьектами и слоями дроновых снимков.
+- `document-servuce` - сервис управления документов.
+- `search-service` - сервис поиска.
 
 ---
 
@@ -45,8 +47,17 @@
 # собрать все
 mvn clean package
 
+# собрать отдельный модуль 
+mvn clean install (с корневого)
+cd module-directory
+mvn claen package
+
 # собрать и запустить через docker-compose
 docker compose up --build
+
+# Liquibase
+mvn liquibase:generateChangeLog -Dliquibase.outputChangeLogFile=database/release-1.1.0/generated-changes.postgresql.sql -Dliquibase.schemas=geodata
+mvn liquibase:diff -Dliquibase.diffChangeLogFile=database/release-1.1.0/diff-changes.postgresql.sql -Dliquibase.schemas=geodata
 ```
 
 ---

@@ -1,6 +1,6 @@
 databaseChangeLog:
   #  Objects
   - include:
-      file: object/objects.sql
+      file: object/document_service_Hibernate-2025_10_09_11_38_40-dump.sql
       relativeToChangelogFile: true
       contextFilter: prod

@@ -31,7 +31,8 @@ services:
     ports:
       - "9092:9092"
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     networks:
       - dev-net
 
@@ -89,8 +90,10 @@ services:
     networks:
       - dev-net
     depends_on:
-      - config-server
-      - discovery-server
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
 
   # ====== Microservices ======
   auth-service:
@@ -99,11 +102,16 @@ services:
     networks:
       - dev-net
     depends_on:
-      - postgres-auth
-      - redis-auth
-      - kafka
-      - config-server
-      - discovery-server
+      postgres-auth:
+        condition: service_healthy
+      redis-auth:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
 
   geodata-service:
     ports:
@@ -111,10 +119,14 @@ services:
     networks:
       - dev-net
     depends_on:
-      - postgres-geodata
-      - kafka
-      - config-server
-      - discovery-server
+      postgres-geodata:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
 
   document-service:
     ports:
@@ -122,10 +134,14 @@ services:
     networks:
       - dev-net
     depends_on:
-      - postgres-geodata
-      - kafka
-      - config-server
-      - discovery-server
+      postgres-geodata:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
 
   search-service:
     ports:
@@ -133,10 +149,14 @@ services:
     networks:
       - dev-net
     depends_on:
-      - elasticsearch
-      - kafka
-      - config-server
-      - discovery-server
+      elasticsearch:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
 
 networks:
   dev-net:
