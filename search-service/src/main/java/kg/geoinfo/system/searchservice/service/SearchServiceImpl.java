@@ -2,6 +2,7 @@
 package kg.geoinfo.system.searchservice.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +52,50 @@ public class SearchServiceImpl implements SearchService {
             log.error("Error during Elasticsearch search: {}", e.getMessage());
             // TODO: Better exception handling
             throw new RuntimeException("Error performing search", e);
+        }
+    }
+
+    @Override
+    public Page<Map> searchGeoObjects(String query, List<String> types, Pageable pageable) {
+        if (types == null || types.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        try {
+            SearchResponse<Map> response = elasticsearchClient.search(s -> s
+                    .index("geo_index") // Search only in geo_index
+                    .query(q -> q
+                            .bool(b -> b
+                                    .must(m -> m
+                                            .multiMatch(mm -> mm
+                                                    .query(query)
+                                                    .fields("name", "description")
+                                            )
+                                    )
+                                    .filter(f -> f
+                                            .terms(t -> t
+                                                    .field("type")
+                                                    .terms(ts -> ts.value(types.stream().map(FieldValue::of).collect(Collectors.toList())))
+                                            )
+                                    )
+                            )
+                    )
+                    .from((int) pageable.getOffset())
+                    .size(pageable.getPageSize()),
+                    Map.class
+            );
+
+            List<Map> results = response.hits().hits().stream()
+                    .map(Hit::source)
+                    .collect(Collectors.toList());
+
+            long totalHits = response.hits().total().value();
+
+            return new PageImpl<>(results, pageable, totalHits);
+
+        } catch (IOException e) {
+            log.error("Error during Elasticsearch geo search: {}", e.getMessage());
+            throw new RuntimeException("Error performing geo search", e);
         }
     }
 }

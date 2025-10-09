@@ -19,11 +19,20 @@ public class SearchController {
 
     private final SearchService searchService;
 
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<Page<Map>> search(
             @RequestParam("query") String query,
             Pageable pageable) {
         Page<Map> results = searchService.search(query, pageable);
+        return ResponseEntity.ok(results);
+    }
+
+    @GetMapping("/geo")
+    public ResponseEntity<Page<Map>> searchGeo(
+            @RequestParam("query") String query,
+            @RequestParam("types") java.util.List<String> types,
+            Pageable pageable) {
+        Page<Map> results = searchService.searchGeoObjects(query, types, pageable);
         return ResponseEntity.ok(results);
     }
 }

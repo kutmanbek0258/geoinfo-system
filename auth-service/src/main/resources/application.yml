@@ -34,7 +34,7 @@ spring:
           max-active: 16
           max-idle: 8
   liquibase:
-    enabled: false
+    enabled: true
     change-log: classpath:database/db.changelog.yaml
     contexts: prod, dev
   datasource:

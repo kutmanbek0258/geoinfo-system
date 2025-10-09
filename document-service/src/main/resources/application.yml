@@ -23,7 +23,8 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   liquibase:
-    enabled: false
+    enabled: true
+    change-log: classpath:database/db.changelog.yaml
 
   auth-types:
     auth-header-enabled: true

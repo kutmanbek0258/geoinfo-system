@@ -3,7 +3,8 @@ import type { Page, SearchResult } from '@/types/api';
 
 class SearchService {
     search(query: string, page = 0, size = 20) {
-        return api.get<Page<SearchResult>>('/search', { params: { query, page, size } });
+        const types = "point, polygon, multiline";
+        return api.get<Page<SearchResult>>('/search/geo', { params: { query, types, page, size } });
     }
 }
 
