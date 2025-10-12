@@ -11,15 +11,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface ProjectMultilineService {
-    ProjectMultilineDto create(CreateProjectMultilineDto createProjectMultilineDto);
+    ProjectMultilineDto create(String currentUserEmail, CreateProjectMultilineDto createProjectMultilineDto);
 
-    ProjectMultilineDto findById(UUID id);
+    ProjectMultilineDto findById(String currentUserEmail, UUID id);
 
-    Page<ProjectMultilineDto> findAll(Pageable pageable);
+    Page<ProjectMultilineDto> findAll(String currentUserEmail, Pageable pageable);
 
-    Page<ProjectMultilineDto> findAllByProjectId(Pageable pageable, UUID projectId);
+    Page<ProjectMultilineDto> findAllByProjectId(String currentUserEmail, Pageable pageable, UUID projectId);
 
-    ProjectMultilineDto update(UUID id, UpdateProjectMultilineDto updateProjectMultilineDto);
+    ProjectMultilineDto update(String currentUserEmail, UUID id, UpdateProjectMultilineDto updateProjectMultilineDto);
 
-    void delete(UUID id);
+    void delete(String currentUserEmail, UUID id);
 }

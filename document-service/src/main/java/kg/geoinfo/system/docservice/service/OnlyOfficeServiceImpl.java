@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.security.access.AccessDeniedException;
+
 import javax.crypto.SecretKey;
 import java.io.InputStream;
 import java.net.URL;
@@ -29,12 +31,18 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
     private final DocumentRepository documentRepository;
     private final FileStoreService fileStoreService;
     private final ObjectMapper objectMapper;
+    // private final WebClient.Builder webClientBuilder; // TODO: Uncomment when WebClient is configured
 
     @Value("${onlyoffice.callback-base-url}")
     private String callbackBaseUrl;
 
     @Value("${onlyoffice.jwt-secret}")
     private String jwtSecret;
+
+    // TODO: This is a duplicate of the method in DocumentServiceImpl. Refactor to a shared service.
+    private void checkGeoObjectAccess(String currentUserEmail, UUID geoObjectId) {
+        System.out.println("TODO: Implement access check for user " + currentUserEmail + " on geo-object: " + geoObjectId);
+    }
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
@@ -44,6 +52,15 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
     public OnlyOfficeConfig generateConfig(UUID documentId, String mode, String userId, String userName) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found"));
+
+        // Perform access check
+        checkGeoObjectAccess(userId, doc.getGeoObjectId());
+
+        // Additional check for edit mode
+        if ("edit".equalsIgnoreCase(mode) && !doc.getCreatedBy().equals(userId)) {
+            // In a real scenario, you would check for 'DOCUMENT_EDIT_ONLINE' authority as well.
+            throw new AccessDeniedException("User is not the owner and cannot edit the document.");
+        }
 
         String presignedUrl = fileStoreService.generatePresignedUrl(doc.getMinioObjectKey(), 6000).toString();
         String fileType = getFileTypeFromName(doc.getFileName());

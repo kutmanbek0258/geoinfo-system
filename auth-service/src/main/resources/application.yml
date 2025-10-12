@@ -68,6 +68,20 @@ spring:
     scheduling:
       pool:
         size: 2
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${USER_SERVICE_SMTP_EMAIL}
+    password: ${USER_SERVICE_SMTP_PASSWORD}
+    properties:
+      mail:
+        transport:
+          protocol: smtp
+        smtp:
+          auth: true
+          starttls:
+            required: true
+            emable: true
   security:
     oauth2:
       resourceserver:

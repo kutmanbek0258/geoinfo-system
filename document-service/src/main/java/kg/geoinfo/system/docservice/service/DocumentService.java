@@ -11,20 +11,18 @@ import java.util.UUID;
 
 public interface DocumentService {
 
-    List<DocumentDto> getDocumentsForGeoObject(UUID geoObjectId);
+    List<DocumentDto> getDocumentsForGeoObject(String currentUserEmail, UUID geoObjectId);
 
-    DocumentDto uploadDocument(UUID geoObjectId, String description, Set<String> tags, MultipartFile file);
+    DocumentDto uploadDocument(String currentUserEmail, UUID geoObjectId, String description, Set<String> tags, MultipartFile file);
 
-    // Returns a resource to be downloaded - exact type depends on implementation
-    // For now, returning byte[] for simplicity
-    byte[] downloadDocument(UUID documentId);
+    byte[] downloadDocument(String currentUserEmail, UUID documentId);
 
-    void deleteDocument(UUID documentId);
+    void deleteDocument(String currentUserEmail, UUID documentId);
 
-    void deleteDocumentsByGeoObjectId(UUID geoObjectId);
+    void deleteDocumentsByGeoObjectId(String currentUserEmail, UUID geoObjectId);
 
-    DocumentDto updateDocument(UUID documentId, UpdateDocumentRequest request);
+    DocumentDto updateDocument(String currentUserEmail, UUID documentId, UpdateDocumentRequest request);
 
-    PresignedUrlResponse generatePresignedUrl(UUID documentId, long expiresInSeconds);
+    PresignedUrlResponse generatePresignedUrl(String currentUserEmail, UUID documentId, long expiresInSeconds);
 
 }

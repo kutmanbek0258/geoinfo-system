@@ -78,6 +78,40 @@ databaseChangeLog:
       file: data/users.sql
       relativeToChangelogFile: true
       contextFilter: prod
+
+  # GeoInfo Roles and Authorities
+  - include:
+      file: data/geoinfo-roles-data.sql
+      relativeToChangelogFile: true
+      contextFilter: prod,dev
+  - include:
+      file: data/geoinfo-authorities-data.sql
+      relativeToChangelogFile: true
+      contextFilter: prod,dev
+  - include:
+      file: data/geoinfo-role-authorities-data.sql
+      relativeToChangelogFile: true
+      contextFilter: prod,dev
+
+  # GeoInfo Imagery Layer Roles and Authorities
+  - include:
+      file: data/geoinfo-imagery-authorities-data.sql
+      relativeToChangelogFile: true
+      contextFilter: prod,dev
+  - include:
+      file: data/geoinfo-imagery-role-authorities-data.sql
+      relativeToChangelogFile: true
+      contextFilter: prod,dev
+
+  # GeoInfo Document Roles and Authorities
+  - include:
+      file: data/geoinfo-document-authorities-data.sql
+      relativeToChangelogFile: true
+      contextFilter: prod,dev
+  - include:
+      file: data/geoinfo-document-role-authorities-data.sql
+      relativeToChangelogFile: true
+      contextFilter: prod,dev
   
   # Data dev
   - include:

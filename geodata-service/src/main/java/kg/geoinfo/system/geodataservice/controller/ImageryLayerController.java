@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,34 +27,35 @@ public class ImageryLayerController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('IMAGERY_LAYER_CREATE')")
     public ResponseEntity<Void> save(@RequestBody @Validated ImageryLayerDto imageryLayerDto) {
         imageryLayerService.save(imageryLayerDto);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('IMAGERY_LAYER_READ')")
     public ResponseEntity<ImageryLayerDto> findById(@PathVariable("id") UUID id) {
         ImageryLayerDto imageryLayer = imageryLayerService.findById(id);
         return ResponseEntity.ok(imageryLayer);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('IMAGERY_LAYER_DELETE')")
     public ResponseEntity<Void> delete(@PathVariable("id") UUID id) {
-        Optional.ofNullable(imageryLayerService.findById(id)).orElseThrow(() -> {
-            log.error("Unable to delete non-existent data！");
-            return new ResourceNotFoundException("Unable to delete non-existent data！");
-        });
         imageryLayerService.deleteById(id);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/page-query")
+    @PreAuthorize("hasAuthority('IMAGERY_LAYER_READ')")
     public ResponseEntity<Page<ImageryLayerDto>> pageQuery(ImageryLayerDto imageryLayerDto, @PageableDefault(sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<ImageryLayerDto> imageryLayerPage = imageryLayerService.findByCondition(imageryLayerDto, pageable);
         return ResponseEntity.ok(imageryLayerPage);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('IMAGERY_LAYER_UPDATE')")
     public ResponseEntity<Void> update(@RequestBody @Validated ImageryLayerDto imageryLayerDto, @PathVariable("id") UUID id) {
         imageryLayerService.update(imageryLayerDto, id);
         return ResponseEntity.ok().build();

@@ -11,15 +11,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface ProjectPolygonService {
-    ProjectPolygonDto create(CreateProjectPolygonDto createProjectPolygonDto);
+    ProjectPolygonDto create(String currentUserEmail, CreateProjectPolygonDto createProjectPolygonDto);
 
-    ProjectPolygonDto findById(UUID id);
+    ProjectPolygonDto findById(String currentUserEmail, UUID id);
 
-    Page<ProjectPolygonDto> findAll(Pageable pageable);
+    Page<ProjectPolygonDto> findAll(String currentUserEmail, Pageable pageable);
 
-    Page<ProjectPolygonDto> findAllByProjectId(Pageable pageable, UUID projectId);
+    Page<ProjectPolygonDto> findAllByProjectId(String currentUserEmail, Pageable pageable, UUID projectId);
 
-    ProjectPolygonDto update(UUID id, UpdateProjectPolygonDto updateProjectPolygonDto);
+    ProjectPolygonDto update(String currentUserEmail, UUID id, UpdateProjectPolygonDto updateProjectPolygonDto);
 
-    void delete(UUID id);
+    void delete(String currentUserEmail, UUID id);
 }

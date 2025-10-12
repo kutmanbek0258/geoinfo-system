@@ -11,6 +11,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -23,33 +26,39 @@ public class ProjectPolygonController {
     private final ProjectPolygonService projectPolygonService;
 
     @PostMapping
-    public ResponseEntity<ProjectPolygonDto> create(@RequestBody CreateProjectPolygonDto createProjectPolygonDto) {
-        return new ResponseEntity<>(projectPolygonService.create(createProjectPolygonDto), HttpStatus.CREATED);
+    @PreAuthorize("hasAuthority('GEO_FEATURE_CREATE')")
+    public ResponseEntity<ProjectPolygonDto> create(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @RequestBody CreateProjectPolygonDto createProjectPolygonDto) {
+        return new ResponseEntity<>(projectPolygonService.create(principal.getName(), createProjectPolygonDto), HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProjectPolygonDto> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(projectPolygonService.findById(id));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<ProjectPolygonDto> findById(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id) {
+        return ResponseEntity.ok(projectPolygonService.findById(principal.getName(), id));
     }
 
     @GetMapping
-    public ResponseEntity<Page<ProjectPolygonDto>> findAll(@PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(projectPolygonService.findAll(pageable));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<Page<ProjectPolygonDto>> findAll(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectPolygonService.findAll(principal.getName(), pageable));
     }
 
     @GetMapping("/by-project-id/{projectId}")
-    public ResponseEntity<Page<ProjectPolygonDto>> findAllByProjectId(@PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(projectPolygonService.findAllByProjectId(pageable, projectId));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<Page<ProjectPolygonDto>> findAllByProjectId(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectPolygonService.findAllByProjectId(principal.getName(), pageable, projectId));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProjectPolygonDto> update(@PathVariable UUID id, @RequestBody UpdateProjectPolygonDto updateProjectPolygonDto) {
-        return ResponseEntity.ok(projectPolygonService.update(id, updateProjectPolygonDto));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_UPDATE')")
+    public ResponseEntity<ProjectPolygonDto> update(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id, @RequestBody UpdateProjectPolygonDto updateProjectPolygonDto) {
+        return ResponseEntity.ok(projectPolygonService.update(principal.getName(), id, updateProjectPolygonDto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        projectPolygonService.delete(id);
+    @PreAuthorize("hasAuthority('GEO_FEATURE_DELETE')")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id) {
+        projectPolygonService.delete(principal.getName(), id);
         return ResponseEntity.noContent().build();
     }
 }

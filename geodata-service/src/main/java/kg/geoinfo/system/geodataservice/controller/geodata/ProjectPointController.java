@@ -11,6 +11,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -23,33 +26,39 @@ public class ProjectPointController {
     private final ProjectPointService projectPointService;
 
     @PostMapping
-    public ResponseEntity<ProjectPointDto> create(@RequestBody CreateProjectPointDto createProjectPointDto) {
-        return new ResponseEntity<>(projectPointService.create(createProjectPointDto), HttpStatus.CREATED);
+    @PreAuthorize("hasAuthority('GEO_FEATURE_CREATE')")
+    public ResponseEntity<ProjectPointDto> create(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @RequestBody CreateProjectPointDto createProjectPointDto) {
+        return new ResponseEntity<>(projectPointService.create(principal.getName(), createProjectPointDto), HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProjectPointDto> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(projectPointService.findById(id));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<ProjectPointDto> findById(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id) {
+        return ResponseEntity.ok(projectPointService.findById(principal.getName(), id));
     }
 
     @GetMapping
-    public ResponseEntity<Page<ProjectPointDto>> findAll(@PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(projectPointService.findAll(pageable));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<Page<ProjectPointDto>> findAll(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectPointService.findAll(principal.getName(), pageable));
     }
 
     @GetMapping("/by-project-id/{projectId}")
-    public ResponseEntity<Page<ProjectPointDto>> findAllByProjectId(@PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(projectPointService.findByProjectId(pageable, projectId));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<Page<ProjectPointDto>> findAllByProjectId(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectPointService.findByProjectId(principal.getName(), pageable, projectId));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProjectPointDto> update(@PathVariable UUID id, @RequestBody UpdateProjectPointDto updateProjectPointDto) {
-        return ResponseEntity.ok(projectPointService.update(id, updateProjectPointDto));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_UPDATE')")
+    public ResponseEntity<ProjectPointDto> update(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id, @RequestBody UpdateProjectPointDto updateProjectPointDto) {
+        return ResponseEntity.ok(projectPointService.update(principal.getName(), id, updateProjectPointDto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        projectPointService.delete(id);
+    @PreAuthorize("hasAuthority('GEO_FEATURE_DELETE')")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id) {
+        projectPointService.delete(principal.getName(), id);
         return ResponseEntity.noContent().build();
     }
 }

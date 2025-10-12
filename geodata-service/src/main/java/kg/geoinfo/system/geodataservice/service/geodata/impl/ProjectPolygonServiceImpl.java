@@ -1,18 +1,21 @@
 package kg.geoinfo.system.geodataservice.service.geodata.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPolygonDto;
-import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectPolygonMapper;
+import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.models.ProjectPolygon;
 import kg.geoinfo.system.geodataservice.repository.ProjectPolygonRepository;
+import kg.geoinfo.system.geodataservice.repository.ProjectRepository;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPolygonService;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,13 +27,28 @@ import java.util.UUID;
 public class ProjectPolygonServiceImpl implements ProjectPolygonService {
 
     private final ProjectPolygonRepository projectPolygonRepository;
+    private final ProjectRepository projectRepository;
     private final ProjectPolygonMapper projectPolygonMapper;
     private final KafkaProducerService kafkaProducerService;
     private final ObjectMapper objectMapper;
 
+    private void checkProjectAccess(String currentUserEmail, UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found with id: " + projectId));
+
+        boolean hasAccess = project.getCreatedBy().equals(currentUserEmail) ||
+                            project.getAccesses().stream()
+                                   .anyMatch(pa -> pa.getId().getUserEmail().equals(currentUserEmail));
+
+        if (!hasAccess) {
+            throw new AccessDeniedException("User does not have access to the project with id: " + projectId);
+        }
+    }
+
     @Override
     @Transactional
-    public ProjectPolygonDto create(CreateProjectPolygonDto createProjectPolygonDto) {
+    public ProjectPolygonDto create(String currentUserEmail, CreateProjectPolygonDto createProjectPolygonDto) {
+        checkProjectAccess(currentUserEmail, createProjectPolygonDto.getProjectId());
         ProjectPolygon projectPolygon = projectPolygonMapper.toEntity(createProjectPolygonDto);
         projectPolygon = projectPolygonRepository.save(projectPolygon);
 
@@ -43,30 +61,32 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
 
     @Override
     @Transactional(readOnly = true)
-    public ProjectPolygonDto findById(UUID id) {
-        return projectPolygonRepository.findById(id)
-                .map(projectPolygonMapper::toDto)
+    public ProjectPolygonDto findById(String currentUserEmail, UUID id) {
+        ProjectPolygon projectPolygon = projectPolygonRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("ProjectPolygon not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectPolygon.getProject().getId());
+        return projectPolygonMapper.toDto(projectPolygon);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ProjectPolygonDto> findAll(Pageable pageable) {
-        return projectPolygonRepository.findAll(pageable)
-                .map(projectPolygonMapper::toDto);
+    public Page<ProjectPolygonDto> findAll(String currentUserEmail, Pageable pageable) {
+        return Page.empty(pageable);
     }
 
     @Override
-    public Page<ProjectPolygonDto> findAllByProjectId(Pageable pageable, UUID projectId) {
+    public Page<ProjectPolygonDto> findAllByProjectId(String currentUserEmail, Pageable pageable, UUID projectId) {
+        checkProjectAccess(currentUserEmail, projectId);
         return projectPolygonRepository.findAllByProjectId(pageable, projectId)
                 .map(projectPolygonMapper::toDto);
     }
 
     @Override
     @Transactional
-    public ProjectPolygonDto update(UUID id, UpdateProjectPolygonDto updateProjectPolygonDto) {
+    public ProjectPolygonDto update(String currentUserEmail, UUID id, UpdateProjectPolygonDto updateProjectPolygonDto) {
         ProjectPolygon projectPolygon = projectPolygonRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("ProjectPolygon not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectPolygon.getProject().getId());
         projectPolygonMapper.update(projectPolygon, updateProjectPolygonDto);
         projectPolygon = projectPolygonRepository.save(projectPolygon);
 
@@ -79,9 +99,12 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
 
     @Override
     @Transactional
-    public void delete(UUID id) {
+    public void delete(String currentUserEmail, UUID id) {
+        ProjectPolygon projectPolygon = projectPolygonRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectPolygon not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectPolygon.getProject().getId());
         projectPolygonRepository.deleteById(id);
-        Map<String, Object> payload = Map.of("id", id, "type", "polygon");
+        Map<String, Object> payload = Map.of("id", id, "type", "polygon", "createdBy", projectPolygon.getCreatedBy());
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.DELETED);
     }
 }

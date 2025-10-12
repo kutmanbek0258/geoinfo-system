@@ -11,6 +11,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -23,33 +26,39 @@ public class ProjectMultilineController {
     private final ProjectMultilineService projectMultilineService;
 
     @PostMapping
-    public ResponseEntity<ProjectMultilineDto> create(@RequestBody CreateProjectMultilineDto createProjectMultilineDto) {
-        return new ResponseEntity<>(projectMultilineService.create(createProjectMultilineDto), HttpStatus.CREATED);
+    @PreAuthorize("hasAuthority('GEO_FEATURE_CREATE')")
+    public ResponseEntity<ProjectMultilineDto> create(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @RequestBody CreateProjectMultilineDto createProjectMultilineDto) {
+        return new ResponseEntity<>(projectMultilineService.create(principal.getName(), createProjectMultilineDto), HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProjectMultilineDto> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(projectMultilineService.findById(id));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<ProjectMultilineDto> findById(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id) {
+        return ResponseEntity.ok(projectMultilineService.findById(principal.getName(), id));
     }
 
     @GetMapping
-    public ResponseEntity<Page<ProjectMultilineDto>> findAll(@PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(projectMultilineService.findAll(pageable));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<Page<ProjectMultilineDto>> findAll(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectMultilineService.findAll(principal.getName(), pageable));
     }
 
     @GetMapping("/by-project-id/{projectId}")
-    public ResponseEntity<Page<ProjectMultilineDto>> findAllByProjectId(@PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(projectMultilineService.findAllByProjectId(pageable, projectId));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<Page<ProjectMultilineDto>> findAllByProjectId(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectMultilineService.findAllByProjectId(principal.getName(), pageable, projectId));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProjectMultilineDto> update(@PathVariable UUID id, @RequestBody UpdateProjectMultilineDto updateProjectMultilineDto) {
-        return ResponseEntity.ok(projectMultilineService.update(id, updateProjectMultilineDto));
+    @PreAuthorize("hasAuthority('GEO_FEATURE_UPDATE')")
+    public ResponseEntity<ProjectMultilineDto> update(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id, @RequestBody UpdateProjectMultilineDto updateProjectMultilineDto) {
+        return ResponseEntity.ok(projectMultilineService.update(principal.getName(), id, updateProjectMultilineDto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        projectMultilineService.delete(id);
+    @PreAuthorize("hasAuthority('GEO_FEATURE_DELETE')")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id) {
+        projectMultilineService.delete(principal.getName(), id);
         return ResponseEntity.noContent().build();
     }
 }

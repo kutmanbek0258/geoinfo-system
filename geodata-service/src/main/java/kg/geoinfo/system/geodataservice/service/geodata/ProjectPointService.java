@@ -11,15 +11,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface ProjectPointService {
-    ProjectPointDto create(CreateProjectPointDto createProjectPointDto);
+    ProjectPointDto create(String currentUserEmail, CreateProjectPointDto createProjectPointDto);
 
-    ProjectPointDto findById(UUID id);
+    ProjectPointDto findById(String currentUserEmail, UUID id);
 
-    Page<ProjectPointDto> findAll(Pageable pageable);
+    Page<ProjectPointDto> findAll(String currentUserEmail, Pageable pageable);
 
-    Page<ProjectPointDto> findByProjectId(Pageable pageable, UUID projectId);
+    Page<ProjectPointDto> findByProjectId(String currentUserEmail, Pageable pageable, UUID projectId);
 
-    ProjectPointDto update(UUID id, UpdateProjectPointDto updateProjectPointDto);
+    ProjectPointDto update(String currentUserEmail, UUID id, UpdateProjectPointDto updateProjectPointDto);
 
-    void delete(UUID id);
+    void delete(String currentUserEmail, UUID id);
 }

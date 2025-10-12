@@ -30,38 +30,40 @@ public class ProjectController {
     }
 
     @PostMapping
-//    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    @PreAuthorize("hasAuthority('GEO_PROJECT_CREATE')")
     public ResponseEntity<ProjectDto> save(@RequestBody @Validated ProjectDto projectDto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(projectService.save(projectDto));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('GEO_PROJECT_READ')")
     public ResponseEntity<ProjectDto> findById(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable("id") UUID id) {
         ProjectDto project = projectService.findById(principal.getName(), id);
         return ResponseEntity.ok(project);
     }
 
     @DeleteMapping("/{id}")
-//    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    @PreAuthorize("hasAuthority('GEO_PROJECT_DELETE')")
     public ResponseEntity<Void> delete(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable("id") UUID id) {
         projectService.deleteById(principal.getName(), id);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/page-query")
+    @PreAuthorize("hasAuthority('GEO_PROJECT_READ')")
     public ResponseEntity<Page<ProjectDto>> pageQuery(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, ProjectDto projectDto, @PageableDefault(sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<ProjectDto> projectPage = projectService.findByCondition(principal.getName(), projectDto, pageable);
         return ResponseEntity.ok(projectPage);
     }
 
     @PutMapping("/{id}")
-//    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    @PreAuthorize("hasAuthority('GEO_PROJECT_UPDATE')")
     public ResponseEntity<ProjectDto> update(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @RequestBody @Validated ProjectDto projectDto, @PathVariable("id") UUID id) {
         return ResponseEntity.ok(projectService.update(principal.getName(), projectDto, id));
     }
 
     @PostMapping("/{projectId}/share")
-//    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    @PreAuthorize("hasAuthority('GEO_PROJECT_SHARE')")
     public ResponseEntity<Void> shareProject(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable("projectId") UUID projectId, @RequestBody @Validated ShareProjectDto shareDto) {
         projectService.shareProject(principal.getName(), projectId, shareDto);
         return ResponseEntity.ok().build();

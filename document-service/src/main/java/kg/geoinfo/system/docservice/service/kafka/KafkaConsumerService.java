@@ -1,6 +1,5 @@
 package kg.geoinfo.system.docservice.service.kafka;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.docservice.service.DocumentService;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +16,6 @@ import java.util.UUID;
 public class KafkaConsumerService {
 
     private final DocumentService documentService;
-    private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = "geo.data.events", groupId = "document_service_geo_event_consumer")
     public void consumeGeoObjectEvents(GeoObjectEvent event) {
@@ -26,13 +24,15 @@ public class KafkaConsumerService {
             try {
                 Map<String, Object> payload = event.getPayload();
                 Object idObject = payload.get("id");
-                if (idObject == null) {
-                    log.error("Получено событие DELETED без 'id' в полезной нагрузке");
+                Object ownerEmail = payload.get("createdBy");
+                if (idObject == null && ownerEmail == null) {
+                    log.error("Получено событие DELETED без 'id' и 'createdBy' в полезной нагрузке");
                     return;
                 }
                 UUID geoObjectId = UUID.fromString(idObject.toString());
-                log.info("Обработка события DELETED для geoObjectId: {}", geoObjectId);
-                documentService.deleteDocumentsByGeoObjectId(geoObjectId);
+                String geoObjectOwnerEmail = ownerEmail.toString();
+                log.info("Обработка события DELETED для geoObjectId: {}", geoObjectId + " " + geoObjectOwnerEmail);
+                documentService.deleteDocumentsByGeoObjectId(geoObjectOwnerEmail, geoObjectId);
                 log.info("Событие DELETED для geoObjectId: {} успешно обработано", geoObjectId);
             } catch (Exception e) {
                 log.error("Ошибка при обработке события DELETED для гео-объекта: {}", e.getMessage(), e);

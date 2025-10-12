@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,51 +27,49 @@ public class DocumentController {
     private final DocumentService documentService;
 
     @GetMapping("/geo/{geoObjectId}")
-    public ResponseEntity<List<DocumentDto>> getDocumentsForGeoObject(@PathVariable UUID geoObjectId) {
-        return ResponseEntity.ok(documentService.getDocumentsForGeoObject(geoObjectId));
+    @PreAuthorize("hasAuthority('DOCUMENT_READ')")
+    public ResponseEntity<List<DocumentDto>> getDocumentsForGeoObject(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID geoObjectId) {
+        return ResponseEntity.ok(documentService.getDocumentsForGeoObject(principal.getName(), geoObjectId));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<DocumentDto> uploadDocument(@RequestParam("geoObjectId") UUID geoObjectId,
+    @PreAuthorize("hasAuthority('DOCUMENT_CREATE')")
+    public ResponseEntity<DocumentDto> uploadDocument(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal,
+                                                      @RequestParam("geoObjectId") UUID geoObjectId,
                                                       @RequestParam("description") String description,
                                                       @RequestParam("tags") Set<String> tags,
                                                       @RequestParam("file") MultipartFile file) {
-        DocumentDto uploadedDocument = documentService.uploadDocument(geoObjectId, description, tags, file);
+        DocumentDto uploadedDocument = documentService.uploadDocument(principal.getName(), geoObjectId, description, tags, file);
         return new ResponseEntity<>(uploadedDocument, HttpStatus.CREATED);
     }
 
     @GetMapping("/{documentId}/download")
-    public ResponseEntity<byte[]> downloadDocument(@PathVariable UUID documentId) {
-        // This is a simplified download implementation. A real implementation would be more robust.
-        byte[] data = documentService.downloadDocument(documentId);
-        // Ideally, we should also fetch the document's metadata to set the correct content-type and filename.
+    @PreAuthorize("hasAuthority('DOCUMENT_READ')")
+    public ResponseEntity<byte[]> downloadDocument(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID documentId) {
+        byte[] data = documentService.downloadDocument(principal.getName(), documentId);
         HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=file"); // Placeholder filename
+        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=file");
         return ResponseEntity.ok().headers(headers).body(data);
     }
 
     @DeleteMapping("/{documentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteDocument(@PathVariable UUID documentId) {
-        documentService.deleteDocument(documentId);
+    @PreAuthorize("hasAuthority('DOCUMENT_DELETE')")
+    public void deleteDocument(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID documentId) {
+        documentService.deleteDocument(principal.getName(), documentId);
     }
 
     @PutMapping("/{documentId}")
-    public ResponseEntity<DocumentDto> updateDocument(@PathVariable UUID documentId, @RequestBody UpdateDocumentRequest request) {
-        return ResponseEntity.ok(documentService.updateDocument(documentId, request));
+    @PreAuthorize("hasAuthority('DOCUMENT_UPDATE')")
+    public ResponseEntity<DocumentDto> updateDocument(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID documentId, @RequestBody UpdateDocumentRequest request) {
+        return ResponseEntity.ok(documentService.updateDocument(principal.getName(), documentId, request));
     }
 
-    /**
-     * Generate a presigned URL for downloading/viewing a document.
-     * @param documentId UUID документа
-     * @param expiresInSeconds срок жизни ссылки (сек), по умолчанию 300
-     */
     @GetMapping("/{documentId}/presigned-url")
-//    @PreAuthorize("hasAuthority('DOCUMENT_VIEW')") // актуализируйте права
-    public ResponseEntity<PresignedUrlResponse> getPresignedUrl(
-            @PathVariable UUID documentId,
-            @RequestParam(value = "expiresInSeconds", defaultValue = "300") long expiresInSeconds
-    ) {
-        return ResponseEntity.ok(documentService.generatePresignedUrl(documentId, expiresInSeconds));
+    @PreAuthorize("hasAuthority('DOCUMENT_READ')")
+    public ResponseEntity<PresignedUrlResponse> getPresignedUrl(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal,
+                                                              @PathVariable UUID documentId,
+                                                              @RequestParam(value = "expiresInSeconds", defaultValue = "300") long expiresInSeconds) {
+        return ResponseEntity.ok(documentService.generatePresignedUrl(principal.getName(), documentId, expiresInSeconds));
     }
 }
