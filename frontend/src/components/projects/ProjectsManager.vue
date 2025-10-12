@@ -20,6 +20,7 @@
         <template v-slot:append>
           <v-btn icon="mdi-map" color="primary" variant="text" @click="navigateToMap(project.id)" title="Open Map"></v-btn>
           <v-btn icon="mdi-pencil" variant="text" @click="openEditDialog(project)"></v-btn>
+          <v-btn icon="mdi-share-variant" variant="text" color="primary" @click="openShareDialog(project)" title="Share Project"></v-btn>
           <v-btn icon="mdi-delete" variant="text" color="error" @click="deleteProject(project.id)"></v-btn>
         </template>
       </v-list-item>
@@ -59,6 +60,35 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <v-dialog v-model="shareDialog" max-width="500px">
+      <v-card>
+        <v-card-title>
+          <span class="headline">Share Project: {{ projectToShare?.name }}</span>
+        </v-card-title>
+        <v-card-text>
+          <v-form ref="shareForm">
+            <v-text-field
+              v-model="shareEmail"
+              label="User Email"
+              :rules="[v => !!v || 'Email is required', v => /.+@.+\..+/.test(v) || 'E-mail must be valid']"
+              required
+            ></v-text-field>
+            <v-select
+              v-model="sharePermissionLevel"
+              :items="['READ_ONLY']"
+              label="Permission Level"
+              required
+            ></v-select>
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="blue darken-1" text @click="shareDialog = false">Cancel</v-btn>
+          <v-btn color="blue darken-1" text @click="executeShare">Share</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
@@ -79,6 +109,13 @@ const editableProject = ref<Partial<Project>>({});
 const form = ref<any>(null); // Для доступа к методам v-form
 const currentPage = ref(1);
 const pageSize = ref(10);
+
+// --- Состояние для Share Dialog ---
+const shareDialog = ref(false);
+const projectToShare = ref<Project | null>(null);
+const shareEmail = ref('');
+const sharePermissionLevel = ref('READ_ONLY');
+const shareForm = ref<any>(null);
 
 // --- Получение данных из Vuex ---
 const isLoading = computed(() => store.state.geodata.isLoading);
@@ -135,6 +172,31 @@ const saveProject = async () => {
   }
   
   dialog.value = false;
+};
+
+const openShareDialog = (project: Project) => {
+  projectToShare.value = project;
+  shareEmail.value = '';
+  sharePermissionLevel.value = 'READ_ONLY';
+  shareDialog.value = true;
+};
+
+const executeShare = async () => {
+  const { valid } = await shareForm.value.validate();
+  if (!valid || !projectToShare.value) return;
+
+  try {
+    await store.dispatch('geodata/shareProject', {
+      projectId: projectToShare.value.id,
+      email: shareEmail.value,
+      permissionLevel: sharePermissionLevel.value,
+    });
+    // Тут можно показать сообщение об успехе
+    shareDialog.value = false;
+  } catch (error) {
+    // Тут можно показать сообщение об ошибке
+    console.error("Failed to share project:", error);
+  }
 };
 
 const deleteProject = async (id: string) => {

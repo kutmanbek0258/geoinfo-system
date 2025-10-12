@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Table(name = "projects", schema = "geodata", indexes = {
@@ -35,4 +37,7 @@ public class Project extends AuditableCustom<String> {
 
     @Column(name = "end_date")
     private Date endDate;
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ProjectAccess> accesses = new HashSet<>();
 }

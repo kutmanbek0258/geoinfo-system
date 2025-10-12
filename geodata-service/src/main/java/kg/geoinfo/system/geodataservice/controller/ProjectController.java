@@ -3,12 +3,16 @@ package kg.geoinfo.system.geodataservice.controller;
 import kg.geoinfo.system.geodataservice.dto.ProjectDto;
 import kg.geoinfo.system.geodataservice.service.ProjectService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.common.errors.ResourceNotFoundException;
+import kg.geoinfo.system.geodataservice.dto.ShareProjectDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,36 +30,40 @@ public class ProjectController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> save(@RequestBody @Validated ProjectDto projectDto) {
-        projectService.save(projectDto);
-        return ResponseEntity.ok().build();
+//    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    public ResponseEntity<ProjectDto> save(@RequestBody @Validated ProjectDto projectDto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(projectService.save(projectDto));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProjectDto> findById(@PathVariable("id") UUID id) {
-        ProjectDto project = projectService.findById(id);
+    public ResponseEntity<ProjectDto> findById(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable("id") UUID id) {
+        ProjectDto project = projectService.findById(principal.getName(), id);
         return ResponseEntity.ok(project);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable("id") UUID id) {
-        Optional.ofNullable(projectService.findById(id)).orElseThrow(() -> {
-            log.error("Unable to delete non-existent data！");
-            return new ResourceNotFoundException("Unable to delete non-existent data！");
-        });
-        projectService.deleteById(id);
+//    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable("id") UUID id) {
+        projectService.deleteById(principal.getName(), id);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/page-query")
-    public ResponseEntity<Page<ProjectDto>> pageQuery(ProjectDto projectDto, @PageableDefault(sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<ProjectDto> projectPage = projectService.findByCondition(projectDto, pageable);
+    public ResponseEntity<Page<ProjectDto>> pageQuery(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, ProjectDto projectDto, @PageableDefault(sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<ProjectDto> projectPage = projectService.findByCondition(principal.getName(), projectDto, pageable);
         return ResponseEntity.ok(projectPage);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> update(@RequestBody @Validated ProjectDto projectDto, @PathVariable("id") UUID id) {
-        projectService.update(projectDto, id);
+//    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    public ResponseEntity<ProjectDto> update(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @RequestBody @Validated ProjectDto projectDto, @PathVariable("id") UUID id) {
+        return ResponseEntity.ok(projectService.update(principal.getName(), projectDto, id));
+    }
+
+    @PostMapping("/{projectId}/share")
+//    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    public ResponseEntity<Void> shareProject(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable("projectId") UUID projectId, @RequestBody @Validated ShareProjectDto shareDto) {
+        projectService.shareProject(principal.getName(), projectId, shareDto);
         return ResponseEntity.ok().build();
     }
 }

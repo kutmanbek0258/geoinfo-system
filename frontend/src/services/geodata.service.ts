@@ -19,6 +19,10 @@ class GeodataService {
         return api.get<Project>(`/geodata/project/${id}`);
     }
 
+    shareProject(projectId: string, email: string, permissionLevel: string) {
+        return api.post(`/geodata/project/${projectId}/share`, { email, permissionLevel });
+    }
+
     // --- Imagery Layers ---
     getImageryLayers(page = 0, size = 10) {
         return api.get<Page<ImageryLayer>>('/geodata/imagery-layer/page-query', { params: { page, size } });

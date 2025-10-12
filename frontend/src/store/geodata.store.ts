@@ -130,6 +130,20 @@ const actions = {
         dispatch('fetchProjects', { page, size });
     },
 
+    async shareProject({ commit }, { projectId, email, permissionLevel }: { projectId: string, email: string, permissionLevel: string }) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            await geodataService.shareProject(projectId, email, permissionLevel);
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to share project.');
+            // Re-throw the error if you want the component to know about it
+            throw err;
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
     // Imagery Layer Actions
     async fetchImageryLayers({ commit }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
         commit('SET_LOADING', true);

@@ -4,3 +4,6 @@ databaseChangeLog:
       file: object/geodata_service_Hibernate-2025_10_09_10_40_20-dump.sql
       relativeToChangelogFile: true
       contextFilter: prod
+  - include:
+      file: object/add_project_access_table.sql
+      relativeToChangelogFile: true
