@@ -34,7 +34,7 @@
       <div class="d-flex justify-space-between align-center mb-3">
         <span class="text-subtitle-1">Object ID: {{ featureId.substring(0, 8) }}...</span>
         <div>
-          <v-btn color="secondary" @click="onUploadImageClick" class="mr-2">
+          <v-btn color="secondary" @click="onUploadImageClick" class="mr-2" :loading="isCompressing">
             Upload Image
           </v-btn>
           <v-btn color="primary" @click="onUploadClick" :loading="isUploading">
@@ -110,6 +110,7 @@
 import { ref, watch, computed } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router'; // Импортируем useRouter
+import imageCompression from 'browser-image-compression';
 import type { Document } from '@/types/api';
 import documentService from '@/services/document.service';
 
@@ -146,6 +147,7 @@ const uploadDialog = ref(false);
 const fileToUpload = ref<File | null>(null);
 const uploadDescription = ref('');
 const uploadTags = ref('');
+const isCompressing = ref(false);
 
 // Состояние для диалога редактирования
 const editDialog = ref(false);
@@ -262,10 +264,23 @@ const onUploadImageClick = () => {
   imageInput.value?.click();
 };
 
-const handleImageUpload = (event: Event) => {
+const handleImageUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
-  if (file && props.featureId) {
+  if (!file || !props.featureId) return;
+
+  const options = {
+    maxSizeMB: 1, // Максимальный размер файла в мегабайтах
+    maxWidthOrHeight: 1920, // Максимальная ширина или высота
+    useWebWorker: true, // Использовать Web Worker для производительности
+  };
+
+  isCompressing.value = true;
+  try {
+    console.log(`Original file size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+    const compressedFile = await imageCompression(file, options);
+    console.log(`Compressed file size: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
+
     let objectType: 'points' | 'multilines' | 'polygons';
     if (props.featureType === 'Point') {
         objectType = 'points';
@@ -277,11 +292,19 @@ const handleImageUpload = (event: Event) => {
         return; // Or handle error
     }
 
-    store.dispatch('geodata/uploadMainImage', {
+    await store.dispatch('geodata/uploadMainImage', {
       objectType: objectType,
       objectId: props.featureId,
-      file: file,
+      file: compressedFile, // Отправляем сжатый файл
     });
+
+  } catch (error) {
+    console.error('Error during image compression:', error);
+    // Можно показать ошибку пользователю
+  } finally {
+    isCompressing.value = false;
+    // Очищаем инпут, чтобы можно было выбрать тот же файл снова
+    target.value = '';
   }
 };
 
