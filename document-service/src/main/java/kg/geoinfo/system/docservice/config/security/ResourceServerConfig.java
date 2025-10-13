@@ -28,6 +28,7 @@ public class ResourceServerConfig {
                     customizer
                             // ендпоинты swagger вынесем из под security
                             .requestMatchers("/v3/api-docs").permitAll()
+                            .requestMatchers("/api/documents/public/image/**").permitAll()
                             .anyRequest().authenticated();
                 });
 

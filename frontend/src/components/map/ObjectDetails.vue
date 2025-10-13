@@ -10,6 +10,20 @@
     <v-card-subtitle>{{ featureDescription }}</v-card-subtitle>
     <v-divider></v-divider>
 
+    <v-img
+        v-if="featureImageUrl"
+        :src="featureImageUrl"
+        height="200px"
+        cover
+        class="grey-lighten-2"
+    >
+      <template v-slot:placeholder>
+        <v-row class="fill-height ma-0" align="center" justify="center">
+          <v-progress-circular indeterminate color="grey-lighten-5"></v-progress-circular>
+        </v-row>
+      </template>
+    </v-img>
+
     <v-card-title class="d-flex align-center">
       <v-icon left>mdi-paperclip</v-icon>
       <span class="ml-2">Attached Documents</span>
@@ -20,11 +34,15 @@
       <div class="d-flex justify-space-between align-center mb-3">
         <span class="text-subtitle-1">Object ID: {{ featureId.substring(0, 8) }}...</span>
         <div>
+          <v-btn color="secondary" @click="onUploadImageClick" class="mr-2">
+            Upload Image
+          </v-btn>
           <v-btn color="primary" @click="onUploadClick" :loading="isUploading">
             Upload File
           </v-btn>
         </div>
         <input type="file" ref="fileInput" @change="handleFileUpload" style="display: none" />
+        <input type="file" ref="imageInput" @change="handleImageUpload" style="display: none" accept="image/*" />
       </div>
 
       <v-progress-linear :active="isLoading" indeterminate color="primary"></v-progress-linear>
@@ -112,11 +130,16 @@ const props = defineProps({
     type: String,
     required: true,
   },
+  featureImageUrl: {
+    type: String,
+    default: null,
+  },
 });
 
 const store = useStore();
 const router = useRouter();
 const fileInput = ref<HTMLInputElement | null>(null);
+const imageInput = ref<HTMLInputElement | null>(null); // For main image
 
 // Состояние для диалога загрузки
 const uploadDialog = ref(false);
@@ -232,6 +255,33 @@ const confirmUpload = async () => {
         uploadDialog.value = false;
         fileToUpload.value = null;
     }
+  }
+};
+
+const onUploadImageClick = () => {
+  imageInput.value?.click();
+};
+
+const handleImageUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (file && props.featureId) {
+    let objectType: 'points' | 'multilines' | 'polygons';
+    if (props.featureType === 'Point') {
+        objectType = 'points';
+    } else if (props.featureType === 'MultiLineString') {
+        objectType = 'multilines';
+    } else if (props.featureType === 'Polygon') {
+        objectType = 'polygons';
+    } else {
+        return; // Or handle error
+    }
+
+    store.dispatch('geodata/uploadMainImage', {
+      objectType: objectType,
+      objectId: props.featureId,
+      file: file,
+    });
   }
 };
 

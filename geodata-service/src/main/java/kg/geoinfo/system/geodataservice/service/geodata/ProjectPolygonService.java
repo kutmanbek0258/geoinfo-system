@@ -9,6 +9,7 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface ProjectPolygonService {
     ProjectPolygonDto create(String currentUserEmail, CreateProjectPolygonDto createProjectPolygonDto);
@@ -22,4 +23,6 @@ public interface ProjectPolygonService {
     ProjectPolygonDto update(String currentUserEmail, UUID id, UpdateProjectPolygonDto updateProjectPolygonDto);
 
     void delete(String currentUserEmail, UUID id);
+
+    ProjectPolygonDto uploadMainImage(String currentUserEmail, UUID id, MultipartFile file);
 }

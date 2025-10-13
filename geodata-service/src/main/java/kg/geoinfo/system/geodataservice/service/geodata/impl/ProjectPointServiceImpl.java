@@ -12,12 +12,15 @@ import kg.geoinfo.system.geodataservice.repository.ProjectPointRepository;
 import kg.geoinfo.system.geodataservice.repository.ProjectRepository;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPointService;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
+import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
+import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 import java.util.UUID;
@@ -31,6 +34,7 @@ public class ProjectPointServiceImpl implements ProjectPointService {
     private final ProjectPointMapper projectPointMapper;
     private final KafkaProducerService kafkaProducerService;
     private final ObjectMapper objectMapper;
+    private final DocumentServiceClient documentServiceClient;
 
     private void checkProjectAccess(String currentUserEmail, UUID projectId) {
         Project project = projectRepository.findById(projectId)
@@ -106,5 +110,19 @@ public class ProjectPointServiceImpl implements ProjectPointService {
         projectPointRepository.deleteById(id);
         Map<String, Object> payload = Map.of("id", id, "type", "point", "createdBy", projectPoint.getCreatedBy());
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.DELETED);
+    }
+
+    @Override
+    @Transactional
+    public ProjectPointDto uploadMainImage(String currentUserEmail, UUID id, MultipartFile file) {
+        ProjectPoint projectPoint = projectPointRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectPoint not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectPoint.getProject().getId());
+
+        DocumentDto documentDto = documentServiceClient.uploadDocument(file, id, "Main image for " + projectPoint.getName(), "main-image");
+        projectPoint.setImageUrl("/api/documents/public/image/" + documentDto.getId());
+        projectPoint = projectPointRepository.save(projectPoint);
+
+        return projectPointMapper.toDto(projectPoint);
     }
 }

@@ -25,4 +25,5 @@ public interface DocumentService {
 
     PresignedUrlResponse generatePresignedUrl(String currentUserEmail, UUID documentId, long expiresInSeconds);
 
+    byte[] getPublicDocument(UUID documentId);
 }

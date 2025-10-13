@@ -46,4 +46,7 @@ public class ProjectMultiline extends AuditableCustom<String> {
 
     @Column(name = "length_m")
     private Double lengthM;
+
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
 }

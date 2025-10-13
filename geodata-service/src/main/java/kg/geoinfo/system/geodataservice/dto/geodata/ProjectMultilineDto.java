@@ -21,4 +21,5 @@ public class ProjectMultilineDto {
     private MultiLineString geom;
 
     private Double lengthM;
+    private String imageUrl;
 }

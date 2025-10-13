@@ -90,6 +90,17 @@ class GeodataService {
     getPolygonById(id: string) {
         return api.get<ProjectPolygon>(`/geodata/polygons/${id}`);
     }
+
+    uploadMainImage(objectType: 'points' | 'multilines' | 'polygons', objectId: string, file: File) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        return api.post(`/geodata/${objectType}/${objectId}/upload-main-image`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    }
 }
 
 export default new GeodataService();

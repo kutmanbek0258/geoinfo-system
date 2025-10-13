@@ -2,6 +2,7 @@ package kg.geoinfo.system.geodataservice.service.geodata.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.common.GeoObjectEvent;
+import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPolygonDto;
@@ -10,6 +11,7 @@ import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.models.ProjectPolygon;
 import kg.geoinfo.system.geodataservice.repository.ProjectPolygonRepository;
 import kg.geoinfo.system.geodataservice.repository.ProjectRepository;
+import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPolygonService;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 import java.util.UUID;
@@ -31,6 +34,7 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
     private final ProjectPolygonMapper projectPolygonMapper;
     private final KafkaProducerService kafkaProducerService;
     private final ObjectMapper objectMapper;
+    private final DocumentServiceClient documentServiceClient;
 
     private void checkProjectAccess(String currentUserEmail, UUID projectId) {
         Project project = projectRepository.findById(projectId)
@@ -106,5 +110,18 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
         projectPolygonRepository.deleteById(id);
         Map<String, Object> payload = Map.of("id", id, "type", "polygon", "createdBy", projectPolygon.getCreatedBy());
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.DELETED);
+    }
+
+    @Override
+    public ProjectPolygonDto uploadMainImage(String currentUserEmail, UUID id, MultipartFile file) {
+        ProjectPolygon projectPolygon = projectPolygonRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectPoint not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectPolygon.getProject().getId());
+
+        DocumentDto documentDto = documentServiceClient.uploadDocument(file, id, "Main image for " + projectPolygon.getName(), "main-image");
+        projectPolygon.setImageUrl("/api/documents/public/image/" + documentDto.getId());
+        projectPolygon = projectPolygonRepository.save(projectPolygon);
+
+        return projectPolygonMapper.toDto(projectPolygon);
     }
 }

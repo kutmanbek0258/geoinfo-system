@@ -21,4 +21,5 @@ public class ProjectPolygonDto {
     private Polygon geom;
 
     private Double areaM2;
+    private String imageUrl;
 }

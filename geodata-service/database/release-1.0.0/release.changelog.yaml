@@ -7,3 +7,6 @@ databaseChangeLog:
   - include:
       file: object/add_project_access_table.sql
       relativeToChangelogFile: true
+  - include:
+      file: object/add_image_url_to_geo_objects.sql
+      relativeToChangelogFile: true

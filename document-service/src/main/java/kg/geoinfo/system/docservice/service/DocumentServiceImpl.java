@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -165,8 +166,24 @@ public class DocumentServiceImpl implements DocumentService {
         checkGeoObjectAccess(currentUserEmail, document.getGeoObjectId());
 
         String fileKey = document.getMinioObjectKey();
-        var url = fileStoreService.generatePresignedUrl(fileKey, expiresInSeconds);
-
+        URL url = fileStoreService.generatePresignedUrl(document.getMinioObjectKey(), expiresInSeconds);
         return new PresignedUrlResponse(url.toString(), expiresInSeconds);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] getPublicDocument(UUID documentId) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+
+        boolean isMainImage = document.getTags().stream()
+                .anyMatch(tag -> "main-image".equalsIgnoreCase(tag.getName()));
+
+        if (!isMainImage) {
+            throw new AccessDeniedException("This document is not a public main image.");
+        }
+
+        return fileStoreService.find(document.getMinioObjectKey())
+                .orElseThrow(() -> new RuntimeException("File not found in store"));
     }
 }

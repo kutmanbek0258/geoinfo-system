@@ -9,6 +9,7 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface ProjectPointService {
     ProjectPointDto create(String currentUserEmail, CreateProjectPointDto createProjectPointDto);
@@ -22,4 +23,6 @@ public interface ProjectPointService {
     ProjectPointDto update(String currentUserEmail, UUID id, UpdateProjectPointDto updateProjectPointDto);
 
     void delete(String currentUserEmail, UUID id);
+
+    ProjectPointDto uploadMainImage(String currentUserEmail, UUID id, MultipartFile file);
 }

@@ -9,6 +9,7 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface ProjectMultilineService {
     ProjectMultilineDto create(String currentUserEmail, CreateProjectMultilineDto createProjectMultilineDto);
@@ -22,4 +23,6 @@ public interface ProjectMultilineService {
     ProjectMultilineDto update(String currentUserEmail, UUID id, UpdateProjectMultilineDto updateProjectMultilineDto);
 
     void delete(String currentUserEmail, UUID id);
+
+    ProjectMultilineDto uploadMainImage(String currentUserEmail, UUID id, MultipartFile file);
 }

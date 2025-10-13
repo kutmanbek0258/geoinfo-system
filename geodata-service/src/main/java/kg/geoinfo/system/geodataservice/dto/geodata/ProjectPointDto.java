@@ -20,4 +20,5 @@ public class ProjectPointDto {
     private Status status;
 
     private Point geom;
+    private String imageUrl;
 }

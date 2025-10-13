@@ -50,7 +50,14 @@
 
     <!-- Оверлей 4: Детали объекта -->
     <div class="map-overlay top-right-details">
-        <ObjectDetails :feature-id="selectedFeatureId" :feature-name="selectedFeature?.name" :feature-description="selectedFeature?.description" :feature-type="selectedFeature?.type" v-if="selectedFeatureId" />
+        <ObjectDetails
+            v-if="selectedFeatureId"
+            :feature-id="selectedFeatureId"
+            :feature-name="selectedFeature?.name"
+            :feature-description="selectedFeature?.description"
+            :feature-type="selectedFeature?.type"
+            :feature-image-url="selectedFeature?.imageUrl"
+        />
     </div>
 
     <div class="map-overlay top-left-search">

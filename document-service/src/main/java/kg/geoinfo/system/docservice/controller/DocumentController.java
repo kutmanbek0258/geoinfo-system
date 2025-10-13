@@ -72,4 +72,12 @@ public class DocumentController {
                                                               @RequestParam(value = "expiresInSeconds", defaultValue = "300") long expiresInSeconds) {
         return ResponseEntity.ok(documentService.generatePresignedUrl(principal.getName(), documentId, expiresInSeconds));
     }
+
+    @GetMapping("/public/image/{documentId}")
+    public ResponseEntity<byte[]> getPublicImage(@PathVariable UUID documentId) {
+        byte[] data = documentService.getPublicDocument(documentId);
+        HttpHeaders headers = new HttpHeaders();
+        // Здесь можно добавить Content-Type, если он известен
+        return ResponseEntity.ok().headers(headers).body(data);
+    }
 }

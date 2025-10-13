@@ -364,6 +364,18 @@ const actions = {
         if (state.selectedFeatureId === id) {
             commit('SET_SELECTED_FEATURE_ID', null);
         }
+    },
+
+    async uploadMainImage({ commit }, { objectType, objectId, file }: { objectType: 'points' | 'multilines' | 'polygons', objectId: string, file: File }) {
+        let typeForMutation: 'Point' | 'MultiLineString' | 'Polygon';
+        switch (objectType) {
+            case 'points': typeForMutation = 'Point'; break;
+            case 'multilines': typeForMutation = 'MultiLineString'; break;
+            case 'polygons': typeForMutation = 'Polygon'; break;
+        }
+
+        const response = await geodataService.uploadMainImage(objectType, objectId, file);
+        commit('UPDATE_FEATURE', { type: typeForMutation, data: response.data });
     }
 };
 

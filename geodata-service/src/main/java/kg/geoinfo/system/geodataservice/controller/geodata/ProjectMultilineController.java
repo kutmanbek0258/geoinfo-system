@@ -15,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -60,5 +61,11 @@ public class ProjectMultilineController {
     public ResponseEntity<Void> delete(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id) {
         projectMultilineService.delete(principal.getName(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/upload-main-image")
+    @PreAuthorize("hasAuthority('GEO_FEATURE_UPDATE')")
+    public ResponseEntity<ProjectMultilineDto> uploadMainImage(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(projectMultilineService.uploadMainImage(principal.getName(), id, file));
     }
 }

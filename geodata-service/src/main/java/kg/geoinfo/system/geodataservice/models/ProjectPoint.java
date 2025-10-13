@@ -41,4 +41,7 @@ public class ProjectPoint extends AuditableCustom<String> {
 
     @Column(columnDefinition = "geometry(Point,4326)", nullable = false)
     private Point geom;
+
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
 }
