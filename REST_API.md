@@ -1,255 +1,107 @@
-```markdown
-# GeoInfo System REST API
+# REST API Справочник - ГеоИнфоСистема
 
-Этот документ описывает REST API для микросервисов GeoInfo System. Документация сгенерирована на основе анализа Java-кода контроллеров и DTO.
+## 1. Общие сведения
 
----
+Вся работа с API системы происходит через **API Gateway**. Все запросы, за исключением публично открытых, должны содержать заголовок `Authorization: Bearer <access_token>`.
 
-## 1. Geodata Service
+Access token можно получить у `auth-service`, используя OAuth2 `password` grant type.
 
-Префикс: `/api/geodata`
+## 2. Маршрутизация (API Gateway)
 
-### 1.1. Projects
+API Gateway предоставляет единую точку входа и перенаправляет запросы на соответствующие микросервисы:
 
-Ресурс для управления проектами.
-
-**Контроллер:** `ProjectController.java`
-
-#### `GET /project/page-query`
-
-Получение списка проектов с пагинацией и фильтрацией.
-
-- **Query Parameters:**
-  - `page` (number, optional): Номер страницы.
-  - `size` (number, optional): Размер страницы.
-  - `sort` (string, optional): Поле для сортировки, например `createdDate,desc`.
-  - Другие поля из `ProjectDto` могут использоваться для фильтрации.
-
-- **Response (200 OK):** `Page<ProjectDto>`
-  ```json
-  {
-    "content": [
-      {
-        "id": "uuid",
-        "name": "string",
-        "description": "string"
-      }
-    ],
-    "totalElements": "number",
-    "totalPages": "number",
-    "size": "number",
-    "number": "number"
-  }
-  ```
-
-#### `POST /project`
-
-Создание нового проекта.
-
-- **Request Body:** `ProjectDto`
-  ```json
-  {
-    "name": "string",
-    "description": "string"
-  }
-  ```
-
-- **Response (200 OK):** Пустое тело.
-
-#### `GET /project/{id}`
-
-Получение проекта по ID.
-
-- **Path Variables:**
-  - `id` (uuid): ID проекта.
-- **Response (200 OK):** `ProjectDto`
-
-#### `PUT /project/{id}`
-
-Обновление проекта.
-
-- **Path Variables:**
-  - `id` (uuid): ID проекта.
-- **Request Body:** `ProjectDto`
-- **Response (200 OK):** Пустое тело.
-
-#### `DELETE /project/{id}`
-
-Удаление проекта.
-
-- **Path Variables:**
-  - `id` (uuid): ID проекта.
-- **Response (200 OK):** Пустое тело.
+| Префикс пути        | Целевой сервис      | Назначение                                    |
+|---------------------|---------------------|-----------------------------------------------|
+| `/api/auth/**`      | `auth-service`      | Аутентификация, регистрация, управление пользователями |
+| `/api/geodata/**`   | `geodata-service`   | Управление гео-объектами и проектами          |
+| `/api/documents/**` | `document-service`  | Управление документами и файлами              |
+| `/api/search/**`    | `search-service`    | Полнотекстовый поиск                          |
+| `/geoserver/**`     | `geoserver`         | Прямой доступ к WMS/WFS слоям GeoServer        |
 
 ---
 
-### 1.2. Imagery Layers
+## 3. Auth Service
 
-Ресурс для управления слоями изображений.
+Сервис для управления аутентификацией, пользователями, ролями и клиентами.
 
-**Контроллер:** `ImageryLayerController.java`
+### Регистрация и пароли
+- `POST /registration/` - **Public**: Регистрация нового пользователя.
+- `POST /reset-password/` - **Public**: Инициировать сброс пароля.
+- `POST /change-password/` - **Authenticated**: Сменить пароль для текущего пользователя.
 
-#### `GET /imagery-layer/page-query`
+### Управление аккаунтом
+- `GET /account/` - **Authenticated**: Получить информацию о текущем пользователе.
+- `POST /account/` - **Authenticated**: Обновить информацию о текущем пользователе.
+- `GET /account/events` - **Authenticated**: Получить историю событий для текущего пользователя.
+- `GET /account/sessions` - **Authenticated**: Получить активные сессии текущего пользователя.
 
-Получение списка слоев с пагинацией.
+### Администрирование
+- `GET /admin/users` - **Authority: `USER_READ`**: Получить список всех пользователей.
+- `POST /admin/users` - **Authority: `USER_CREATE`**: Создать нового пользователя.
+- `GET /admin/users/{id}` - **Authority: `USER_READ`**: Получить пользователя по ID.
+- `PUT /admin/users/{id}` - **Authority: `USER_UPDATE`**: Обновить пользователя по ID.
+- `GET /admin/clients` - **Authority: `CLIENT_READ`**: Получить список OAuth2 клиентов.
 
-- **Response (200 OK):** `Page<ImageryLayerDto>` (структура аналогична проектам).
-
-#### `POST /imagery-layer`
-
-Создание нового слоя.
-
-- **Request Body:** `ImageryLayerDto`
-- **Response (200 OK):** Пустое тело.
-
-*...и так далее для GET, PUT, DELETE по аналогии с Projects...*
-
----
-
-### 1.3. Vector Geodata (Points, Multilines, Polygons)
-
-**Контроллеры:** `ProjectPointController.java`, `ProjectMultilineController.java`, `ProjectPolygonController.java`
-
-#### `POST /points`
-
-Создание новой точки.
-
-- **Request Body:** `CreateProjectPointDto`
-  ```json
-  {
-    "projectId": "uuid",
-    "name": "string",
-    "description": "string",
-    "status": "string (ACTIVE, INACTIVE, ...)",
-    "geom": "GeoJSON Point object"
-  }
-  ```
-- **Response (201 Created):** `ProjectPointDto`
-
-#### `GET /points/by-project-id/{projectId}`
-
-Получение всех точек для проекта.
-
-- **Path Variables:**
-  - `projectId` (uuid): ID проекта.
-- **Response (200 OK):** `Page<ProjectPointDto>`
-
-*Эндпоинты `GET /{id}`, `PUT /{id}`, `DELETE /{id}` реализованы для `/points`, `/multilines`, `/polygons` по аналогии.*
+### Прочее
+- `GET /reference/roles` - **Authenticated**: Получить справочник всех ролей в системе.
+- `GET /reference/authorities` - **Authenticated**: Получить справочник всех прав доступа.
 
 ---
 
-## 2. Document Service
+## 4. GeoData Service
 
-Префикс: `/api/documents`
+Сервис для управления векторными геоданными.
 
-### 2.1. Documents
+### Проекты (`/api/geodata/project`)
+- `POST /` - **Authority: `GEO_PROJECT_CREATE`**: Создать новый проект.
+- `GET /{id}` - **Authority: `GEO_PROJECT_READ`**: Получить проект по ID.
+- `GET /page-query` - **Authority: `GEO_PROJECT_READ`**: Получить список проектов с пагинацией.
+- `PUT /{id}` - **Authority: `GEO_PROJECT_UPDATE`**: Обновить проект.
+- `DELETE /{id}` - **Authority: `GEO_PROJECT_DELETE`**: Удалить проект.
+- `POST /{projectId}/share` - **Authority: `GEO_PROJECT_SHARE`**: Поделиться проектом с другим пользователем.
 
-**Контроллер:** `DocumentController.java`
+### Слои снимков (`/api/geodata/imagery-layer`)
+- `POST /` - **Authority: `IMAGERY_LAYER_CREATE`**: Сохранить метаданные нового слоя.
+- `GET /{id}` - **Authority: `IMAGERY_LAYER_READ`**: Получить метаданные слоя.
+- `PUT /{id}` - **Authority: `IMAGERY_LAYER_UPDATE`**: Обновить метаданные слоя.
+- `DELETE /{id}` - **Authority: `IMAGERY_LAYER_DELETE`**: Удалить метаданные слоя.
 
-#### `GET /geo/{geoObjectId}`
+### Геообъекты (Точки, Линии, Полигоны)
+Базовые пути: `/api/geodata/points`, `/api/geodata/multilines`, `/api/geodata/polygons`
 
-Получение всех документов для гео-объекта.
-
-- **Path Variables:**
-  - `geoObjectId` (uuid): ID гео-объекта.
-- **Response (200 OK):** `List<DocumentDto>`
-  ```json
-  [
-    {
-      "id": "uuid",
-      "geoObjectId": "uuid",
-      "fileName": "string",
-      "mimeType": "string",
-      "fileSizeBytes": "number",
-      "description": "string",
-      "uploadedByUserId": "uuid",
-      "uploadDate": "string (date-time)",
-      "isLatestVersion": "boolean",
-      "tags": [ { "id": "number", "name": "string" } ]
-    }
-  ]
-  ```
-
-#### `POST /`
-
-Загрузка нового документа.
-
-- **Request (multipart/form-data):**
-  - `geoObjectId` (uuid)
-  - `description` (string)
-  - `tags` (Set<string>)
-  - `file` (file)
-- **Response (201 Created):** `DocumentDto`
-
-#### `GET /{documentId}/download`
-
-Скачивание файла.
-
-- **Response (200 OK):** `byte[]` (бинарный файл).
-
-#### `DELETE /{documentId}`
-
-Удаление документа.
-
-- **Response (204 No Content):** Пустое тело.
-
-#### `PUT /{documentId}`
-
-Обновление метаданных документа.
-
-- **Request Body:** `UpdateDocumentRequest`
-  ```json
-  {
-    "description": "string",
-    "tags": ["string"]
-  }
-  ```
-- **Response (200 OK):** `DocumentDto`
-
-#### `GET /{documentId}/presigned-url`
-
-Получение временной ссылки на файл.
-
-- **Query Parameters:**
-  - `expiresInSeconds` (long, optional, default: 300)
-- **Response (200 OK):** `PresignedUrlResponse`
-
-### 2.2. OnlyOffice Integration
-
-**Контроллер:** `OnlyOfficeController.java`
-
-#### `GET /{documentId}/onlyoffice-config`
-
-Получение конфигурации для редактора OnlyOffice.
-
-- **Query Parameters:**
-  - `mode` (string, optional, default: 'view'): 'view' или 'edit'.
-  - `userId` (string)
-  - `userName` (string)
-- **Response (200 OK):** `OnlyOfficeConfig`
-
-#### `POST /{documentId}/onlyoffice-callback`
-
-Callback от сервера OnlyOffice после сохранения документа.
-
-- **Request Body:** `OnlyOfficeCallback`
-- **Response (200 OK):** Пустое тело.
+- `POST /` - **Authority: `GEO_FEATURE_CREATE`**: Создать новый геообъект.
+- `GET /` - **Authority: `GEO_FEATURE_READ`**: Получить все объекты с пагинацией.
+- `GET /{id}` - **Authority: `GEO_FEATURE_READ`**: Получить объект по ID.
+- `GET /by-project-id/{projectId}` - **Authority: `GEO_FEATURE_READ`**: Получить все объекты в проекте.
+- `PUT /{id}` - **Authority: `GEO_FEATURE_UPDATE`**: Обновить геообъект.
+- `DELETE /{id}` - **Authority: `GEO_FEATURE_DELETE`**: Удалить геообъект.
+- `POST /{id}/upload-main-image` - **Authority: `GEO_FEATURE_UPDATE`**: Загрузить главное изображение для объекта.
 
 ---
 
-## 3. Search Service
+## 5. Document Service
 
-Префикс: `/api/search`
+Сервис для управления файлами и интеграции с OnlyOffice.
 
-**Контроллер:** `SearchController.java`
+### Управление документами (`/api/documents`)
+- `GET /geo/{geoObjectId}` - **Authority: `DOCUMENT_READ`**: Получить список документов для гео-объекта.
+- `POST /` - **Authority: `DOCUMENT_CREATE`**: Загрузить новый документ (multipart/form-data).
+- `GET /{documentId}/download` - **Authority: `DOCUMENT_READ`**: Скачать файл.
+- `DELETE /{documentId}` - **Authority: `DOCUMENT_DELETE`**: Удалить документ.
+- `PUT /{documentId}` - **Authority: `DOCUMENT_UPDATE`**: Обновить метаданные документа.
+- `GET /{documentId}/presigned-url` - **Authority: `DOCUMENT_READ`**: Сгенерировать временную ссылку на файл.
+- `GET /public/image/{documentId}` - **Public**: Получить публичный файл-изображение.
 
-#### `GET /`
+### Интеграция с OnlyOffice (`/api/documents`)
+- `GET /{documentId}/onlyoffice-config` - **Authority: `DOCUMENT_READ`**: Получить конфигурацию для редактора OnlyOffice.
+- `POST /{documentId}/onlyoffice-callback` - **Public (защищено JWT OnlyOffice)**: Callback от OnlyOffice для сохранения изменений.
 
-Выполнение поиска по всем данным.
+---
 
-- **Query Parameters:**
-  - `query` (string): Поисковый запрос.
-  - `page`, `size`, `sort` (стандартные для пагинации).
-- **Response (200 OK):** `Page<Map>` (гибкая структура, возвращаемая Elasticsearch).
+## 6. Search Service
 
-```
+Сервис для полнотекстового поиска.
+
+### Поиск (`/api/search`)
+- `GET /all` - **Authenticated**: Выполнить глобальный поиск по всем данным.
+- `GET /geo` - **Authenticated**: Выполнить поиск только по гео-объектам с фильтрацией по типу.
