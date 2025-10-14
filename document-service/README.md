@@ -1,159 +1,90 @@
 # Document Service
 
-Микросервис для управления документами и их метаданными в составе системы GeoInfoSystem.  
-Document Service обеспечивает загрузку, хранение, выдачу, редактирование и удаление документов, интеграцию с MinIO (файловое хранилище) и OnlyOffice (онлайн-редактирование), а также хранение метаданных в PostgreSQL.
+## 1. Обзор
 
----
+`document-service` — это микросервис в составе "ГеоИнфоСистемы", отвечающий за полный жизненный цикл документов. Он управляет загрузкой файлов, хранением их метаданных, интеграцией с онлайн-редактором OnlyOffice и уведомлением других частей системы об изменениях.
 
-## Основные возможности
+## 2. Архитектура и бизнес-процессы
 
-- Загрузка документов (PDF, DOCX, XLSX, изображения и др.) через API.
-- Хранение файлов в MinIO (S3-совместимое объектное хранилище).
-- Хранение и управление метаданными документов (имя, тип, размеры, описание, теги, связь с гео-объектами).
-- Получение списка всех документов, связанных с определённым гео-объектом.
-- Получение метаданных и скачивание файла по documentId.
-- Генерация временных (presigned) ссылок для прямого доступа к файлам (например, для OnlyOffice).
-- Получение конфига для OnlyOffice (режимы просмотра и редактирования).
-- Callback endpoint для сохранения изменений из OnlyOffice обратно в MinIO.
-- Удаление документов и их файлов.
-- Обновление метаданных (описание, теги и др.).
-- Авторизация на основе OAuth2/JWT, интеграция с Eureka Discovery и Config Server.
+Сервис является центральным узлом для всех операций с файлами.
 
----
+1.  **Загрузка документа:**
+    - Пользователь через API загружает файл, связанный с конкретным `geoObjectId`.
+    - `DocumentService` сохраняет бинарный файл в **MinIO** с помощью `MinioFileStoreService`, получая уникальный ключ (`minioObjectKey`).
+    - В транзакционной базе данных **PostgreSQL** создается запись в таблице `documents` с метаданными (имя файла, размер, `geoObjectId`, `minioObjectKey`).
+    - Сервис обрабатывает теги: находит существующие или создает новые в таблице `tags`.
+    - `KafkaProducerService` отправляет событие `DOCUMENT_CREATED` в топик `doc.data.events`, чтобы `search-service` мог его проиндексировать.
+2.  **Редактирование в OnlyOffice:**
+    - Фронтенд запрашивает у `OnlyOfficeController` специальный конфигурационный объект.
+    - Сервис генерирует временную (presigned) URL для доступа к файлу в MinIO и JWT-токен для защиты сессии редактирования.
+    - После того как пользователь сохраняет документ в OnlyOffice, тот отправляет `callback`-запрос на `document-service`.
+    - Сервис скачивает изменененную версию файла по URL из callback-а и перезаписывает существующий файл в MinIO.
+3.  **Скачивание и удаление:** Сервис предоставляет эндпоинты для скачивания и удаления документов, которые также включают проверку прав доступа и соответствующие операции в MinIO и PostgreSQL.
 
-## Архитектура и компоненты
+## 3. Технологический стек
 
-- **Spring Boot** — основной фреймворк приложения.
-- **PostgreSQL** — хранение метаданных документов и тегов.
-- **MinIO** — объектное файловое хранилище (S3-совместимый API).
-- **OnlyOffice** — онлайн-редактирование офисных документов, интеграция через API и callback.
-- **Spring Data JPA** — работа с БД.
-- **Spring Security** — авторизация и разграничение доступа.
-- **Docker** — контейнеризация сервиса.
-- **Kafka** — интеграция для событий и поиска (опционально).
+- **Фреймворк:** Spring Boot 3
+- **Язык:** Java 17
+- **База данных:** PostgreSQL
+- **Хранилище файлов:** MinIO (S3-совместимое)
+- **Онлайн-редактор:** OnlyOffice
+- **Брокер сообщений:** Apache Kafka
+- **Управление миграциями БД:** Liquibase
+- **Сборка:** Apache Maven
 
----
+## 4. Модели данных и схема БД
 
-## Основные эндпоинты API
+- **JPA Entities:**
+    - `Document`: Основная сущность, хранящая метаданные файла и его связь с `geoObjectId`.
+    - `Tag`: Сущность для тегов.
+    - Связь между ними (`@ManyToMany`) реализуется через промежуточную таблицу `document_tag_link`.
+- **Схема БД (Liquibase):**
+    - **`documents`**: Основная таблица с метаданными.
+    - **`tags`**: Справочник уникальных тегов.
+    - **`document_tag_link`**: Таблица для связи "многие-ко-многим" между документами и тегами.
+    - Все внешние ключи используют `ON DELETE CASCADE` для обеспечения целостности данных.
 
-Базовый путь: `/api/documents`
+## 5. API Endpoints
 
-| Метод   | Путь                                      | Описание                                                 |
-|---------|-------------------------------------------|----------------------------------------------------------|
-| GET     | `/geo/{geoObjectId}`                      | Получить все документы для указанного гео-объекта        |
-| POST    | `/`                                       | Загрузить новый документ (multipart/form-data)           |
-| GET     | `/{documentId}/download`                  | Скачать бинарный файл документа                          |
-| GET     | `/{documentId}/presigned-url`             | Получить presigned URL на файл для прямого доступа       |
-| GET     | `/{documentId}/onlyoffice-config`         | Получить конфиг для OnlyOffice (режимы view/edit)        |
-| POST    | `/{documentId}/onlyoffice-callback`       | Callback OnlyOffice для сохранения изменений             |
-| DELETE  | `/{documentId}`                           | Удалить документ и файл                                  |
-| PUT     | `/{documentId}`                           | Обновить метаданные документа (описание, теги)           |
+Сервис предоставляет REST API по базовому пути `/api/documents`.
 
----
+### DocumentController
+- `GET /geo/{geoObjectId}`
+    - **Описание:** Получить список документов для гео-объекта.
+    - **Права:** `DOCUMENT_READ`
+- `POST /`
+    - **Описание:** Загрузить новый документ (multipart/form-data).
+    - **Права:** `DOCUMENT_CREATE`
+- `GET /{documentId}/download`
+    - **Описание:** Скачать файл документа.
+    - **Права:** `DOCUMENT_READ`
+- `DELETE /{documentId}`
+    - **Описание:** Удалить документ.
+    - **Права:** `DOCUMENT_DELETE`
+- `PUT /{documentId}`
+    - **Описание:** Обновить метаданные документа (описание, теги).
+    - **Права:** `DOCUMENT_UPDATE`
+- `GET /{documentId}/presigned-url`
+    - **Описание:** Сгенерировать временную ссылку для прямого доступа к файлу.
+    - **Права:** `DOCUMENT_READ`
+- `GET /public/image/{documentId}`
+    - **Описание:** Публичный эндпоинт для получения файлов, помеченных как "main-image". Не требует аутентификации.
 
-## Пример загрузки документа
+### OnlyOfficeController
+- `GET /{documentId}/onlyoffice-config`
+    - **Описание:** Получить конфигурацию для инициализации редактора OnlyOffice.
+    - **Права:** `DOCUMENT_READ`
+- `POST /{documentId}/onlyoffice-callback`
+    - **Описание:** Callback-эндпоинт для OnlyOffice. Принимает уведомления о сохранении документа. Не требует аутентификации (защищен JWT-токеном OnlyOffice).
 
-**POST** `/api/documents`
+## 6. Сборка и запуск
 
-- `multipart/form-data` с полями:
-    - `geoObjectId` (UUID) — ID гео-объекта
-    - `description` (String) — описание документа
-    - `tags` (Set<String>) — теги
-    - `file` (File) — загружаемый файл
+Для сборки и запуска сервиса локально используйте Maven:
 
----
+```bash
+# Сборка проекта
+mvn clean install
 
-## Пример получения presigned URL
-
-**GET** `/api/documents/{documentId}/presigned-url?expiresInSeconds=600`
-
-Ответ:
-```json
-{
-  "url": "https://minio.example.com/documents/abc123?X-Amz-...",
-  "expiresInSeconds": 600
-}
+# Запуск сервиса
+mvn spring-boot:run
 ```
-Используйте эту ссылку для прямого доступа к файлу (например, в OnlyOffice).
-
----
-
-## Интеграция с OnlyOffice
-
-1. **Получение конфига**
-    - **GET** `/api/documents/{documentId}/onlyoffice-config?mode=edit&userId=123&userName=Ivan`
-    - Возвращает JSON-конфиг для инициализации OnlyOffice на фронте.
-
-2. **Callback**
-    - **POST** `/api/documents/{documentId}/onlyoffice-callback`
-    - OnlyOffice отправляет результат редактирования, сервис обновляет файл в MinIO.
-
----
-
-## Конфигурация через переменные окружения
-
-- **PostgreSQL**:
-    - `spring.datasource.url`
-    - `spring.datasource.username`
-    - `spring.datasource.password`
-- **MinIO**:
-    - `minio.endpoint`
-    - `minio.access-key`
-    - `minio.secret-key`
-    - `minio.bucket`
-- **OnlyOffice**:
-    - `onlyoffice.callback-base-url` — базовый url для callback'а
-
-Для production и dev окружения используйте Spring Cloud Config Server или стандартные переменные.
-
----
-
-## Пример docker-compose (фрагмент)
-
-```yaml
-services:
-  document-service:
-    build: ./document-service
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - DB_URL=jdbc:postgresql://postgres-docs:5432/docs_db
-      - DB_USER=postgres
-      - DB_PASS=password
-      - MINIO_ENDPOINT=http://minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
-      - MINIO_BUCKET=documents
-      - ONLYOFFICE_CALLBACK_BASE_URL=http://document-service/api/documents
-    depends_on:
-      - postgres-docs
-      - minio
-      - onlyoffice-doc-server
-```
-
----
-
-## Безопасность
-
-- Все методы защищены OAuth2/JWT, доступ только для авторизованных пользователей.
-- Генерируемые ссылки (presigned url) живут ограниченное время (по умолчанию 5-10 минут).
-- Callback endpoint OnlyOffice можно защитить секретом или проверкой подписи.
-
----
-
-## Разработка и запуск
-
-- Соберите сервис:
-  ```bash
-  mvn clean install
-  ```
-- Запустите с помощью Docker Compose или напрямую (указав конфиги).
-- Для локальной разработки настройте application.yml с параметрами подключения к PostgreSQL и MinIO.
-
----
-
-## Контакты и поддержка
-
-- Вопросы и баги — через GitHub Issues.
-- Предложения по улучшению — pull requests приветствуются!
-
----
