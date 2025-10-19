@@ -211,6 +211,7 @@ const updateVectorSource = () => {
 // Наблюдаем за изменением projectId
 watch(() => props.projectId, (newProjectId) => {
   if (newProjectId) {
+    store.commit('geodata/SET_SELECTED_PROJECT_ID', newProjectId);
     store.dispatch('geodata/fetchVectorDataForProject', newProjectId);
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 }); // Загружаем слои
   }

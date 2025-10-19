@@ -31,8 +31,9 @@ public class SearchController {
     public ResponseEntity<Page<Map>> searchGeo(
             @RequestParam("query") String query,
             @RequestParam("types") java.util.List<String> types,
+            @RequestParam(name = "projectId", required = false) String projectId,
             Pageable pageable) {
-        Page<Map> results = searchService.searchGeoObjects(query, types, pageable);
+        Page<Map> results = searchService.searchGeoObjects(query, types, pageable, projectId);
         return ResponseEntity.ok(results);
     }
 }

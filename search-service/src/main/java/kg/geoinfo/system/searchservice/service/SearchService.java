@@ -9,6 +9,6 @@ public interface SearchService {
 
     Page<Map> search(String query, Pageable pageable);
 
-    Page<Map> searchGeoObjects(String query, java.util.List<String> types, Pageable pageable);
+    Page<Map> searchGeoObjects(String query, java.util.List<String> types, Pageable pageable, String projectId);
 
 }

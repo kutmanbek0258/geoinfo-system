@@ -94,7 +94,7 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
         projectPolygonMapper.update(projectPolygon, updateProjectPolygonDto);
         projectPolygon = projectPolygonRepository.save(projectPolygon);
 
-        Map<String, Object> payload = objectMapper.convertValue(projectPolygon, Map.class);
+        Map<String, Object> payload = objectMapper.convertValue(projectPolygonMapper.toDto(projectPolygon), Map.class);
         payload.put("type", "polygon");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
 

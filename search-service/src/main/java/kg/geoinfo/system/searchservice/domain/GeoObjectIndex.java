@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -18,6 +19,7 @@ import java.util.Map;
 public class GeoObjectIndex {
 
     private String id;
+    private UUID projectId;
     private String name;
     private String description;
     private String type;

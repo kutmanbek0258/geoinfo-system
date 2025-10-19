@@ -31,6 +31,12 @@ public class IndexingServiceImpl implements IndexingService {
             deleteDocumentFromIndex(GEO_INDEX_NAME, id);
         } else { // CREATED or UPDATED
             GeoObjectIndex geoObjectIndex = objectMapper.convertValue(event.getPayload(), GeoObjectIndex.class);
+            if (event.getPayload().get("project") instanceof java.util.Map) {
+                java.util.Map<String, Object> project = (java.util.Map<String, Object>) event.getPayload().get("project");
+                if (project.get("id") != null) {
+                    geoObjectIndex.setProjectId(java.util.UUID.fromString(project.get("id").toString()));
+                }
+            }
             indexDocument(GEO_INDEX_NAME, id, geoObjectIndex);
         }
     }

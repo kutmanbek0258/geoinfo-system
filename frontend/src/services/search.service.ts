@@ -2,9 +2,9 @@ import api from './api';
 import type { Page, SearchResult } from '@/types/api';
 
 class SearchService {
-    search(query: string, page = 0, size = 20) {
+    search(query: string, projectId: string | null, page = 0, size = 20) {
         const types = "point, polygon, multiline";
-        return api.get<Page<SearchResult>>('/search/geo', { params: { query, types, page, size } });
+        return api.get<Page<SearchResult>>('/search/geo', { params: { query, types, page, size, projectId } });
     }
 }
 

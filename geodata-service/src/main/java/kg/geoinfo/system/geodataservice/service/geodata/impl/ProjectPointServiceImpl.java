@@ -94,7 +94,7 @@ public class ProjectPointServiceImpl implements ProjectPointService {
         projectPointMapper.update(projectPoint, updateProjectPointDto);
         projectPoint = projectPointRepository.save(projectPoint);
 
-        Map<String, Object> payload = objectMapper.convertValue(projectPoint, Map.class);
+        Map<String, Object> payload = objectMapper.convertValue(projectPointMapper.toDto(projectPoint), Map.class);
         payload.put("type", "point");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
 

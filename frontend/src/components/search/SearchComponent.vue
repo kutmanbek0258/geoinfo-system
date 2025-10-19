@@ -35,9 +35,14 @@ const isLoading = computed(() => store.state.search.isLoading);
 const results = computed(() => store.state.search.results);
 const error = computed(() => store.state.search.error);
 
+const selectedProjectId = computed(() => store.state.geodata.selectedProjectId);
+
 // Debounced search function
 const debouncedSearch = debounce(() => {
-  store.dispatch('search/performSearch', { query: searchQuery.value });
+  store.dispatch('search/performSearch', { 
+    query: searchQuery.value,
+    projectId: selectedProjectId.value
+  });
 }, 500); // 500ms delay
 
 const onSearchInput = () => {

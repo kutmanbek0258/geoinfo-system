@@ -30,7 +30,7 @@ const mutations = {
 };
 
 const actions = {
-    async performSearch({ commit }: ActionContext<SearchState, any>, { query, page, size }: { query: string, page?: number, size?: number }) {
+    async performSearch({ commit, rootState }: ActionContext<SearchState, any>, { query, page, size }: { query: string, page?: number, size?: number }) {
         if (!query) {
             commit('CLEAR_RESULTS');
             return;
@@ -38,7 +38,8 @@ const actions = {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const response = await searchService.search(query, page, size);
+            const projectId = rootState.geodata.selectedProjectId;
+            const response = await searchService.search(query, projectId, page, size);
             commit('SET_RESULTS', response.data);
         } catch (err) {
             commit('SET_ERROR', 'Search request failed.');

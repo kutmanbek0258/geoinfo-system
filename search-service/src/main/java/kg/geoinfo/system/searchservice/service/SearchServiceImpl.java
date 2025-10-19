@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -56,32 +57,44 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    public Page<Map> searchGeoObjects(String query, List<String> types, Pageable pageable) {
+    public Page<Map> searchGeoObjects(String query, List<String> types, Pageable pageable, String projectId) {
         if (types == null || types.isEmpty()) {
             return Page.empty(pageable);
         }
 
         try {
-            SearchResponse<Map> response = elasticsearchClient.search(s -> s
-                    .index("geo_index") // Search only in geo_index
-                    .query(q -> q
-                            .bool(b -> b
-                                    .must(m -> m
+            SearchResponse<Map> response = elasticsearchClient.search(s -> {
+                s.index("geo_index") // Search only in geo_index
+                        .query(q -> q
+                                .bool(b -> {
+                                    b.must(m -> m
                                             .multiMatch(mm -> mm
                                                     .query(query)
                                                     .fields("name", "description")
                                             )
-                                    )
-                                    .filter(f -> f
+                                    );
+                                    b.filter(f -> f
                                             .terms(t -> t
                                                     .field("type")
                                                     .terms(ts -> ts.value(types.stream().map(FieldValue::of).collect(Collectors.toList())))
                                             )
-                                    )
-                            )
-                    )
-                    .from((int) pageable.getOffset())
-                    .size(pageable.getPageSize()),
+                                    );
+                                    if (projectId != null && !projectId.isEmpty()) {
+                                        b.filter(f -> f
+                                                .match(m -> m
+                                                        .field("projectId")
+                                                        .query(projectId)
+                                                )
+                                        );
+                                    }
+                                    return b;
+                                }
+                                )
+                        )
+                        .from((int) pageable.getOffset())
+                        .size(pageable.getPageSize());
+                return s;
+            },
                     Map.class
             );
 

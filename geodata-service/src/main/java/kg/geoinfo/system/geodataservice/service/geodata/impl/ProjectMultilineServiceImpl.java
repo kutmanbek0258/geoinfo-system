@@ -94,7 +94,7 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
         projectMultilineMapper.update(projectMultiline, updateProjectMultilineDto);
         projectMultiline = projectMultilineRepository.save(projectMultiline);
 
-        Map<String, Object> payload = objectMapper.convertValue(projectMultiline, Map.class);
+        Map<String, Object> payload = objectMapper.convertValue(projectMultilineMapper.toDto(projectMultiline), Map.class);
         payload.put("type", "multiline");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
 
