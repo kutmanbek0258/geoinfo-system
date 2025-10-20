@@ -1,9 +1,13 @@
 package kg.geoinfo.system.docservice.controller;
 
-import kg.geoinfo.system.docservice.dto.OnlyOfficeConfig;
+import kg.geoinfo.system.docservice.dto.DocumentContent;
 import kg.geoinfo.system.docservice.dto.OnlyOfficeCallback;
+import kg.geoinfo.system.docservice.dto.OnlyOfficeConfig;
+import kg.geoinfo.system.docservice.models.Document;
 import kg.geoinfo.system.docservice.service.OnlyOfficeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -43,5 +47,20 @@ public class OnlyOfficeController {
     ) {
         onlyOfficeService.handleCallback(documentId, callback);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Эндпоинт для стриминга контента файла в OnlyOffice
+     */
+    @GetMapping("/{documentId}/content")
+    public ResponseEntity<byte[]> getDocumentContent(@PathVariable UUID documentId) {
+        DocumentContent documentContent = onlyOfficeService.getDocumentContent(documentId);
+        Document document = documentContent.document();
+        byte[] bytes = documentContent.content();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + document.getFileName() + "\"")
+                .contentType(MediaType.parseMediaType(document.getMimeType()))
+                .body(bytes);
     }
 }

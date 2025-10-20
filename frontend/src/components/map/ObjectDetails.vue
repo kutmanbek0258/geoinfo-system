@@ -57,7 +57,7 @@
           <v-list-item-subtitle>{{ (doc.fileSizeBytes / 1024).toFixed(2) }} KB - {{ new Date(doc.uploadDate).toLocaleDateString() }}</v-list-item-subtitle>
 
           <template v-slot:append>
-<!--            <v-btn icon="mdi-open-in-new" variant="text" @click="openDocument(doc)" title="Open in OnlyOffice"></v-btn>-->
+            <v-btn icon="mdi-open-in-new" variant="text" @click="openDocument(doc)" title="Open in OnlyOffice"></v-btn>
             <v-btn icon="mdi-download" variant="text" @click="downloadDocument(doc)" title="Download"></v-btn>
             <v-btn icon="mdi-delete" color="error" variant="text" @click="deleteDocument(doc.id)" title="Delete"></v-btn>
           </template>

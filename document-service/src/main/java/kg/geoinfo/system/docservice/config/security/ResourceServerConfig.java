@@ -9,7 +9,10 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableMethodSecurity
@@ -21,15 +24,24 @@ public class ResourceServerConfig {
     private final MappingJackson2HttpMessageConverter messageConverter;
 
     @Bean
+    @Order(1) // Приоритет для публичной цепочки
+    public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/v3/api-docs/**", "/api/documents/public/image/**", "/api/documents/*/content")
+                .authorizeHttpRequests(customizer -> customizer.anyRequest().permitAll())
+                .sessionManagement(configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(AbstractHttpConfigurer::disable);
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(2) // Основная цепочка безопасности
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // выключаем поддержку сессий
         http.sessionManagement(configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(customizer -> {
-                    customizer
-                            // ендпоинты swagger вынесем из под security
-                            .requestMatchers("/v3/api-docs").permitAll()
-                            .requestMatchers("/api/documents/public/image/**").permitAll()
-                            .anyRequest().authenticated();
+                    customizer.anyRequest().authenticated();
                 });
 
         // подключаем поддержку OAuth2 Resource Server с Opaque Token.

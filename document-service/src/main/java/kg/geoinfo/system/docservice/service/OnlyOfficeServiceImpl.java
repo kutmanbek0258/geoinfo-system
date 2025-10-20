@@ -1,9 +1,11 @@
 package kg.geoinfo.system.docservice.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import kg.geoinfo.system.docservice.dto.DocumentContent;
 import kg.geoinfo.system.docservice.dto.OnlyOfficeCallback;
 import kg.geoinfo.system.docservice.dto.OnlyOfficeConfig;
 import kg.geoinfo.system.docservice.models.Document;
@@ -36,6 +38,9 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
     @Value("${onlyoffice.callback-base-url}")
     private String callbackBaseUrl;
 
+    @Value("${onlyoffice.doc-service-url}")
+    private String docServiceUrl;
+
     @Value("${onlyoffice.jwt-secret}")
     private String jwtSecret;
 
@@ -62,13 +67,13 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
             throw new AccessDeniedException("User is not the owner and cannot edit the document.");
         }
 
-        String presignedUrl = fileStoreService.generatePresignedUrl(doc.getMinioObjectKey(), 6000).toString();
+        String fileUrl = docServiceUrl + "/api/documents/" + documentId + "/content";
         String fileType = getFileTypeFromName(doc.getFileName());
         String key = doc.getId().toString() + "-" + doc.getLastModifiedDate().getTime();
 
         OnlyOfficeConfig.Document documentConfig = OnlyOfficeConfig.Document.builder()
                 .title(doc.getFileName())
-                .url(presignedUrl)
+                .url(fileUrl)
                 .fileType(fileType)
                 .key(key)
                 .build();
@@ -108,6 +113,15 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
                 throw new RuntimeException("OnlyOffice callback file overwrite failed", e);
             }
         }
+    }
+
+    @Override
+    public DocumentContent getDocumentContent(UUID documentId) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found"));
+        byte[] content = fileStoreService.find(doc.getMinioObjectKey())
+                .orElseThrow(() -> new RuntimeException("File not found in store"));
+        return new DocumentContent(doc, content);
     }
 
     private String getFileTypeFromName(String fileName) {

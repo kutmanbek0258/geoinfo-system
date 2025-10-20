@@ -32,6 +32,9 @@ onMounted(async () => {
     const response = await documentService.getOnlyOfficeConfig(documentId, 'edit');
     const config = response.data;
 
+    // URL is now absolute and correct from the backend.
+    // No client-side manipulation is needed.
+
     // Добавляем контейнер в конфиг
     config.width = '100%';
     config.height = '100%';

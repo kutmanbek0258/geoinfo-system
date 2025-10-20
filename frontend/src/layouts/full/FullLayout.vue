@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router';
-// import VerticalSidebarVue from './vertical-sidebar/VerticalSidebar.vue';
-// import VerticalHeaderVue from './vertical-header/VerticalHeader.vue';
+import { computed } from 'vue';
+import { RouterView, useRoute } from 'vue-router';
 import MainView from './Main.vue';
+
+const route = useRoute();
+const isEditorPage = computed(() => route.name === 'OnlyOfficeEditor');
 </script>
 
 <template>
     <v-locale-provider >
         <v-app>
-            <!-- <VerticalSidebarVue />
-            <VerticalHeaderVue  /> -->
-            <MainView />
+            <MainView v-if="!isEditorPage" />
             <v-main>
-                <v-container fluid class="page-wrapper">
-                    <div class="maxWidth">
+                <v-container fluid :class="isEditorPage ? 'editor-wrapper' : 'page-wrapper'">
+                    <div :class="isEditorPage ? 'editor-max-width' : 'maxWidth'">
                         <RouterView />
                     </div>
                 </v-container>
@@ -21,3 +21,16 @@ import MainView from './Main.vue';
         </v-app>
     </v-locale-provider>
 </template>
+
+<style scoped>
+.editor-wrapper {
+    padding: 0;
+    height: 100%;
+    max-width: 100% !important;
+}
+.editor-max-width {
+    height: 100%;
+    max-width: 100%;
+}
+</style>
+
