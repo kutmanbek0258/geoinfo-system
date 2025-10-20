@@ -86,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed, toRaw } from 'vue';
 import { useStore } from 'vuex';
 import 'ol/ol.css';
 import { Map, View, Feature } from 'ol';
@@ -95,8 +95,6 @@ import OSM from 'ol/source/OSM';
 import TileWMS from "ol/source/TileWMS.js";
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
-import ImageLayer from 'ol/layer/Image';
-import ImageWMS from 'ol/source/ImageWMS';
 import { GeoJSON } from 'ol/format';
 import { Draw } from 'ol/interaction';
 import { createEmpty, extend } from 'ol/extent';
@@ -125,7 +123,7 @@ const vectorLayer = new VectorLayer({ source: vectorSource, zIndex: 100, propert
 // --- Состояние компонента ---
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
 const visibleLayerIds = ref<string[]>([]);
-const activeImageLayers = ref<Map<string, ImageLayer<ImageWMS>>>(new Map());
+const activeImageLayers = ref<Record<string, TileLayer<TileWMS>>>({}); // Используем plain object
 const selectedFeatureId = computed(() => store.state.geodata.selectedFeatureId);
 const selectedFeature = computed(() => {
   if (!selectedFeatureId.value) return null;
@@ -160,8 +158,8 @@ onMounted(() => {
     map = new Map({
       target: mapContainer.value,
       layers: [
-        vectorLayer, // Слой для всех наших гео-объектов
         new TileLayer({ source: new OSM() }),
+        vectorLayer, // Слой для всех наших гео-объектов
       ],
       view: new View({
         center: [0, 0],
@@ -193,6 +191,18 @@ onUnmounted(() => {
 // --- Логика загрузки и отображения данных ---
 const geoJsonFormat = new GeoJSON();
 
+const clearWmsLayers = () => {
+    if (!map) return;
+    for (const key in activeImageLayers.value) {
+        const layerProxy = activeImageLayers.value[key];
+        if (layerProxy) {
+            map.removeLayer(toRaw(layerProxy));
+        }
+    }
+    activeImageLayers.value = {}; // Re-assign to empty object
+    visibleLayerIds.value = [];
+};
+
 const updateVectorSource = () => {
     vectorSource.clear();
     const allObjects = [...points.value, ...multilines.value, ...polygons.value];
@@ -211,6 +221,7 @@ const updateVectorSource = () => {
 // Наблюдаем за изменением projectId
 watch(() => props.projectId, (newProjectId) => {
   if (newProjectId) {
+    clearWmsLayers(); // Очищаем старые WMS слои
     store.commit('geodata/SET_SELECTED_PROJECT_ID', newProjectId);
     store.dispatch('geodata/fetchVectorDataForProject', newProjectId);
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 }); // Загружаем слои
@@ -247,12 +258,12 @@ const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
         });
         const imageLayer = new TileLayer({ source: wmsSource });
         map.addLayer(imageLayer);
-        activeImageLayers.value.set(layerInfo.id, imageLayer);
+        activeImageLayers.value[layerInfo.id] = imageLayer;
     } else {
-        const layerToRemove = activeImageLayers.value.get(layerInfo.id);
+        const layerToRemove = activeImageLayers.value[layerInfo.id];
         if (layerToRemove) {
-            map.removeLayer(layerToRemove);
-            activeImageLayers.value.delete(layerInfo.id);
+            map.removeLayer(toRaw(layerToRemove));
+            delete activeImageLayers.value[layerInfo.id];
         }
     }
 };
