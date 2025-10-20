@@ -12,14 +12,14 @@ const MainRoutes = {
             component: () => import('@/views/dashboard/index.vue')
         },
         {
-            name: 'Typography',
-            path: '/ui/typography',
-            component: () => import('@/views/components/Typography.vue')
+            name: 'Projects',
+            path: '/ui/projects',
+            component: () => import('@/views/components/Projects.vue')
         },
         {
-            name: 'Shadow',
-            path: '/ui/shadow',
-            component: () => import('@/views/components/Shadow.vue')
+            name: 'Imagery layers',
+            path: '/ui/layers',
+            component: () => import('@/views/components/ImageryLayers.vue')
         },
         {
             name: 'Icons',

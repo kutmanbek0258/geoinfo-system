@@ -10,9 +10,15 @@ import documentService from '@/services/document.service';
 let docEditor: any = null;
 const route = useRoute();
 
+const SCRIPT_ID = 'onlyoffice-api-script';
+
 const loadOnlyOfficeScript = () => {
   return new Promise<void>((resolve, reject) => {
+    if (document.getElementById(SCRIPT_ID)) {
+        return resolve();
+    }
     const script = document.createElement('script');
+    script.id = SCRIPT_ID;
     script.src = 'http://localhost:8081/web-apps/apps/api/documents/api.js'; // URL вашего Document Server
     script.onload = () => resolve();
     script.onerror = (err) => reject(err);
@@ -48,10 +54,24 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  console.log('Unmounting OnlyOfficeEditor...');
   if (docEditor) {
+    console.log('Destroying editor instance.');
     docEditor.destroyEditor();
     docEditor = null;
+  } else {
+    console.log('No editor instance to destroy.');
   }
+
+  setTimeout(() => {
+    const script = document.getElementById(SCRIPT_ID);
+    if (script) {
+      console.log('Removing OnlyOffice API script after a short delay.');
+      script.remove();
+    } else {
+      console.log('OnlyOffice API script not found in DOM, cannot remove.');
+    }
+  }, 100);
 });
 
 </script>

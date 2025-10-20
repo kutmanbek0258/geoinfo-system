@@ -1,7 +1,7 @@
 import {
     ApertureIcon,
     CopyIcon,
-    LayoutDashboardIcon, LoginIcon, MoodHappyIcon, TypographyIcon, UserPlusIcon
+    LayoutDashboardIcon, LoginIcon, MoodHappyIcon, UserPlusIcon, UsersIcon
 } from 'vue-tabler-icons';
 
 export interface menu {
@@ -28,37 +28,37 @@ const sidebarItem: menu[] = [
     },
     { header: 'utilities' },
     {
-        title: 'Typography',
-        icon: TypographyIcon,
-        to: '/ui/typography'
+        title: 'Projects',
+        icon: UsersIcon,
+        to: '/ui/projects'
     },
     {
-        title: 'Shadow',
+        title: 'Imagery layers',
         icon: CopyIcon,
-        to: '/ui/shadow'
+        to: '/ui/layers'
     },
-    { header: 'auth' },
-    {
-        title: 'Login',
-        icon: LoginIcon,
-        to: '/auth/login'
-    },
-    {
-        title: 'Register',
-        icon: UserPlusIcon,
-        to: '/auth/register'
-    },
-    { header: 'Extra' },
-    {
-        title: 'Icons',
-        icon: MoodHappyIcon,
-        to: '/icons'
-    },
-    {
-        title: 'Sample Page',
-        icon: ApertureIcon,
-        to: '/sample-page'
-    },
+    // { header: 'auth' },
+    // {
+    //     title: 'Login',
+    //     icon: LoginIcon,
+    //     to: '/auth/login'
+    // },
+    // {
+    //     title: 'Register',
+    //     icon: UserPlusIcon,
+    //     to: '/auth/register'
+    // },
+    // { header: 'Extra' },
+    // {
+    //     title: 'Icons',
+    //     icon: MoodHappyIcon,
+    //     to: '/icons'
+    // },
+    // {
+    //     title: 'Sample Page',
+    //     icon: ApertureIcon,
+    //     to: '/sample-page'
+    // },
 ];
 
 export default sidebarItem;

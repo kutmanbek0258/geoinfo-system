@@ -195,7 +195,8 @@ const deleteFeature = () => {
 
 // --- Методы ---
 const openDocument = (doc: Document) => {
-  router.push({ name: 'OnlyOfficeEditor', params: { id: doc.id } });
+  const routeData = router.resolve({ name: 'OnlyOfficeEditor', params: { id: doc.id } });
+  window.open(routeData.href, '_blank');
 };
 
 const downloadDocument = async (doc: Document) => {
