@@ -18,7 +18,19 @@
             v-model="visibleLayerIds"
             @change="toggleImageryLayer(layer, $event)"
             hide-details
+            class="w-100"
           ></v-checkbox>
+          <v-slider
+            v-if="visibleLayerIds.includes(layer.id)"
+            :model-value="layerOpacities[layer.id] || 100"
+            @update:modelValue="newOpacity => setLayerOpacity(layer.id, newOpacity)"
+            min="0"
+            max="100"
+            step="1"
+            hide-details
+            dense
+            class="mt-n2"
+          ></v-slider>
         </v-list-item>
       </v-list>
     </v-card>
@@ -124,6 +136,7 @@ const vectorLayer = new VectorLayer({ source: vectorSource, zIndex: 100, propert
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
 const visibleLayerIds = ref<string[]>([]);
 const activeImageLayers = ref<Record<string, TileLayer<TileWMS>>>({}); // Используем plain object
+const layerOpacities = ref<Record<string, number>>({}); // Для хранения прозрачности
 const selectedFeatureId = computed(() => store.state.geodata.selectedFeatureId);
 const selectedFeature = computed(() => {
   if (!selectedFeatureId.value) return null;
@@ -201,6 +214,7 @@ const clearWmsLayers = () => {
     }
     activeImageLayers.value = {}; // Re-assign to empty object
     visibleLayerIds.value = [];
+    layerOpacities.value = {}; // Сбрасываем прозрачность
 };
 
 const updateVectorSource = () => {
@@ -242,6 +256,14 @@ watch(selectedFeatureId, (newId) => {
 });
 
 // --- Логика переключения слоев ---
+const setLayerOpacity = (layerId: string, opacity: number) => {
+    const layer = activeImageLayers.value[layerId];
+    if (layer) {
+        toRaw(layer).setOpacity(opacity / 100);
+        layerOpacities.value[layerId] = opacity;
+    }
+};
+
 const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
     if (!map) return;
     const isVisible = event.target.checked;
@@ -256,9 +278,15 @@ const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
           serverType: 'geoserver',
           transition: 0,
         });
-        const imageLayer = new TileLayer({ source: wmsSource });
+        const imageLayer = new TileLayer({ 
+            source: wmsSource,
+            opacity: (layerOpacities.value[layerInfo.id] || 100) / 100, // Устанавливаем начальную прозрачность
+        });
         map.addLayer(imageLayer);
         activeImageLayers.value[layerInfo.id] = imageLayer;
+        if (layerOpacities.value[layerInfo.id] === undefined) {
+            layerOpacities.value[layerInfo.id] = 100;
+        }
     } else {
         const layerToRemove = activeImageLayers.value[layerInfo.id];
         if (layerToRemove) {
