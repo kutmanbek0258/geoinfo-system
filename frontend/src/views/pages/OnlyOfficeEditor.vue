@@ -37,6 +37,7 @@ onMounted(async () => {
     await loadOnlyOfficeScript();
     const response = await documentService.getOnlyOfficeConfig(documentId, 'edit');
     const config = response.data;
+    console.log(config);
 
     // URL is now absolute and correct from the backend.
     // No client-side manipulation is needed.

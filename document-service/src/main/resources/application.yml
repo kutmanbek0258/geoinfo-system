@@ -56,5 +56,5 @@ minio:
 
 onlyoffice:
   jwt-secret: a_very_long_and_secure_secret_key_for_onlyoffice_jwt_32_chars
-  callback-base-url: http://host.docker.internal:9003/api/documents
-  doc-service-url: http://host.docker.internal:9003
+  callback-base-url: http://document-service:9003/api/documents
+  doc-service-url: http://document-service:9003

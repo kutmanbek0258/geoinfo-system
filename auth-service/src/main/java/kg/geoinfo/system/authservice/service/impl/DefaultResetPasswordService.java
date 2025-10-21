@@ -1,5 +1,6 @@
 package kg.geoinfo.system.authservice.service.impl;
 
+import com.google.common.collect.ImmutableMap;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import kg.geoinfo.system.authservice.components.ConfirmationStore;
@@ -8,6 +9,7 @@ import kg.geoinfo.system.authservice.config.security.properties.AuthorizationSer
 import kg.geoinfo.system.authservice.dao.entity.UserEntity;
 import kg.geoinfo.system.authservice.exception.InformationException;
 import kg.geoinfo.system.authservice.exception.ResetPasswordException;
+import kg.geoinfo.system.authservice.service.MailSenderService;
 import kg.geoinfo.system.authservice.service.MessageService;
 import kg.geoinfo.system.authservice.service.ResetPasswordService;
 import kg.geoinfo.system.authservice.service.UserService;
@@ -26,17 +28,20 @@ public class DefaultResetPasswordService implements ResetPasswordService {
     private final AuthorizationServerProperties authorizationServerProperties;
     private final UserService userService;
     private final MessageService messageService;
+    private final MailSenderService mailSenderService;
 
     public DefaultResetPasswordService(OTPStore otpStore,
                                        @Qualifier("resetPasswordStore")ConfirmationStore resetPasswordStore,
                                        AuthorizationServerProperties authorizationServerProperties,
                                        UserService userService,
-                                       MessageService messageService) {
+                                       MessageService messageService,
+                                       MailSenderService mailSenderService) {
         this.otpStore = otpStore;
         this.resetPasswordStore = resetPasswordStore;
         this.authorizationServerProperties = authorizationServerProperties;
         this.userService = userService;
         this.messageService = messageService;
+        this.mailSenderService = mailSenderService;
     }
 
     @Override
@@ -56,15 +61,15 @@ public class DefaultResetPasswordService implements ResetPasswordService {
             throw InformationException.builder("$happened.unexpected.error").build();
         }
         UserEntity user = userService.findByEmail(email);
-//        mailSenderService.sendNewMail(
-//            email,
-//            messageService.getMessage("email.subject.init.reset.password"),
-//            ImmutableMap.<String, Object>builder()
-//                .put("firstName", user.getFirstName())
-//                .put("otp", generationResult.otp())
-//                .build()
-//                .toString()
-//        );
+        mailSenderService.sendNewMail(
+            email,
+            messageService.getMessage("email.subject.init.reset.password"),
+            ImmutableMap.<String, Object>builder()
+                .put("firstName", user.getFirstName())
+                .put("otp", generationResult.otp())
+                .build()
+                .toString()
+        );
     }
 
     @Override
@@ -96,15 +101,15 @@ public class DefaultResetPasswordService implements ResetPasswordService {
         UserEntity user = userService.findByEmail(storeItem.email());
 
         // отправляем email сообщение.
-//        mailSenderService.sendNewMail(
-//            storeItem.email(),
-//            messageService.getMessage("email.subject.reset.password"),
-//            ImmutableMap.<String, Object>builder()
-//                .put("firstName", user.getFirstName())
-//                .put("resetPasswordUrl", this.getResetPasswordUrl(resetPasswordSessionId))
-//                .build()
-//                .toString()
-//        );
+        mailSenderService.sendNewMail(
+            storeItem.email(),
+            messageService.getMessage("email.subject.reset.password"),
+            ImmutableMap.<String, Object>builder()
+                .put("firstName", user.getFirstName())
+                .put("resetPasswordUrl", this.getResetPasswordUrl(resetPasswordSessionId))
+                .build()
+                .toString()
+        );
     }
 
     /**

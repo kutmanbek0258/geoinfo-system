@@ -12,7 +12,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableMethodSecurity
@@ -27,7 +26,11 @@ public class ResourceServerConfig {
     @Order(1) // Приоритет для публичной цепочки
     public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/v3/api-docs/**", "/api/documents/public/image/**", "/api/documents/*/content")
+                .securityMatcher(
+                        "/v3/api-docs/**",
+                        "/api/documents/public/image/**",
+                        "/api/documents/*/content",
+                        "/api/documents/*/onlyoffice-callback")
                 .authorizeHttpRequests(customizer -> customizer.anyRequest().permitAll())
                 .sessionManagement(configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(AbstractHttpConfigurer::disable);
