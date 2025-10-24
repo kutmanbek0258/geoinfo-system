@@ -1,7 +1,6 @@
 package kg.geoinfo.system.docservice.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -12,14 +11,16 @@ import kg.geoinfo.system.docservice.models.Document;
 import kg.geoinfo.system.docservice.repository.DocumentRepository;
 import kg.geoinfo.system.docservice.service.filestore.FileStoreService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import org.springframework.security.access.AccessDeniedException;
-
 import javax.crypto.SecretKey;
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -29,11 +30,11 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class OnlyOfficeServiceImpl implements OnlyOfficeService {
     private final DocumentRepository documentRepository;
     private final FileStoreService fileStoreService;
     private final ObjectMapper objectMapper;
-    // private final WebClient.Builder webClientBuilder; // TODO: Uncomment when WebClient is configured
 
     @Value("${onlyoffice.callback-base-url}")
     private String callbackBaseUrl;
@@ -41,12 +42,14 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
     @Value("${onlyoffice.doc-service-url}")
     private String docServiceUrl;
 
+    @Value("${onlyoffice.internal-doc-server-url}")
+    private String internalDocServerUrl;
+
     @Value("${onlyoffice.jwt-secret}")
     private String jwtSecret;
 
-    // TODO: This is a duplicate of the method in DocumentServiceImpl. Refactor to a shared service.
     private void checkGeoObjectAccess(String currentUserEmail, UUID geoObjectId) {
-        System.out.println("TODO: Implement access check for user " + currentUserEmail + " on geo-object: " + geoObjectId);
+        log.warn("TODO: Implement access check for user {} on geo-object: {}", currentUserEmail, geoObjectId);
     }
 
     private SecretKey getSigningKey() {
@@ -56,18 +59,15 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
     @Override
     public OnlyOfficeConfig generateConfig(UUID documentId, String mode, String userId, String userName) {
         Document doc = documentRepository.findById(documentId)
-                .orElseThrow(() -> new IllegalArgumentException("Document not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
 
-        // Perform access check
         checkGeoObjectAccess(userId, doc.getGeoObjectId());
 
-        // Additional check for edit mode
         if ("edit".equalsIgnoreCase(mode) && !doc.getCreatedBy().equals(userId)) {
-            // In a real scenario, you would check for 'DOCUMENT_EDIT_ONLINE' authority as well.
             throw new AccessDeniedException("User is not the owner and cannot edit the document.");
         }
 
-        String fileUrl = docServiceUrl + "/api/documents/" + documentId + "/content";
+        String fileUrl = docServiceUrl + "/api/documents/content/" + documentId;
         String fileType = getFileTypeFromName(doc.getFileName());
         String key = doc.getId().toString() + "-" + doc.getLastModifiedDate().getTime();
 
@@ -80,7 +80,7 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
 
         OnlyOfficeConfig.EditorConfig editorConfig = OnlyOfficeConfig.EditorConfig.builder()
                 .mode(mode)
-                .callbackUrl(callbackBaseUrl + "/" + doc.getId() + "/onlyoffice-callback")
+                .callbackUrl(callbackBaseUrl + "/onlyoffice-callback/" + doc.getId())
                 .userId(userId)
                 .userName(userName)
                 .build();
@@ -103,24 +103,68 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
 
     @Override
     public void handleCallback(UUID documentId, OnlyOfficeCallback callbackPayload) {
-        if (callbackPayload.getStatus() == 2 || callbackPayload.getStatus() == 6) {
-            Document doc = documentRepository.findById(documentId)
-                    .orElseThrow(() -> new IllegalArgumentException("Document not found"));
-            String minioKey = doc.getMinioObjectKey();
-            try (InputStream is = new URL(callbackPayload.getUrl()).openStream()) {
-                fileStoreService.overwrite(minioKey, is);
-            } catch (Exception e) {
-                throw new RuntimeException("OnlyOffice callback file overwrite failed", e);
+        log.info("Received OnlyOffice callback for documentId: {} with status: {}", documentId, callbackPayload.getStatus());
+
+        switch (callbackPayload.getStatus()) {
+            case 2, 6: // Document is ready for saving (2) or must be force-saved (6)
+                saveDocument(documentId, callbackPayload);
+                break;
+            case 1: // User is editing
+                log.info("User is actively editing documentId: {}", documentId);
+                break;
+            case 4: // User closed the document without saving
+                log.info("Document closed without changes for documentId: {}", documentId);
+                break;
+            case 3: // Error saving document
+                log.error("OnlyOffice reported a save error for documentId: {}", documentId);
+                break;
+            case 7: // Error with force-saving
+                log.error("OnlyOffice reported a force-save error for documentId: {}", documentId);
+                break;
+            default:
+                log.warn("Received unknown OnlyOffice callback status: {} for documentId: {}", callbackPayload.getStatus(), documentId);
+                break;
+        }
+    }
+
+    private void saveDocument(UUID documentId, OnlyOfficeCallback callbackPayload) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found on callback: " + documentId));
+
+        try {
+            URL downloadUrl = new URL(callbackPayload.getUrl());
+
+            // SSRF Protection: Validate the hostname
+            URL trustedUrl = new URL(internalDocServerUrl);
+            if (!downloadUrl.getHost().equals(trustedUrl.getHost())) {
+                log.error("SSRF Attack Attempted! Callback URL {} does not match trusted host {}", downloadUrl, trustedUrl.getHost());
+                throw new SecurityException("Callback URL is not trusted.");
             }
+
+            log.info("Downloading updated document from trusted URL: {}", downloadUrl);
+            try (InputStream is = downloadUrl.openStream()) {
+                fileStoreService.overwrite(doc.getMinioObjectKey(), is);
+                log.info("Successfully overwrote document in MinIO: {}", doc.getMinioObjectKey());
+            }
+
+        } catch (MalformedURLException e) {
+            log.error("Invalid URL in OnlyOffice callback for documentId: {}. URL: {}", documentId, callbackPayload.getUrl(), e);
+            throw new RuntimeException("Invalid download URL from OnlyOffice", e);
+        } catch (IOException e) {
+            log.error("Failed to download or save document from OnlyOffice for documentId: {}. URL: {}", documentId, callbackPayload.getUrl(), e);
+            throw new RuntimeException("Could not download file from OnlyOffice", e);
+        } catch (Exception e) {
+            log.error("An unexpected error occurred during OnlyOffice document save for documentId: {}", documentId, e);
+            throw new RuntimeException("Unexpected error during file overwrite", e);
         }
     }
 
     @Override
     public DocumentContent getDocumentContent(UUID documentId) {
         Document doc = documentRepository.findById(documentId)
-                .orElseThrow(() -> new IllegalArgumentException("Document not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
         byte[] content = fileStoreService.find(doc.getMinioObjectKey())
-                .orElseThrow(() -> new RuntimeException("File not found in store"));
+                .orElseThrow(() -> new RuntimeException("File not found in store for key: " + doc.getMinioObjectKey()));
         return new DocumentContent(doc, content);
     }
 

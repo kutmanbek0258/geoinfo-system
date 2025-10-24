@@ -1,5 +1,6 @@
 package kg.geoinfo.system.docservice.controller;
 
+import kg.geoinfo.system.docservice.config.security.filter.OnlyOfficeJwtFilter;
 import kg.geoinfo.system.docservice.dto.DocumentContent;
 import kg.geoinfo.system.docservice.dto.OnlyOfficeCallback;
 import kg.geoinfo.system.docservice.dto.OnlyOfficeConfig;
@@ -14,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -40,19 +42,19 @@ public class OnlyOfficeController {
     /**
      * Callback от OnlyOffice (POST)
      */
-    @PostMapping("/{documentId}/onlyoffice-callback")
-    public ResponseEntity<Void> handleOnlyOfficeCallback(
+    @PostMapping("/onlyoffice-callback/{documentId}")
+    public ResponseEntity<Map<String, Integer>> handleOnlyOfficeCallback(
             @PathVariable UUID documentId,
-            @RequestBody OnlyOfficeCallback callback
-    ) {
+            @RequestAttribute(OnlyOfficeJwtFilter.ONLYOFFICE_CALLBACK_ATTRIBUTE) OnlyOfficeCallback callback) {
         onlyOfficeService.handleCallback(documentId, callback);
-        return ResponseEntity.ok().build();
+        // ONLYOFFICE expects a JSON response with an error code
+        return ResponseEntity.ok(Map.of("error", 0));
     }
 
     /**
      * Эндпоинт для стриминга контента файла в OnlyOffice
      */
-    @GetMapping("/{documentId}/content")
+    @GetMapping("/content/{documentId}")
     public ResponseEntity<byte[]> getDocumentContent(@PathVariable UUID documentId) {
         DocumentContent documentContent = onlyOfficeService.getDocumentContent(documentId);
         Document document = documentContent.document();

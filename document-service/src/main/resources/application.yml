@@ -58,3 +58,4 @@ onlyoffice:
   jwt-secret: a_very_long_and_secure_secret_key_for_onlyoffice_jwt_32_chars
   callback-base-url: http://document-service:9003/api/documents
   doc-service-url: http://document-service:9003
+  internal-doc-server-url: http://onlyoffice-doc-server # For SSRF protection

@@ -40,7 +40,7 @@ class DocumentService {
 
   getOnlyOfficeConfig(documentId: string, mode: 'edit' | 'view' = 'view') {
       // userId и userName должны получаться из состояния аутентификации
-      const params = { mode: 'edit', userId: '1', userName: 'Guest' };
+      const params = { mode: 'edit'};
       return api.get(`/documents/${documentId}/onlyoffice-config`, { params });
   }
 }

@@ -94,7 +94,8 @@ API Gateway предоставляет единую точку входа и п�
 
 ### Интеграция с OnlyOffice (`/api/documents`)
 - `GET /{documentId}/onlyoffice-config` - **Authority: `DOCUMENT_READ`**: Получить конфигурацию для редактора OnlyOffice.
-- `POST /{documentId}/onlyoffice-callback` - **Public (защищено JWT OnlyOffice)**: Callback от OnlyOffice для сохранения изменений.
+- `POST /onlyoffice-callback/{documentId}` - **Public (защищено JWT OnlyOffice)**: Callback от OnlyOffice для сохранения изменений.
+- `GET /content/{documentId}` - **Public (защищено JWT OnlyOffice)**: Для получения документа в OnlyOffice.
 
 ---
 
