@@ -13,6 +13,7 @@ import kg.geoinfo.system.authservice.service.FileStoreService;
 import kg.geoinfo.system.authservice.type.AuthErrorCode;
 import kg.geoinfo.system.authservice.type.AuthProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DefaultAuthProviderService implements AuthProviderService {
 
     @Value("${yandex-avatar-url}")
@@ -42,6 +44,7 @@ public class DefaultAuthProviderService implements AuthProviderService {
             case GITHUB -> this.saveUserFromGithab(userDto);
             case GOOGLE -> this.saveUserFromGoogle(userDto);
             case YANDEX -> this.saveUserFromYandex(userDto);
+            case AZURE -> this.saveUserFromAzure(userDto);
         };
     }
 
@@ -150,6 +153,34 @@ public class DefaultAuthProviderService implements AuthProviderService {
     }
 
     /**
+     * Метод описывающий создание/обновление UserEntity на основе OAuth2User полученного из провайдера Azure
+     */
+    private UserEntity saveUserFromAzure(OAuth2User userDto) {
+        String email = userDto.getAttribute("email");
+        if (email == null) {
+            email = userDto.getAttribute("preferred_username");
+        }
+        if (email == null) {
+            email = userDto.getAttribute("upn"); // User Principal Name
+        }
+
+        if (email == null) {
+            log.error("Cannot extract user email from Azure AD. Attributes: {}", userDto.getAttributes());
+            throw new AuthException(AuthErrorCode.EMAIL_IS_EMPTY);
+        }
+
+        UserEntity user = this.getEntityByEmail(email);
+
+        // Не обновляем пользователя если он уже существует в БД
+        if (user.getId() == null) {
+            user.setFirstName(userDto.getAttribute("given_name"));
+            user.setLastName(userDto.getAttribute("family_name"));
+            user = userRepository.save(user);
+        }
+        return user;
+    }
+
+    /**
      * Метод получения сущности UserEntity по email
      * Если пользователь с данным email не найден в БД, то создаём новую сущность
      */
@@ -174,7 +205,7 @@ public class DefaultAuthProviderService implements AuthProviderService {
     private String createAvatarUrl(AuthProvider authProvider, String valueAvatarAttr) {
         return switch (authProvider) {
             case YANDEX -> yandexAvatarUrl.replace("{avatarId}", valueAvatarAttr);
-            case GITHUB, GOOGLE -> valueAvatarAttr;
+            case GITHUB, GOOGLE, AZURE -> valueAvatarAttr;
         };
     }
 

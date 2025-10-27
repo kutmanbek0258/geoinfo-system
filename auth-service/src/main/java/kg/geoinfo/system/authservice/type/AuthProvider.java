@@ -5,7 +5,8 @@ import java.util.stream.Stream;
 public enum AuthProvider {
     GOOGLE("google"),
     GITHUB("github"),
-    YANDEX("yandex");
+    YANDEX("yandex"),
+    AZURE("azure");
 
     private final String providerName;
 

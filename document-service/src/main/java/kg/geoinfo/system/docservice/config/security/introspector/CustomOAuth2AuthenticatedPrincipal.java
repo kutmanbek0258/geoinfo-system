@@ -29,6 +29,7 @@ public class CustomOAuth2AuthenticatedPrincipal extends TokenInfoOAuth2ClaimAcce
             // Основные данные пользователя
             attributes.put("id", delegate.getId());
             attributes.put("username", delegate.getName());
+            attributes.put("fullName", delegate.getFirstName() + " " + delegate.getLastName());
             // можно добавить другие поля delegate
         }
 

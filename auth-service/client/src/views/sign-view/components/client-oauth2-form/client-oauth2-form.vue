@@ -9,6 +9,9 @@
         <v-btn class="enter-btn" icon variant="text" @click="()=>loginWith('github')">
             <img :src="githubIcon"/>
         </v-btn>
+        <v-btn class="enter-btn" icon variant="text" @click="()=>loginWith('azure')">
+            <img :src="azureIcon"/>
+        </v-btn>
     </div>
 </template>
 
@@ -24,6 +27,7 @@
     const googleIcon = require("@/assets/img/google.svg");
     const githubIcon = require("@/assets/img/github.svg");
     const yandexIcon = require("@/assets/img/yandex.svg");
+    const azureIcon = require("@/assets/img/azure.svg");
 
     let loginWith = (providerName) => {
         ClientOauth2FormAPI.loginWith(providerName);

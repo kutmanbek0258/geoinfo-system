@@ -35,7 +35,7 @@ public class OnlyOfficeController {
             @RequestParam(defaultValue = "view") String mode
     ) {
         // The service now needs the user to perform access checks
-        OnlyOfficeConfig config = onlyOfficeService.generateConfig(documentId, mode, principal.getName(), principal.getAttribute("name"));
+        OnlyOfficeConfig config = onlyOfficeService.generateConfig(documentId, mode, principal.getName(), principal.getAttribute("fullName"));
         return ResponseEntity.ok(config);
     }
 
