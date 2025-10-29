@@ -101,14 +101,14 @@ spring:
         authorization-consent-ttl: 10800000
       client:
         registration:
-          azure:
-            provider: azure
-            client-id: <your id>
-            client-secret: <your credentails>
-            scope:
-              - openid
-              - profile
-              - email
+#          azure:
+#            provider: azure
+#            client-id: <your id>
+#            client-secret: <your credentails>
+#            scope:
+#              - openid
+#              - profile
+#              - email
           github:
             clientId: ${USER_SERVICE_GITHUB_CLIENT_ID}
             clientSecret: ${USER_SERVICE_GITHUB_CLIENT_SECRET}
@@ -131,8 +131,8 @@ spring:
             clientName: Yandex
 
         provider:
-          azure:
-            issuer-uri: https://login.microsoftonline.com/<your creadentails>/v2.0
+#          azure:
+#            issuer-uri: https://login.microsoftonline.com/<your creadentails>/v2.0
           yandex:
             authorization-uri: https://oauth.yandex.ru/authorize
             token-uri: https://oauth.yandex.ru/token
