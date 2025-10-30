@@ -56,7 +56,7 @@ const actions = {
         }
     },
 
-    async uploadDocument({ commit, dispatch }, { file, geoObjectId, description, tags }: { file: File, geoObjectId: string, description?: string, tags?: string }) {
+    async uploadDocument({ commit, dispatch }: ActionContext<DocumentState, any>, { file, geoObjectId, description, tags }: { file: File, geoObjectId: string, description?: string, tags?: string }) {
         commit('SET_UPLOADING', true);
         commit('SET_ERROR', null);
         try {
@@ -70,7 +70,7 @@ const actions = {
         }
     },
 
-    async deleteDocument({ commit, dispatch }, { docId, geoObjectId }: { docId: string, geoObjectId: string }) {
+    async deleteDocument({ commit, dispatch }: ActionContext<DocumentState, any>, { docId, geoObjectId }: { docId: string, geoObjectId: string }) {
         commit('SET_LOADING', true); // Можно использовать общий лоадер
         commit('SET_ERROR', null);
         try {

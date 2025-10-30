@@ -4,7 +4,9 @@ import geodata from './geodata.store';
 import document from './document.store';
 import search from './search.store';
 
-export const store = createStore({
+export interface RootState {}
+
+export const store = createStore<RootState>({
     modules: {
         alert,
         geodata,

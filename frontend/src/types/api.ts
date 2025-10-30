@@ -6,7 +6,7 @@ export interface Page<T> {
     number: number;
 }
 
-export type Status = 'ACTIVE' | 'INACTIVE' | 'DELETED';
+export type Status = 'ACTIVE' | 'INACTIVE' | 'DELETED' | 'COMPLETED' | 'IN_PROCESS' | 'REJECTED';
 
 export interface Project {
     id: string; // UUID
@@ -34,6 +34,7 @@ export interface ProjectPoint {
     description?: string;
     status: Status;
     geom: any; // GeoJSON Point
+    imageUrl?: string;
 }
 
 export interface ProjectMultiline {
@@ -44,6 +45,7 @@ export interface ProjectMultiline {
     status: Status;
     geom: any; // GeoJSON MultiLineString
     lengthM?: number;
+    imageUrl?: string;
 }
 
 export interface ProjectPolygon {
@@ -54,6 +56,7 @@ export interface ProjectPolygon {
     status: Status;
     geom: any; // GeoJSON Polygon
     areaM2?: number;
+    imageUrl?: string;
 }
 
 export interface Document {

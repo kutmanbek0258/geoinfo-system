@@ -1,4 +1,4 @@
-import type { Module } from 'vuex';
+import type { Module, Commit } from 'vuex';
 import type { RootState } from './index';
 
 export interface AlertState {
@@ -12,13 +12,13 @@ const state: AlertState = {
 };
 
 const actions = {
-    success({ commit }, message: string) {
+    success({ commit }: { commit: Commit }, message: string) {
         commit('success', message);
     },
-    error({ commit }, message: string) {
+    error({ commit }: { commit: Commit }, message: string) {
         commit('error', message);
     },
-    clear({ commit }) {
+    clear({ commit }: { commit: Commit }) {
         commit('clear');
     }
 };

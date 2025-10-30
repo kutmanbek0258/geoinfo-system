@@ -55,8 +55,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="blue darken-1" text @click="dialog = false">Cancel</v-btn>
-          <v-btn color="blue darken-1" text @click="saveProject">Save</v-btn>
+          <v-btn color="blue darken-1" variant="text" @click="dialog = false">Cancel</v-btn>
+          <v-btn color="blue darken-1" variant="text" @click="saveProject">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -84,8 +84,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="blue darken-1" text @click="shareDialog = false">Cancel</v-btn>
-          <v-btn color="blue darken-1" text @click="executeShare">Share</v-btn>
+          <v-btn color="blue darken-1" variant="text" @click="shareDialog = false">Cancel</v-btn>
+          <v-btn color="blue darken-1" variant="text" @click="executeShare">Share</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

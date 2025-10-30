@@ -25,10 +25,13 @@ router.beforeEach((to, from, next) => {
         next({name: 'Login'});
     }
 
-    if (to.path === '/code' && to.query.code != null) {
-        LoginService.getTokens(to.query.code).then(() => {
-            console.log('Logged in!');
-        });
+    if (to.path === '/code' && to.query.code) {
+        const code = Array.isArray(to.query.code) ? to.query.code[0] : to.query.code;
+        if (code) {
+            LoginService.getTokens(code).then(() => {
+                console.log('Logged in!');
+            });
+        }
     }
 
     next();

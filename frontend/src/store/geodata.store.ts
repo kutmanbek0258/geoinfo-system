@@ -117,20 +117,20 @@ const actions = {
             commit('SET_LOADING', false);
         }
     },
-    async createProject({ dispatch }, { projectData, page, size }: { projectData: Omit<Project, 'id'>, page: number, size: number }) {
+    async createProject({ dispatch }: ActionContext<GeodataState, any>, { projectData, page, size }: { projectData: Omit<Project, 'id'>, page: number, size: number }) {
         await geodataService.createProject(projectData);
         dispatch('fetchProjects', { page, size });
     },
-    async updateProject({ dispatch }, { projectData, page, size }: { projectData: Project, page: number, size: number }) {
+    async updateProject({ dispatch }: ActionContext<GeodataState, any>, { projectData, page, size }: { projectData: Project, page: number, size: number }) {
         await geodataService.updateProject(projectData.id, projectData);
         dispatch('fetchProjects', { page, size });
     },
-    async deleteProject({ dispatch }, { projectId, page, size }: { projectId: string, page: number, size: number }) {
+    async deleteProject({ dispatch }: ActionContext<GeodataState, any>, { projectId, page, size }: { projectId: string, page: number, size: number }) {
         await geodataService.deleteProject(projectId);
         dispatch('fetchProjects', { page, size });
     },
 
-    async shareProject({ commit }, { projectId, email, permissionLevel }: { projectId: string, email: string, permissionLevel: string }) {
+    async shareProject({ commit }: ActionContext<GeodataState, any>, { projectId, email, permissionLevel }: { projectId: string, email: string, permissionLevel: string }) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
@@ -157,15 +157,15 @@ const actions = {
             commit('SET_LOADING', false);
         }
     },
-    async createImageryLayer({ dispatch }, { layerData, page, size }: { layerData: Omit<ImageryLayer, 'id'>, page: number, size: number }) {
+    async createImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: Omit<ImageryLayer, 'id'>, page: number, size: number }) {
         await geodataService.createImageryLayer(layerData);
         dispatch('fetchImageryLayers', { page, size });
     },
-    async updateImageryLayer({ dispatch }, { layerData, page, size }: { layerData: ImageryLayer, page: number, size: number }) {
+    async updateImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: ImageryLayer, page: number, size: number }) {
         await geodataService.updateImageryLayer(layerData.id, layerData);
         dispatch('fetchImageryLayers', { page, size });
     },
-    async deleteImageryLayer({ dispatch }, { layerId, page, size }: { layerId: string, page: number, size: number }) {
+    async deleteImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
         await geodataService.deleteImageryLayer(layerId);
         dispatch('fetchImageryLayers', { page, size });
     },
@@ -196,19 +196,19 @@ const actions = {
     },
 
     // Point Actions
-    async createPoint({ dispatch, state }, pointData: Omit<ProjectPoint, 'id'>) {
+    async createPoint({ dispatch, state }: ActionContext<GeodataState, any>, pointData: Omit<ProjectPoint, 'id'>) {
         await geodataService.createPoint(pointData);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
         }
     },
-    async updatePoint({ dispatch, state }, pointData: ProjectPoint) {
+    async updatePoint({ dispatch, state }: ActionContext<GeodataState, any>, pointData: ProjectPoint) {
         await geodataService.updatePoint(pointData.id, pointData);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
         }
     },
-    async deletePoint({ dispatch, state }, pointId: string) {
+    async deletePoint({ dispatch, state }: ActionContext<GeodataState, any>, pointId: string) {
         await geodataService.deletePoint(pointId);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
@@ -216,19 +216,19 @@ const actions = {
     },
 
     // Multiline Actions
-    async createMultiline({ dispatch, state }, multilineData: Omit<ProjectMultiline, 'id'>) {
+    async createMultiline({ dispatch, state }: ActionContext<GeodataState, any>, multilineData: Omit<ProjectMultiline, 'id'>) {
         await geodataService.createMultiline(multilineData);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
         }
     },
-    async updateMultiline({ dispatch, state }, multilineData: ProjectMultiline) {
+    async updateMultiline({ dispatch, state }: ActionContext<GeodataState, any>, multilineData: ProjectMultiline) {
         await geodataService.updateMultiline(multilineData.id, multilineData);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
         }
     },
-    async deleteMultiline({ dispatch, state }, multilineId: string) {
+    async deleteMultiline({ dispatch, state }: ActionContext<GeodataState, any>, multilineId: string) {
         await geodataService.deleteMultiline(multilineId);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
@@ -236,19 +236,19 @@ const actions = {
     },
 
     // Polygon Actions
-    async createPolygon({ dispatch, state }, polygonData: Omit<ProjectPolygon, 'id'>) {
+    async createPolygon({ dispatch, state }: ActionContext<GeodataState, any>, polygonData: Omit<ProjectPolygon, 'id'>) {
         await geodataService.createPolygon(polygonData);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
         }
     },
-    async updatePolygon({ dispatch, state }, polygonData: ProjectPolygon) {
+    async updatePolygon({ dispatch, state }: ActionContext<GeodataState, any>, polygonData: ProjectPolygon) {
         await geodataService.updatePolygon(polygonData.id, polygonData);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
         }
     },
-    async deletePolygon({ dispatch, state }, polygonId: string) {
+    async deletePolygon({ dispatch, state }: ActionContext<GeodataState, any>, polygonId: string) {
         await geodataService.deletePolygon(polygonId);
         if (state.selectedProjectId) {
             dispatch('fetchVectorDataForProject', state.selectedProjectId);
@@ -256,44 +256,7 @@ const actions = {
     },
 
     // Generic Feature Actions
-    async updateFeature({ dispatch, state }, { id, type, data }) {
-        const { name, description } = data;
-        let featureData = {};
-        let feature;
-
-        switch (type) {
-            case 'Point':
-                feature = state.points.find(f => f.id === id);
-                break;
-            case 'MultiLineString':
-                feature = state.multilines.find(f => f.id === id);
-                break;
-            case 'Polygon':
-                feature = state.polygons.find(f => f.id === id);
-                break;
-        }
-
-        if (!feature) {
-            throw new Error(`Feature with id ${id} not found`);
-        }
-
-        featureData = { ...feature, name, description };
-
-        switch (type) {
-            case 'Point':
-                await dispatch('updatePoint', featureData);
-                break;
-            case 'MultiLineString':
-                await dispatch('updateMultiline', featureData);
-                break;
-            case 'Polygon':
-                await dispatch('updatePolygon', featureData);
-                break;
-        }
-    },
-
-    // Generic Feature Actions
-    async createFeature({ commit }, { type, data }) {
+    async createFeature({ commit }: ActionContext<GeodataState, any>, { type, data }: { type: string, data: any }) {
         let newFeature;
         switch (type) {
             case 'Point':
@@ -310,20 +273,20 @@ const actions = {
     },
 
     // Generic Feature Actions
-    async updateFeature({ commit, state }, { id, type, data }) {
+    async updateFeature({ commit, state }: ActionContext<GeodataState, any>, { id, type, data }: { id: string, type: string, data: { name: string, description: string } }) {
         const { name, description } = data;
         let featureData = {};
         let feature;
 
         switch (type) {
             case 'Point':
-                feature = state.points.find(f => f.id === id);
+                feature = state.points.find((f: ProjectPoint) => f.id === id);
                 break;
             case 'MultiLineString':
-                feature = state.multilines.find(f => f.id === id);
+                feature = state.multilines.find((f: ProjectMultiline) => f.id === id);
                 break;
             case 'Polygon':
-                feature = state.polygons.find(f => f.id === id);
+                feature = state.polygons.find((f: ProjectPolygon) => f.id === id);
                 break;
         }
 
@@ -336,19 +299,19 @@ const actions = {
         let updatedFeature;
         switch (type) {
             case 'Point':
-                updatedFeature = (await geodataService.updatePoint(id, featureData)).data;
+                updatedFeature = (await geodataService.updatePoint(id, featureData as ProjectPoint)).data;
                 break;
             case 'MultiLineString':
-                updatedFeature = (await geodataService.updateMultiline(id, featureData)).data;
+                updatedFeature = (await geodataService.updateMultiline(id, featureData as ProjectMultiline)).data;
                 break;
             case 'Polygon':
-                updatedFeature = (await geodataService.updatePolygon(id, featureData)).data;
+                updatedFeature = (await geodataService.updatePolygon(id, featureData as ProjectPolygon)).data;
                 break;
         }
         commit('UPDATE_FEATURE', { type, data: updatedFeature });
     },
 
-    async deleteFeature({ commit }, { id, type }) {
+    async deleteFeature({ commit, state }: ActionContext<GeodataState, any>, { id, type }: { id: string, type: string }) {
         switch (type) {
             case 'Point':
                 await geodataService.deletePoint(id);
@@ -366,7 +329,7 @@ const actions = {
         }
     },
 
-    async uploadMainImage({ commit }, { objectType, objectId, file }: { objectType: 'points' | 'multilines' | 'polygons', objectId: string, file: File }) {
+    async uploadMainImage({ commit }: ActionContext<GeodataState, any>, { objectType, objectId, file }: { objectType: 'points' | 'multilines' | 'polygons', objectId: string, file: File }) {
         let typeForMutation: 'Point' | 'MultiLineString' | 'Polygon';
         switch (objectType) {
             case 'points': typeForMutation = 'Point'; break;

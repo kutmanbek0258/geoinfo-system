@@ -67,7 +67,7 @@
             :feature-id="selectedFeatureId"
             :feature-name="selectedFeature?.name"
             :feature-description="selectedFeature?.description"
-            :feature-type="selectedFeature?.type"
+            :feature-type="selectedFeature?.type || ''"
             :feature-image-url="selectedFeature?.imageUrl"
         />
     </div>
@@ -88,7 +88,7 @@
             </v-card-text>
             <v-card-actions>
                 <v-spacer></v-spacer>
-                <v-btn text @click="cancelNewFeature">Cancel</v-btn>
+                <v-btn variant="text" @click="cancelNewFeature">Cancel</v-btn>
                 <v-btn color="primary" @click="saveNewFeature">Save</v-btn>
             </v-card-actions>
         </v-card>
@@ -221,14 +221,21 @@ const updateVectorSource = () => {
     vectorSource.clear();
     const allObjects = [...points.value, ...multilines.value, ...polygons.value];
     
-    const features = allObjects.map(obj => {
-        const feature = geoJsonFormat.readFeature(obj.geom);
-        feature.setId(obj.id); // Устанавливаем внутренний ID для OpenLayers
-        feature.set('id', obj.id); // Устанавливаем ID в свойства фичи для обратной совместимости
-        return feature;
+    const features = allObjects.flatMap(obj => {
+        const readFeatures = geoJsonFormat.readFeature(obj.geom);
+        const featureArray = Array.isArray(readFeatures) ? readFeatures : [readFeatures];
+        
+        featureArray.forEach(feature => {
+            if (feature) {
+                feature.setId(obj.id); // Устанавливаем внутренний ID для OpenLayers
+                feature.set('id', obj.id); // Устанавливаем ID в свойства фичи для обратной совместимости
+            }
+        });
+        
+        return featureArray;
     });
 
-    vectorSource.addFeatures(features);
+    vectorSource.addFeatures(features.filter(f => f) as Feature<any>[]);
     zoomToExtent();
 };
 
@@ -250,8 +257,11 @@ watch(selectedFeatureId, (newId) => {
   if (!newId || !map) return;
   const feature = vectorSource.getFeatureById(newId);
   if (feature) {
-    const extent = feature.getGeometry().getExtent();
-    map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
+    const geometry = feature.getGeometry();
+    if (geometry) {
+      const extent = geometry.getExtent();
+      map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
+    }
   }
 });
 
@@ -313,11 +323,13 @@ watch(drawMode, (newMode) => {
 
         drawInteraction.on('drawend', (event) => {
             const geometry = event.feature.getGeometry();
-            newObjectGeometry.value = geoJsonFormat.writeGeometryObject(geometry);
-            
-            // Сбрасываем метаданные и открываем диалог
-            newObjectMetadata.value = { name: '', description: '', status: 'IN_PROCESS' as Status };
-            metadataDialog.value = true;
+            if (geometry) {
+                newObjectGeometry.value = geoJsonFormat.writeGeometryObject(geometry);
+                
+                // Сбрасываем метаданные и открываем диалог
+                newObjectMetadata.value = { name: '', description: '', status: 'IN_PROCESS' as Status };
+                metadataDialog.value = true;
+            }
 
             // Выключаем режим рисования
             drawMode.value = null;
@@ -353,10 +365,13 @@ const zoomToExtent = () => {
 
   const extent = createEmpty();
   features.forEach(feature => {
-    extend(extent, feature.getGeometry().getExtent());
+    const geometry = feature.getGeometry();
+    if (geometry) {
+        extend(extent, geometry.getExtent());
+    }
   });
 
-  if (extent && extent.every(isFinite)) {
+  if (extent && extent.every(isFinite) && (extent[0] !== Infinity)) {
     map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
   }
 };

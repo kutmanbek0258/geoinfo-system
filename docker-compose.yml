@@ -107,11 +107,9 @@ services:
 
   # ====== GEOSERVER ======
   geoserver:
-    build:
-      context: ./geoserver
-      dockerfile: Dockerfile
+    image: kartoza/geoserver:2.23.2
     volumes:
-      - ./geoserver_uploads:/opt/geoserver_data/uploads
+      - ./geoserver_uploads:/opt/geoserver/data_dir/uploads
     environment:
       - GEOSERVER_ADMIN_USER=admin
       - GEOSERVER_ADMIN_PASSWORD=geoserver
@@ -211,3 +209,9 @@ services:
     environment:
       ELASTICSEARCH_URI: elasticsearch:9200
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend

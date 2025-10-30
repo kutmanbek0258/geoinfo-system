@@ -81,7 +81,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text @click="cancelUpload">Cancel</v-btn>
+          <v-btn variant="text" @click="cancelUpload">Cancel</v-btn>
           <v-btn color="primary" @click="confirmUpload" :loading="isUploading">Confirm & Upload</v-btn>
         </v-card-actions>
       </v-card>
@@ -97,7 +97,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text @click="cancelEdit">Cancel</v-btn>
+          <v-btn variant="text" @click="cancelEdit">Cancel</v-btn>
           <v-btn color="primary" @click="confirmEdit">Save</v-btn>
         </v-card-actions>
       </v-card>
