@@ -36,6 +36,8 @@ services:
 
   # ====== GEOSERVER ======
   geoserver:
+    ports:
+      - "8085:8080"
     networks:
       - external
 
@@ -54,40 +56,43 @@ services:
   config-server:
     networks:
       - internal
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
+#    environment:
+#      SPRING_PROFILES_ACTIVE: prod
 
   discovery-server:
     networks:
       - internal
     environment:
       EUREKA_INSTANCE_HOSTNAME: discovery-server
-      SPRING_PROFILES_ACTIVE: prod
+#      SPRING_PROFILES_ACTIVE: prod
 
   api-gateway:
     ports:
-      - "80:8080"
+      - "9005:9005"
     networks:
       - internal
       - external
     depends_on:
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
+#    environment:
+#      SPRING_PROFILES_ACTIVE: prod
 
   # ====== Microservices ======
   auth-service:
+    ports:
+      - "9001:9001"
     networks:
       - internal
+      - external
     depends_on:
       - postgres-auth
       - redis-auth
       - kafka
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
+#    environment:
+#      SPRING_PROFILES_ACTIVE: prod
 
   geodata-service:
     networks:
@@ -97,8 +102,8 @@ services:
       - kafka
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
+#    environment:
+#      SPRING_PROFILES_ACTIVE: prod
 
   document-service:
     networks:
@@ -108,8 +113,8 @@ services:
       - kafka
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
+#    environment:
+#      SPRING_PROFILES_ACTIVE: prod
 
   search-service:
     networks:
@@ -119,12 +124,16 @@ services:
       - kafka
       - config-server
       - discovery-server
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
+#    environment:
+#      SPRING_PROFILES_ACTIVE: prod
+  frontend:
+    ports:
+      - "8080:8080"
+    networks:
+      - external
 
 networks:
   internal:
     driver: bridge
-    internal: true
   external:
     driver: bridge

@@ -27,6 +27,7 @@ public class ResourceServerConfig {
         http
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .authorizeExchange(exchanges -> exchanges
+                .pathMatchers("/auth/**").permitAll()
                 .pathMatchers("/v3/api-docs").permitAll()
                 .pathMatchers("/api/documents/public/image/**").permitAll()
                 .anyExchange().authenticated()

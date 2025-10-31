@@ -4,7 +4,7 @@ import router from '@/router';
 const serverUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:9001';
 const clientId = 'test-client';
 const authHeaderValue = 'Basic dGVzdC1jbGllbnQ6dGVzdC1jbGllbnQ=';
-const redirectUri = 'http://localhost:8080/code';
+const redirectUri = import.meta.env.VITE_AUTH_CALLBACK_URL || 'http://localhost:8080/code';
 
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";

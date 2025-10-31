@@ -32,6 +32,13 @@ spring:
           predicates:
             - Path=/geoserver/**
 
+        - id: auth-service
+          uri: http://localhost:9001
+          predicates:
+            - Path=/auth/**
+          filters:
+            - RewritePath=/auth(?<segment>/?.*), $\{segment}
+
       globalcors:
         cors-configurations:
           '[/**]':
