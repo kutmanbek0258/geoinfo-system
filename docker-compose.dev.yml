@@ -28,11 +28,14 @@ services:
 
   # ====== Message Broker ======
   kafka:
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 3
+        window: 120s
     ports:
       - "9092:9092"
-    depends_on:
-      zookeeper:
-        condition: service_healthy
     networks:
       - dev-net
 
@@ -89,11 +92,6 @@ services:
       - "9005:9005"
     networks:
       - dev-net
-    depends_on:
-      config-server:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
 
   # ====== Microservices ======
   auth-service:
@@ -101,62 +99,24 @@ services:
       - "9001:9001"
     networks:
       - dev-net
-    depends_on:
-      postgres-auth:
-        condition: service_healthy
-      redis-auth:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
 
   geodata-service:
     ports:
       - "9002:9002"
     networks:
       - dev-net
-    depends_on:
-      postgres-geodata:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
 
   document-service:
     ports:
       - "9003:9003"
     networks:
       - dev-net
-    depends_on:
-      postgres-geodata:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
 
   search-service:
     ports:
       - "9004:9004"
     networks:
       - dev-net
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
 
   frontend:
     ports:

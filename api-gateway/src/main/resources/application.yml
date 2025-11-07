@@ -27,18 +27,6 @@ spring:
           predicates:
             - Path=/api/search/**
 
-        - id: geoserver-route
-          uri: http://localhost:8085 # Адрес GeoServer в Docker-сети
-          predicates:
-            - Path=/geoserver/**
-
-        - id: auth-service
-          uri: http://localhost:9001
-          predicates:
-            - Path=/auth/**
-          filters:
-            - RewritePath=/auth(?<segment>/?.*), $\{segment}
-
       globalcors:
         cors-configurations:
           '[/**]':

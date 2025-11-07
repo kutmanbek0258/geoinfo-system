@@ -4,136 +4,105 @@ services:
   # ====== Databases (оставлены без изменений) ======
   postgres-auth:
     networks:
-      - internal
+      - prod-net
 
   redis-auth:
     networks:
-      - internal
+      - prod-net
 
   postgres-geodata:
     networks:
-      - internal
+      - prod-net
 
   postgres-docs:
     networks:
-      - internal
+      - prod-net
 
   # ====== Message Broker ======
   kafka:
     depends_on:
       - zookeeper
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 3
+        window: 120s
     networks:
-      - internal
+      - prod-net
 
   zookeeper:
     networks:
-      - internal
+      - prod-net
 
   # ====== Elasticsearch for Search Service ======
   elasticsearch:
     networks:
-      - internal
+      - prod-net
 
   # ====== GEOSERVER ======
   geoserver:
     ports:
       - "8085:8080"
     networks:
-      - external
+      - prod-net
 
   # ======= MINIO STORAGE ======
   minio:
     networks:
-      - internal
+      - prod-net
 
   # ====== ONLYOFFICE DOC SERVER ======
   onlyoffice-doc-server:
+    ports:
+      - "8081:80"
     networks:
-      - internal
-      - external
+      - prod-net
 
   # ====== Config, Discovery, Gateway ======
   config-server:
     networks:
-      - internal
-#    environment:
-#      SPRING_PROFILES_ACTIVE: prod
+      - prod-net
 
   discovery-server:
     networks:
-      - internal
+      - prod-net
     environment:
       EUREKA_INSTANCE_HOSTNAME: discovery-server
-#      SPRING_PROFILES_ACTIVE: prod
 
   api-gateway:
     ports:
       - "9005:9005"
     networks:
-      - internal
-      - external
-    depends_on:
-      - config-server
-      - discovery-server
-#    environment:
-#      SPRING_PROFILES_ACTIVE: prod
+      - prod-net
 
   # ====== Microservices ======
   auth-service:
     ports:
       - "9001:9001"
     networks:
-      - internal
-      - external
-    depends_on:
-      - postgres-auth
-      - redis-auth
-      - kafka
-      - config-server
-      - discovery-server
-#    environment:
-#      SPRING_PROFILES_ACTIVE: prod
+      - prod-net
+    environment:
+      server.servlet.context-path: http://localhost:9001
 
   geodata-service:
     networks:
-      - internal
-    depends_on:
-      - postgres-geodata
-      - kafka
-      - config-server
-      - discovery-server
-#    environment:
-#      SPRING_PROFILES_ACTIVE: prod
+      - prod-net
 
   document-service:
     networks:
-      - internal
-    depends_on:
-      - postgres-docs
-      - kafka
-      - config-server
-      - discovery-server
-#    environment:
-#      SPRING_PROFILES_ACTIVE: prod
+      - prod-net
 
   search-service:
     networks:
-      - internal
-    depends_on:
-      - elasticsearch
-      - kafka
-      - config-server
-      - discovery-server
-#    environment:
-#      SPRING_PROFILES_ACTIVE: prod
+      - prod-net
+
   frontend:
     ports:
       - "8080:8080"
     networks:
-      - external
+      - prod-net
 
 networks:
-  internal:
-    driver: bridge
-  external:
+  prod-net:
     driver: bridge
