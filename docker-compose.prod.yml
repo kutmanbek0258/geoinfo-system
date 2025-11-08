@@ -83,7 +83,7 @@ services:
     networks:
       - prod-net
     environment:
-      server.servlet.context-path: http://localhost:9001
+      AUTH_SERVICE_DOMAIN: http://localhost:9001
 
   geodata-service:
     networks:

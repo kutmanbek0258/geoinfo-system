@@ -91,11 +91,11 @@ spring:
           client-secret: sso-client
           introspection-uri: http://localhost:9001/oauth2/token-info
       authorizationserver:
-        issuer-url: http://localhost:9001${server.servlet.context-path}
+        issuer-url: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}
         introspection-endpoint: /oauth2/token-info
         reset-password-endpoint: /client/auth/reset-password
-        authentication-success-url: http://localhost:9001${server.servlet.context-path}/client/oauth/continue
-        saved-request-url-starts-with: http://localhost:9001${server.servlet.context-path}/oauth2/authorize
+        authentication-success-url: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/client/oauth/continue
+        saved-request-url-starts-with: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/oauth2/authorize
         custom-handler-header-name: J-Sso-Next-Location
         authorization-ttl: 10800000
         authorization-consent-ttl: 10800000
@@ -112,12 +112,12 @@ spring:
           github:
             clientId: ${USER_SERVICE_GITHUB_CLIENT_ID}
             clientSecret: ${USER_SERVICE_GITHUB_CLIENT_SECRET}
-            redirect-uri: http://localhost:9001${server.servlet.context-path}/login/oauth2/code/github
+            redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/login/oauth2/code/github
 
           google:
             clientId: ${USER_SERVICE_GOOGLE_CLIENT_ID}
             clientSecret: ${USER_SERVICE_GOOGLE_CLIENT_SECRET}
-            redirect-uri: http://localhost:9001${server.servlet.context-path}/login/oauth2/code/google
+            redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/login/oauth2/code/google
             scope:
               - email
               - profile
@@ -126,7 +126,7 @@ spring:
             provider: yandex
             clientId: ${USER_SERVICE_YANDEX_CLIENT_ID}
             clientSecret: ${USER_SERVICE_YANDEX_CLIENT_SECRET}
-            redirect-uri: http://localhost:9001${server.servlet.context-path}/login/oauth2/code/yandex
+            redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/login/oauth2/code/yandex
             authorizationGrantType: authorization_code
             clientName: Yandex
 
