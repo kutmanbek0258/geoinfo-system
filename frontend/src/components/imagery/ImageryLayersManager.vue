@@ -127,7 +127,7 @@ const openCreateDialog = () => {
     description: '',
     workspace: 'geoinfo',
     layerName: '',
-    serviceUrl: 'http://localhost:8080/geoserver/wms',
+    serviceUrl: import.meta.env.VITE_GEOSERVER_URL,
     dateCaptured: new Date().toISOString().split('T')[0],
     status: 'COMPLETED',
     style: '',

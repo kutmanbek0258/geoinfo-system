@@ -19,6 +19,10 @@ COPY --from=build-stage /app/dist /var/www/html/wms-client
 COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/wms-client.conf /etc/nginx/conf.d/wms-client.conf
 
+COPY ./entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 8080
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

@@ -19,7 +19,7 @@ const loadOnlyOfficeScript = () => {
     }
     const script = document.createElement('script');
     script.id = SCRIPT_ID;
-    script.src = 'http://localhost:8081/web-apps/apps/api/documents/api.js'; // URL вашего Document Server
+    script.src = `${import.meta.env.VITE_ONLYOFFICE_URL}/web-apps/apps/api/documents/api.js`; // URL вашего Document Server
     script.onload = () => resolve();
     script.onerror = (err) => reject(err);
     document.head.appendChild(script);

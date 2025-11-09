@@ -83,7 +83,7 @@ services:
     networks:
       - prod-net
     environment:
-      AUTH_SERVICE_DOMAIN: http://localhost:9001
+      AUTH_SERVICE_DOMAIN: http://127.0.0.1:9001
 
   geodata-service:
     networks:
@@ -98,6 +98,14 @@ services:
       - prod-net
 
   frontend:
+    environment:
+      __VITE_API_URL__: /
+      __VITE_API_GATEWAY_URL__: http://127.0.0.1:8080/api
+      __VITE_AUTH_SERVICE_URL__: http://127.0.0.1:9001
+      __VITE_AUTH_CALLBACK_URL__: http://127.0.0.1:8080/code
+      __VITE_ONLYOFFICE_URL__: http://127.0.0.1:8081
+      __VITE_GEOSERVER_URL__: http://127.0.0.1:8080/geoserver/wms
+      __VITE_ONLYOFFICE_API_URL__: http://127.0.0.1:9003/api/documents
     ports:
       - "8080:8080"
     networks:
