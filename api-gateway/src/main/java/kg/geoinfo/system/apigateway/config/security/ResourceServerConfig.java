@@ -4,6 +4,7 @@ import kg.geoinfo.system.apigateway.config.security.introspector.CustomReactiveT
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
@@ -11,6 +12,11 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.server.resource.introspection.ReactiveOpaqueTokenIntrospector;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+
+import java.util.Collections;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -25,32 +31,45 @@ public class ResourceServerConfig {
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http,
                                                            ReactiveOpaqueTokenIntrospector introspector) {
         http
-            .csrf(ServerHttpSecurity.CsrfSpec::disable)
-            .authorizeExchange(exchanges -> exchanges
-                .pathMatchers("/auth/**").permitAll()
-                .pathMatchers("/v3/api-docs").permitAll()
-                .pathMatchers("/api/documents/public/image/**").permitAll()
-                .anyExchange().authenticated()
-            )
-            .oauth2ResourceServer(oauth2 -> 
-                oauth2.opaqueToken(token -> token.introspector(introspector))
-            )
-            .exceptionHandling(ex -> ex
-                    .authenticationEntryPoint((exchange, e) -> {
-                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                        return exchange.getResponse().setComplete();
-                    })
-            );
+                .cors(cors -> cors.configurationSource(createCorsConfigSource())) // Add this line for CORS
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .authorizeExchange(exchanges -> exchanges
+                        .pathMatchers(HttpMethod.OPTIONS).permitAll() // Allow OPTIONS for preflight
+                        .pathMatchers("/auth/**").permitAll()
+                        .pathMatchers("/v3/api-docs").permitAll()
+                        .pathMatchers("/api/documents/public/image/**").permitAll()
+                        .anyExchange().authenticated()
+                )
+                .oauth2ResourceServer(oauth2 ->
+                        oauth2.opaqueToken(token -> token.introspector(introspector))
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((exchange, e) -> {
+                            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                            return exchange.getResponse().setComplete();
+                        })
+                );
         return http.build();
+    }
+
+    private CorsConfigurationSource createCorsConfigSource() {
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.setAllowedOrigins(Collections.singletonList("http://127.0.0.1:8080"));
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     @Bean
     public ReactiveOpaqueTokenIntrospector introspector() {
         return new CustomReactiveTokenIntrospector(
-            resourceProperties.getIntrospectionUri(),
-            resourceProperties.getClientId(),
-            resourceProperties.getClientSecret(),
-            jackson2ObjectMapperBuilder
+                resourceProperties.getIntrospectionUri(),
+                resourceProperties.getClientId(),
+                resourceProperties.getClientSecret(),
+                jackson2ObjectMapperBuilder
         );
     }
 }

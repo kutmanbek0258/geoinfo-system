@@ -87,3 +87,55 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 - **PostgreSQL:** Данные хранятся в анонимных Docker-вольюмах. Это означает, что при удалении контейнера командой `docker-compose down` данные **сохраняются**. Однако, для их полного удаления нужно выполнить `docker-compose down -v`.
 - **MinIO:** Данные хранятся в вольюме, который монтируется из локальной директории (`/minio_data` на хосте). Это обеспечивает простоту доступа к файлам и их резервного копирования.
 - **GeoServer:** Данные для GeoServer (например, GeoTIFF файлы) монтируются из локальной директории `./geoserver_uploads`.
+
+## Переменные окружения
+
+В файлах `docker-compose.yml`, `docker-compose.dev.yml` и `docker-compose.prod.yml` используется ряд переменных окружения для конфигурации сервисов.
+
+### Глобальные (для баз данных и инфраструктуры)
+
+| Сервис | Переменная | Описание |
+| :--- | :--- | :--- |
+| `postgres-*` | `POSTGRES_DB` | Имя создаваемой базы данных. |
+| | `POSTGRES_USER`| Имя пользователя для подключения. |
+| | `POSTGRES_PASSWORD`| Пароль для подключения. |
+| `redis-auth` | `REDIS_PASSWORD`| Пароль для доступа к Redis. |
+| `geoserver` | `GEOSERVER_ADMIN_USER` | Имя администратора GeoServer. |
+| | `GEOSERVER_ADMIN_PASSWORD` | Пароль администратора GeoServer. |
+| `minio` | `MINIO_ROOT_USER`| Ключ доступа (access key) для MinIO. |
+| | `MINIO_ROOT_PASSWORD`| Секретный ключ (secret key) для MinIO. |
+| `onlyoffice-doc-server` | `JWT_ENABLED`| Включает проверку JWT-токена для OnlyOffice. |
+| | `JWT_SECRET`| Секретный ключ для генерации и валидации токенов OnlyOffice. |
+
+### Микросервисы (Java/Spring Boot)
+
+Эти переменные задаются в `docker-compose.yml` для каждого соответствующего сервиса.
+
+| Сервис | Переменная | Описание |
+| :--- | :--- | :--- |
+| `auth-service`, `geodata-service`, `document-service` | `DB_URL` | Полный JDBC URL для подключения к базе данных. |
+| | `DB_USER`| Имя пользователя для подключения к БД. |
+| | `DB_PASS`| Пароль для подключения к БД. |
+| (все сервисы) | `KAFKA_BOOTSTRAP_SERVERS`| Адрес для подключения к брокеру Kafka. |
+| `api-gateway` | `SSO_URL` | (в `application.yml`) URL для introspection эндпоинта `auth-service`. |
+| `auth-service` | `AUTH_SERVICE_DOMAIN`| (в `prod.yml`) Публичный домен `auth-service`. |
+| `search-service` | `ELASTICSEARCH_URI`| Адрес для подключения к Elasticsearch. |
+
+
+### Frontend
+
+Для `frontend` сервиса переменные используются двумя способами: как **аргументы сборки** (`build.args`) и как **переменные окружения** (`environment`).
+
+- **`build.args`** (`docker-compose.prod.yml`): Эти значения "запекаются" в код фронтенда во время сборки (`npm run build`). Они используются для `import.meta.env.VITE_*`.
+- **`environment`** (`docker-compose.prod.yml`): Эти значения используются скриптом `entrypoint.sh` для замены плейсхолдеров `__VITE_*__` в уже собранных файлах.
+
+| Переменная | Назначение | Пример значения |
+| :--- | :--- | :--- |
+| `VITE_API_URL` | Базовый путь для всех API-запросов. | `/` |
+| `VITE_API_GATEWAY_URL` | Полный публичный URL для `api-gateway`. Используется как `baseURL` в Axios. | `http://127.0.0.1:8080/api` |
+| `VITE_AUTH_SERVICE_URL` | URL `auth-service` для редиректа на страницу логина OAuth2. | `http://127.0.0.1:9001` |
+| `VITE_AUTH_CALLBACK_URL` | URL, на который `auth-service` перенаправляет пользователя после успешного входа. | `http://127.0.0.1:8080/code` |
+| `VITE_ONLYOFFICE_URL` | Публичный URL сервера OnlyOffice. | `http://127.0.0.1:8081` |
+| `VITE_GEOSERVER_URL` | URL WMS-эндпоинта GeoServer. | `http://127.0.0.1:8080/geoserver/wms` |
+| `VITE_ONLYOFFICE_API_URL` | URL для callback-запросов от OnlyOffice к `document-service`. | `http://127.0.0.1:9003/api/documents` |
+

@@ -122,10 +122,6 @@ databaseChangeLog:
       file: data/dev/user-roles-data.sql
       relativeToChangelogFile: true
       contextFilter: dev
-  - include:
-      file: data/geoinfo-user-roles-data.sql
-      relativeToChangelogFile: true
-      contextFilter: dev
   
   #  Data continue
   - include:

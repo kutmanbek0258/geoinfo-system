@@ -98,6 +98,17 @@ services:
       - prod-net
 
   frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /
+        VITE_API_GATEWAY_URL: http://127.0.0.1:8080/api
+        VITE_AUTH_SERVICE_URL: http://127.0.0.1:9001
+        VITE_AUTH_CALLBACK_URL: http://127.0.0.1:8080/code
+        VITE_ONLYOFFICE_URL: http://127.0.0.1:8081
+        VITE_GEOSERVER_URL: http://127.0.0.1:8080/geoserver/wms
+        VITE_ONLYOFFICE_API_URL: http://127.0.0.1:9003/api/documents
     environment:
       __VITE_API_URL__: /
       __VITE_API_GATEWAY_URL__: http://127.0.0.1:8080/api
