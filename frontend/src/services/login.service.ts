@@ -34,7 +34,8 @@ class LoginService {
             });
             localStorage.setItem(ACCESS_TOKEN_KEY, response.data[ACCESS_TOKEN_KEY]);
         } catch (error) {
-            await router.push('/auth/login');
+            this.logout();
+            this.login();
         }
     }
 

@@ -17,12 +17,13 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
     // redirect to login page if not logged in and trying to access a restricted page
-    const publicPages = ['/code', '/auth/login'];
+    const publicPages = ['/code', '/auth/login', '/auth/register'];
     const authRequired = !publicPages.includes(to.path);
     const loggedIn = localStorage.getItem('loggedIn');
 
-    if(!loggedIn && authRequired){
-        next({name: 'Login'});
+    if (!loggedIn && authRequired) {
+        LoginService.login();
+        return; // No need to call next() due to full page redirection
     }
 
     if (to.path === '/code' && to.query.code) {
