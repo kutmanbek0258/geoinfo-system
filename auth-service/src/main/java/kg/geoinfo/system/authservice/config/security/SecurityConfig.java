@@ -64,8 +64,7 @@ public class SecurityConfig {
             "/registration/**",
             "/reset-password/**",
             "/",
-            "/v3/api-docs",
-            "/oauth2/token" // Added for CORS preflight
+            "/v3/api-docs"
     };
 
     private final CustomOAuth2UserService customOAuth2UserService;
