@@ -18,7 +18,6 @@ import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilde
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -27,7 +26,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -37,14 +35,9 @@ import org.springframework.security.web.authentication.logout.SecurityContextLog
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.firewall.StrictHttpFirewall;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Конфигурация SecurityFilterChain web приложения SSO.
@@ -83,21 +76,6 @@ public class SecurityConfig {
     private AuthenticationSuccessHandler loginRequestSuccessHandler;
     private AuthenticationFailureHandler failureHandler;
 
-    @Order(1)
-    @Bean
-    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http)
-            throws Exception {
-
-        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
-
-        http
-                .cors(Customizer.withDefaults())   // 🔥 ВАЖНО
-                .csrf(csrf -> csrf.disable());
-
-        return http.build();
-    }
-
-    @Order(2)
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         SocialConfigurer socialConfigurer = new SocialConfigurer()
@@ -111,8 +89,6 @@ public class SecurityConfig {
                 .csrfTokenRepository(new HttpSessionCsrfTokenRepository())
                 .csrfTokenRequestHandler(new CustomCsrfTokenRequestHandler())
         );
-
-        http.cors(Customizer.withDefaults()); // Enable CORS
 
         http.headers(customizer -> {
             customizer.contentSecurityPolicy(
@@ -215,24 +191,5 @@ public class SecurityConfig {
         FilterRegistrationBean<XSSFilter> registrationBean = new FilterRegistrationBean<>(xssFilter);
         registrationBean.addUrlPatterns("/*");
         return registrationBean;
-    }
-
-    @Bean
-    CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration cors = new CorsConfiguration();
-        cors.setAllowedOrigins(List.of(
-                "http://192.168.0.150:8080",
-                "http://127.0.0.1:8080",
-                "http://localhost:8080"
-        ));
-        cors.setAllowedMethods(List.of("POST", "OPTIONS"));
-        cors.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        cors.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
-        source.registerCorsConfiguration("/oauth2/**", cors);
-        return source;
     }
 }
