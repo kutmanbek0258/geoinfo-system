@@ -29,7 +29,15 @@ public class OnlyOfficeConfig {
     public static class EditorConfig {
         private String mode; // "view" or "edit"
         private String callbackUrl;
-        private String userId;
-        private String userName;
+        private User user;
+
+        @Data
+        @Builder
+        @AllArgsConstructor
+        @NoArgsConstructor
+        public static class User {
+            private String id;
+            private String name;
+        }
     }
 }

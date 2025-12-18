@@ -90,11 +90,15 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
                 .key(key)
                 .build();
 
+        OnlyOfficeConfig.EditorConfig.User user = OnlyOfficeConfig.EditorConfig.User.builder()
+                .id(userId)
+                .name(userName)
+                .build();
+
         OnlyOfficeConfig.EditorConfig editorConfig = OnlyOfficeConfig.EditorConfig.builder()
                 .mode(mode)
                 .callbackUrl(callbackBaseUrl + "/onlyoffice-callback/" + doc.getId())
-                .userId(userId)
-                .userName(userName)
+                .user(user)
                 .build();
 
         Map<String, Object> payload = new HashMap<>();
