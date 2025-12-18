@@ -18,6 +18,7 @@ import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilde
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -26,6 +27,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -81,6 +83,21 @@ public class SecurityConfig {
     private AuthenticationSuccessHandler loginRequestSuccessHandler;
     private AuthenticationFailureHandler failureHandler;
 
+    @Order(1)
+    @Bean
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http)
+            throws Exception {
+
+        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
+
+        http
+                .cors(Customizer.withDefaults())   // 🔥 ВАЖНО
+                .csrf(csrf -> csrf.disable());
+
+        return http.build();
+    }
+
+    @Order(2)
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         SocialConfigurer socialConfigurer = new SocialConfigurer()
@@ -203,7 +220,11 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
-        cors.setAllowedOrigins(List.of("http://192.168.0.150:8080", "http://127.0.0.1:8080", "http://localhost:8080"));
+        cors.setAllowedOrigins(List.of(
+                "http://192.168.0.150:8080",
+                "http://127.0.0.1:8080",
+                "http://localhost:8080"
+        ));
         cors.setAllowedMethods(List.of("POST", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         cors.setAllowCredentials(true);
