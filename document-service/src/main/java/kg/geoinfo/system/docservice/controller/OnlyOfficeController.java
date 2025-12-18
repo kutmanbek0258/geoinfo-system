@@ -31,11 +31,10 @@ public class OnlyOfficeController {
     @PreAuthorize("hasAuthority('DOCUMENT_READ')") // General read access
     public ResponseEntity<OnlyOfficeConfig> getOnlyOfficeConfig(
             @AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, // Added
-            @PathVariable UUID documentId,
-            @RequestParam(defaultValue = "view") String mode
+            @PathVariable UUID documentId
     ) {
         // The service now needs the user to perform access checks
-        OnlyOfficeConfig config = onlyOfficeService.generateConfig(documentId, mode, principal.getName(), principal.getAttribute("fullName"));
+        OnlyOfficeConfig config = onlyOfficeService.generateConfig(documentId, principal.getName(), principal.getAttribute("fullName"));
         return ResponseEntity.ok(config);
     }
 

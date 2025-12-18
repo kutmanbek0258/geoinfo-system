@@ -25,6 +25,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -52,23 +53,34 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
         log.warn("TODO: Implement access check for user {} on geo-object: {}", currentUserEmail, geoObjectId);
     }
 
+    private static final Set<String> EDITABLE_FILE_TYPES = Set.of(
+            "docx", "docm", "dotx", "dotm",
+            "xlsx", "xlsb", "xlsm", "xltx", "xltm",
+            "pptx", "ppsx", "potx", "pptm", "ppsm", "potm"
+    );
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
     @Override
-    public OnlyOfficeConfig generateConfig(UUID documentId, String mode, String userId, String userName) {
+    public OnlyOfficeConfig generateConfig(UUID documentId, String userId, String userName) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
 
         checkGeoObjectAccess(userId, doc.getGeoObjectId());
 
-        if ("edit".equalsIgnoreCase(mode) && !doc.getCreatedBy().equals(userId)) {
-            throw new AccessDeniedException("User is not the owner and cannot edit the document.");
+        String fileType = getFileTypeFromName(doc.getFileName());
+        String mode = "view"; // Default to view mode
+        if (EDITABLE_FILE_TYPES.contains(fileType.toLowerCase())) {
+            // If the user is the owner, allow editing
+            if (doc.getCreatedBy().equals(userId)) {
+                mode = "edit";
+            }
         }
 
+
         String fileUrl = docServiceUrl + "/api/documents/content/" + documentId;
-        String fileType = getFileTypeFromName(doc.getFileName());
         String key = doc.getId().toString() + "-" + doc.getLastModifiedDate().getTime();
 
         OnlyOfficeConfig.Document documentConfig = OnlyOfficeConfig.Document.builder()
@@ -88,6 +100,7 @@ public class OnlyOfficeServiceImpl implements OnlyOfficeService {
         Map<String, Object> payload = new HashMap<>();
         payload.put("document", objectMapper.convertValue(documentConfig, Map.class));
         payload.put("editorConfig", objectMapper.convertValue(editorConfig, Map.class));
+        log.info("editor config:" + editorConfig.toString());
 
         String token = Jwts.builder()
                 .setClaims(payload)

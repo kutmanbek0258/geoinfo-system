@@ -35,9 +35,13 @@ import org.springframework.security.web.authentication.logout.SecurityContextLog
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.firewall.StrictHttpFirewall;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 
 /**
  * Конфигурация SecurityFilterChain web приложения SSO.
@@ -60,7 +64,8 @@ public class SecurityConfig {
             "/registration/**",
             "/reset-password/**",
             "/",
-            "/v3/api-docs"
+            "/v3/api-docs",
+            "/oauth2/token" // Added for CORS preflight
     };
 
     private final CustomOAuth2UserService customOAuth2UserService;
@@ -89,6 +94,8 @@ public class SecurityConfig {
                 .csrfTokenRepository(new HttpSessionCsrfTokenRepository())
                 .csrfTokenRequestHandler(new CustomCsrfTokenRequestHandler())
         );
+
+        http.cors(Customizer.withDefaults()); // Enable CORS
 
         http.headers(customizer -> {
             customizer.contentSecurityPolicy(
@@ -191,5 +198,17 @@ public class SecurityConfig {
         FilterRegistrationBean<XSSFilter> registrationBean = new FilterRegistrationBean<>(xssFilter);
         registrationBean.addUrlPatterns("/*");
         return registrationBean;
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("http://127.0.0.1:8080", "http://localhost:8080", "http://192.168.0.150:8080"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "X-XSRF-TOKEN"));
+        configuration.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public interface OnlyOfficeService {
 
-    OnlyOfficeConfig generateConfig(UUID documentId, String mode, String userId, String userName);
+    OnlyOfficeConfig generateConfig(UUID documentId, String userId, String userName);
 
 
 
