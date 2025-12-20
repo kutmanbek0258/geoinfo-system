@@ -22,12 +22,6 @@ services:
   kafka:
     depends_on:
       - zookeeper
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 3s
-        max_attempts: 3
-        window: 120s
     networks:
       - prod-net
 
