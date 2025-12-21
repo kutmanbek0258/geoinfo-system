@@ -42,7 +42,9 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowed-origins: "http://127.0.0.1:8080, http://212.42.112.36:8080"
+            allowed-origins:
+              - "http://127.0.0.1:8080"
+              - "http://212.42.112.36:8080"
             allowed-methods: "*"
             allowed-headers: "*"
             allow-credentials: true
