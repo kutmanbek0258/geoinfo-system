@@ -28,7 +28,7 @@ public class ResourceServerConfig {
 
     private final OAuth2ResourceOpaqueProperties resourceProperties;
     private final Jackson2ObjectMapperBuilder jackson2ObjectMapperBuilder;
-    @Value("${app.cors.allowed-origins}")
+    @Value("${spring.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
     @Bean
