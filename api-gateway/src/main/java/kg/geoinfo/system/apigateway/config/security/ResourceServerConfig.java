@@ -2,6 +2,7 @@ package kg.geoinfo.system.apigateway.config.security;
 
 import kg.geoinfo.system.apigateway.config.security.introspector.CustomReactiveTokenIntrospector;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -17,7 +18,7 @@ import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -27,6 +28,8 @@ public class ResourceServerConfig {
 
     private final OAuth2ResourceOpaqueProperties resourceProperties;
     private final Jackson2ObjectMapperBuilder jackson2ObjectMapperBuilder;
+    @Value("${app.cors.allowed-origins}")
+    private List<String> allowedOrigins;
 
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http,
@@ -59,10 +62,7 @@ public class ResourceServerConfig {
         config.setAllowCredentials(true);
 
         // Добавляем оба адреса
-        config.setAllowedOrigins(Arrays.asList(
-                "http://127.0.0.1:8080",
-                "http://212.42.112.36:8080"
-        ));
+        config.setAllowedOrigins(allowedOrigins);
 
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
