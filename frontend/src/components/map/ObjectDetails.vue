@@ -2,9 +2,10 @@
   <v-card v-if="featureId" elevation="5">
     <v-card-title class="d-flex align-center">
       <v-icon left>mdi-map-marker</v-icon>
-      <span class="ml-2">{{ featureName }}</span>
+      <span class="ml-2">{{ displayFeatureName }}</span>
       <v-spacer></v-spacer>
       <v-btn icon="mdi-pencil" variant="text" @click="editFeature" title="Edit"></v-btn>
+      <v-btn icon="mdi-vector-selection" variant="text" @click="$emit('edit-geometry')" title="Edit Geometry"></v-btn>
       <v-btn icon="mdi-delete" color="error" variant="text" @click="deleteFeature" title="Delete"></v-btn>
       <v-btn icon="mdi-close" variant="text" @click="$emit('close')" title="Close"></v-btn>
     </v-card-title>
@@ -138,7 +139,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'edit-geometry']);
 
 const store = useStore();
 const router = useRouter();
@@ -155,6 +156,15 @@ const isCompressing = ref(false);
 // Состояние для диалога редактирования
 const editDialog = ref(false);
 const featureToEdit = ref<{ name: string, description: string }>({ name: '', description: '' });
+
+// --- Вычисляемое свойство для отображения названия фичи ---
+const displayFeatureName = computed<string>(() => {
+  const name = props.featureName;
+  if (typeof name === 'string' && name.length > 10) {
+    return `${name.substring(0, 10)}...`;
+  }
+  return name || 'Geo Object';
+});
 
 // --- Получение данных из Vuex ---
 const isLoading = computed(() => store.state.document?.isLoading || false);

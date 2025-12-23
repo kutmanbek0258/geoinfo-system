@@ -273,9 +273,7 @@ const actions = {
     },
 
     // Generic Feature Actions
-    async updateFeature({ commit, state }: ActionContext<GeodataState, any>, { id, type, data }: { id: string, type: string, data: { name: string, description: string } }) {
-        const { name, description } = data;
-        let featureData = {};
+    async updateFeature({ commit, state }: ActionContext<GeodataState, any>, { id, type, data }: { id: string, type: string, data: { name: string, description: string, geom?: any } }) {
         let feature;
 
         switch (type) {
@@ -294,7 +292,7 @@ const actions = {
             throw new Error(`Feature with id ${id} not found`);
         }
 
-        featureData = { ...feature, name, description };
+        const featureData = { ...feature, ...data };
 
         let updatedFeature;
         switch (type) {

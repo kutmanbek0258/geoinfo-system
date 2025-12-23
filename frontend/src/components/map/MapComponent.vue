@@ -63,14 +63,21 @@
     <!-- Оверлей 4: Детали объекта -->
     <div class="map-overlay top-right-details">
         <ObjectDetails
-            v-if="selectedFeatureId"
+            v-if="selectedFeatureId && !isGeometryEditMode"
             :feature-id="selectedFeatureId"
             :feature-name="selectedFeature?.name"
             :feature-description="selectedFeature?.description"
             :feature-type="selectedFeature?.type || ''"
             :feature-image-url="selectedFeature?.imageUrl"
             @close="store.dispatch('geodata/selectFeature', null)"
+            @edit-geometry="enterGeometryEditMode"
         />
+    </div>
+
+    <!-- Оверлей 5: Подтверждение изменения геометрии -->
+    <div v-if="isGeometryEditMode" class="map-overlay bottom-right-edit">
+      <v-btn icon="mdi-check" color="success" class="mr-2" @click="confirmGeometryEdit" title="Confirm Changes"></v-btn>
+      <v-btn icon="mdi-close" color="error" @click="cancelGeometryEdit" title="Cancel Changes"></v-btn>
     </div>
 
     <div class="map-overlay top-left-search">
@@ -109,7 +116,8 @@ import TileWMS from "ol/source/TileWMS.js";
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import { GeoJSON } from 'ol/format';
-import { Draw } from 'ol/interaction';
+import { Draw, Modify } from 'ol/interaction';
+import { Collection } from 'ol';
 import { createEmpty, extend } from 'ol/extent';
 import type { ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
 import ObjectDetails from './ObjectDetails.vue';
@@ -135,6 +143,8 @@ const vectorLayer = new VectorLayer({ source: vectorSource, zIndex: 100, propert
 
 // --- Состояние компонента ---
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
+const isGeometryEditMode = ref(false);
+let modifyInteraction: Modify | null = null;
 const visibleLayerIds = ref<string[]>([]);
 const activeImageLayers = ref<Record<string, TileLayer<TileWMS>>>({}); // Используем plain object
 const layerOpacities = ref<Record<string, number>>({}); // Для хранения прозрачности
@@ -166,6 +176,20 @@ const points = computed<ProjectPoint[]>(() => store.state.geodata.points);
 const multilines = computed<ProjectMultiline[]>(() => store.state.geodata.multilines);
 const polygons = computed<ProjectPolygon[]>(() => store.state.geodata.polygons);
 
+const handleMapClick = (event: any) => {
+  if (isGeometryEditMode.value) return; // Do not process clicks in edit mode
+
+  const feature = map?.forEachFeatureAtPixel(event.pixel, (f) => f);
+  if (feature && feature.get('id') !== undefined) {
+    // Ensure it's one of our vector features by checking the source
+    if (vectorSource.getFeatureById(feature.get('id'))) {
+      store.dispatch('geodata/selectFeature', feature.get('id'));
+    }
+  } else {
+    store.dispatch('geodata/selectFeature', null);
+  }
+};
+
 // --- Инициализация карты ---
 onMounted(() => {
   if (mapContainer.value) {
@@ -182,21 +206,14 @@ onMounted(() => {
     });
 
     // Добавляем обработчик клика по карте
-    map.on('click', (event) => {
-      const feature = map?.forEachFeatureAtPixel(event.pixel, (f) => f);
-      if (feature) {
-        store.dispatch('geodata/selectFeature', feature.get('id')); // Получаем ID из свойств фичи
-      } else {
-        store.dispatch('geodata/selectFeature', null); // Сбрасываем выбор, если клик был по пустой области
-      }
-    });
-
+    map.on('click', handleMapClick);
   }
 });
 
 // --- Очистка при размонтировании ---
 onUnmounted(() => {
   if (map) {
+    map.un('click', handleMapClick);
     map.setTarget(undefined);
     map = null;
   }
@@ -359,6 +376,82 @@ const saveNewFeature = async () => {
     metadataDialog.value = false;
 };
 
+// --- Логика редактирования геометрии ---
+
+const enterGeometryEditMode = () => {
+    if (!map || !selectedFeatureId.value) return;
+
+    // 1. Enter edit mode state
+    isGeometryEditMode.value = true;
+
+    // 2. Get the OL feature object
+    const featureToModify = vectorSource.getFeatureById(selectedFeatureId.value);
+    if (!featureToModify) {
+        console.error("Feature to modify not found on vector source.");
+        isGeometryEditMode.value = false;
+        return;
+    }
+
+    // 3. Disable other interactions
+    if (drawInteraction) {
+      map.removeInteraction(drawInteraction);
+    }
+    drawMode.value = null;
+
+    // 4. Add Modify interaction
+    modifyInteraction = new Modify({
+        features: new Collection([featureToModify]),
+    });
+    map.addInteraction(modifyInteraction);
+};
+
+const confirmGeometryEdit = async () => {
+    if (!selectedFeature.value) return;
+
+    // Get the OpenLayers feature from the vector source, which has been mutated by the Modify interaction.
+    const modifiedFeature = vectorSource.getFeatureById(selectedFeature.value.id);
+    if (!modifiedFeature) {
+        console.error("Could not find the feature in the vector source to confirm edit.");
+        exitGeometryEditMode();
+        return;
+    }
+
+    const newGeometry = modifiedFeature.getGeometry();
+
+    if (newGeometry) {
+        const newGeomAsGeoJSON = geoJsonFormat.writeGeometryObject(newGeometry);
+
+        // Dispatch the update action to the store with the new geometry.
+        await store.dispatch('geodata/updateFeature', {
+            id: selectedFeature.value.id,
+            type: selectedFeature.value.type,
+            data: {
+                name: selectedFeature.value.name, // Keep existing name
+                description: selectedFeature.value.description, // Keep existing description
+                geom: newGeomAsGeoJSON // Update geometry
+            }
+        });
+    }
+
+    exitGeometryEditMode();
+};
+
+const cancelGeometryEdit = () => {
+    exitGeometryEditMode();
+    // Revert changes by refetching data
+    if (props.projectId) {
+        store.dispatch('geodata/fetchVectorDataForProject', props.projectId);
+    }
+};
+
+const exitGeometryEditMode = () => {
+    if (map && modifyInteraction) {
+        map.removeInteraction(modifyInteraction);
+        modifyInteraction = null;
+    }
+    isGeometryEditMode.value = false;
+};
+
 const zoomToExtent = () => {
   if (!map) return;
   const features = vectorSource.getFeatures();
@@ -432,6 +525,12 @@ const zoomToExtent = () => {
 
 .bottom-right {
   bottom: 20px;
+  right: 10px;
+  background-color: transparent !important;
+}
+
+.bottom-right-edit {
+  bottom: 80px; /* Position above the drawing tools */
   right: 10px;
   background-color: transparent !important;
 }
