@@ -69,6 +69,7 @@
             :feature-description="selectedFeature?.description"
             :feature-type="selectedFeature?.type || ''"
             :feature-image-url="selectedFeature?.imageUrl"
+            @close="store.dispatch('geodata/selectFeature', null)"
         />
     </div>
 

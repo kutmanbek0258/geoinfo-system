@@ -6,6 +6,7 @@
       <v-spacer></v-spacer>
       <v-btn icon="mdi-pencil" variant="text" @click="editFeature" title="Edit"></v-btn>
       <v-btn icon="mdi-delete" color="error" variant="text" @click="deleteFeature" title="Delete"></v-btn>
+      <v-btn icon="mdi-close" variant="text" @click="$emit('close')" title="Close"></v-btn>
     </v-card-title>
     <v-card-subtitle>{{ featureDescription }}</v-card-subtitle>
     <v-divider></v-divider>
@@ -136,6 +137,8 @@ const props = defineProps({
     default: null,
   },
 });
+
+const emit = defineEmits(['close']);
 
 const store = useStore();
 const router = useRouter();
