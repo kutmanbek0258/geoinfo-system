@@ -1,7 +1,9 @@
 <template>
-  <div class="map-container">
+  <div ref="mapParent"  class="map-container">
     <!-- Карта OpenLayers -->
-    <div id="map" ref="mapContainer" class="map"></div>
+    <div id="map" ref="mapContainer" class="map">
+
+    </div>
 
     <!-- Оверлей 1: Переключатель слоев -->
     <v-card class="map-overlay top-right-layers">
@@ -61,9 +63,9 @@
     </div>
 
     <!-- Оверлей 4: Детали объекта -->
-    <div class="map-overlay top-right-details">
+    <div v-if="selectedFeatureId && !isGeometryEditMode"
+        class="map-overlay top-right-details">
         <ObjectDetails
-            v-if="selectedFeatureId && !isGeometryEditMode"
             :feature-id="selectedFeatureId"
             :feature-name="selectedFeature?.name"
             :feature-description="selectedFeature?.description"
@@ -122,6 +124,7 @@ import { createEmpty, extend } from 'ol/extent';
 import type { ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
+import {FullScreen} from "ol/control";
 
 // --- Props & Store ---
 const props = defineProps({
@@ -134,6 +137,7 @@ const store = useStore();
 
 // --- Ссылки на DOM и OL инстансы ---
 const mapContainer = ref<HTMLElement | null>(null);
+const mapParent = ref<HTMLElement | null>(null);
 let map: Map | null = null;
 let drawInteraction: Draw | null = null;
 
@@ -192,22 +196,33 @@ const handleMapClick = (event: any) => {
 
 // --- Инициализация карты ---
 onMounted(() => {
-  if (mapContainer.value) {
-    map = new Map({
-      target: mapContainer.value,
-      layers: [
-        new TileLayer({ source: new OSM() }),
-        vectorLayer, // Слой для всех наших гео-объектов
-      ],
-      view: new View({
-        center: [0, 0],
-        zoom: 2,
-      }),
-    });
+  if (!mapContainer.value || !mapParent.value) return;
+  map = new Map({
+    target: mapContainer.value,
+    layers: [
+      new TileLayer({ source: new OSM() }),
+      vectorLayer, // Слой для всех наших гео-объектов
+    ],
+    view: new View({
+      center: [0, 0],
+      zoom: 2,
+    }),
+  });
 
-    // Добавляем обработчик клика по карте
-    map.on('click', handleMapClick);
-  }
+  // 🔹 Fullscreen для контейнера карты
+  const fullScreenControl = new FullScreen({
+    source: mapParent.value, // 👈 fullscreen именно div.map
+    tipLabel: 'На весь экран'
+  });
+
+  map.addControl(fullScreenControl);
+
+  // Добавляем обработчик клика по карте
+  map.on('click', handleMapClick);
+
+  document.addEventListener('fullscreenchange', () => {
+    map?.updateSize();
+  });
 });
 
 // --- Очистка при размонтировании ---
@@ -492,15 +507,15 @@ const zoomToExtent = () => {
 }
 
 .top-right-layers {
-  top: 10px;
+  top: 40px;
   right: 10px;
   width: 250px;
 }
 
 .top-left-search {
-  top: 10px;
+  top: 60px;
   left: 10px;
-  width: 300px;
+  width: 350px;
 }
 
 .top-center-layers {
@@ -516,7 +531,7 @@ const zoomToExtent = () => {
 }
 
 .top-right-details {
-    top: 10px;
+    top: 40px;
     right: 10px;
     width: 400px;
     max-height: calc(100% - 20px);
