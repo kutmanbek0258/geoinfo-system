@@ -36,6 +36,11 @@ spring:
           predicates:
             - Path=/api/search/**
 
+        - id: stream-service
+          uri: lb://stream-service
+          predicates:
+            - Path=/api/streams/**
+
       httpserver:
         wiretap: true
       httpclient:

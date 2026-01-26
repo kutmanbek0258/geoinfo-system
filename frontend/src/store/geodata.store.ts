@@ -1,4 +1,5 @@
 import geodataService from "@/services/geodata.service";
+import streamService from "@/services/stream.service";
 import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, Page } from "@/types/api";
 import type { ActionContext } from "vuex";
 
@@ -12,6 +13,7 @@ interface GeodataState {
     selectedFeatureId: string | null;
     isLoading: boolean;
     error: string | null;
+    activeCameraStream: { geoObjectId: string, webRtcUrl: string } | null;
 }
 
 const state: GeodataState = {
@@ -24,6 +26,7 @@ const state: GeodataState = {
     selectedFeatureId: null,
     isLoading: false,
     error: null,
+    activeCameraStream: null,
 };
 
 const mutations = {
@@ -101,6 +104,10 @@ const mutations = {
             return;
         }
         state[targetArrayName] = [...state[targetArrayName], data];
+    },
+
+    SET_ACTIVE_CAMERA_STREAM(state: GeodataState, payload: { geoObjectId: string, webRtcUrl: string } | null) {
+        state.activeCameraStream = payload;
     },
 };
 
@@ -337,7 +344,32 @@ const actions = {
 
         const response = await geodataService.uploadMainImage(objectType, objectId, file);
         commit('UPDATE_FEATURE', { type: typeForMutation, data: response.data });
-    }
+    },
+
+    // Stream Actions
+    async startCameraStream({ commit, dispatch }: ActionContext<GeodataState, any>, geoObjectId: string) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            const webRtcUrl = await streamService.startStream(geoObjectId);
+            commit('SET_ACTIVE_CAMERA_STREAM', { geoObjectId, webRtcUrl });
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to start camera stream.');
+            dispatch('alert/error', 'Не удалось запустить трансляцию с камеры. Проверьте подключение или обратитесь к администратору.', { root: true });
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
+    async stopCameraStream({ commit }: ActionContext<GeodataState, any>, geoObjectId: string) {
+        try {
+            await streamService.stopStream(geoObjectId);
+            commit('SET_ACTIVE_CAMERA_STREAM', null);
+        } catch (err) {
+            console.error('Failed to stop camera stream:', err);
+            // Optionally dispatch an alert, but usually stopping is less critical than starting
+        }
+    },
 };
 
 export default {

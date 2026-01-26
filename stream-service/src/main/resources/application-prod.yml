@@ -1,0 +1,35 @@
+server:
+  port: 9006
+
+mediamtx:
+  api:
+    url: http://localhost:9997
+  webrtc:
+    url: http://localhost:8888
+
+spring:
+  application:
+    name: stream-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+  auth-types:
+    auth-header-enabled: true
+    client-credentials-enabled: true
+    authorization-code-enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        opaquetoken:
+          client-id: j-service-client
+          client-secret: j-service-client
+          introspection-uri: ${SSO_URL:http://auth-service:9001}/oauth2/token-info
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000

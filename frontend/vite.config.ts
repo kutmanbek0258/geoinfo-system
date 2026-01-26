@@ -35,6 +35,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:9005',
         changeOrigin: true
+      },
+      '/mediamtx': {
+        target: 'http://localhost:8888',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/mediamtx/, '')
       }
     }
   }

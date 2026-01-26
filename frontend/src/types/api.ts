@@ -35,6 +35,7 @@ export interface ProjectPoint {
     status: Status;
     geom: any; // GeoJSON Point
     imageUrl?: string;
+    characteristics?: Record<string, any>;
 }
 
 export interface ProjectMultiline {

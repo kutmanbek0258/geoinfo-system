@@ -30,6 +30,7 @@
 		<module>geodata-service</module>
         <module>document-service</module>
         <module>search-service</module>
+		<module>stream-service</module>
         <module>common-lib</module>
     </modules>
 	<properties>

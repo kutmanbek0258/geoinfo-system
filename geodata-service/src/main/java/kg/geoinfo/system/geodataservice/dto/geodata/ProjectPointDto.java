@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.locationtech.jts.geom.Point;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -21,4 +22,5 @@ public class ProjectPointDto {
 
     private Point geom;
     private String imageUrl;
+    private Map<String, Object> characteristics;
 }

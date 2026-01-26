@@ -40,7 +40,7 @@ description TEXT,
 status VARCHAR(16),  
 geom geometry(Point, 4326\) NOT NULL, \-- Координаты: WGS 84  
 image\_link VARCHAR(1000), \-- Ссылка на превью в MinIO  
-characteristics JSONB, \-- Неструктурированные данные  
+characteristics JSONB, \-- Неструктурированные данные. Например, для типа "camera" здесь будут храниться {"type": "camera", "ip_address": "192.168.1.10", "port": 8000, "login": "admin", "password": "password"}.  
 created\_by VARCHAR(255),  
 created\_date TIMESTAMP,  
 last\_modified\_by VARCHAR(255),  

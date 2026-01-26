@@ -53,6 +53,14 @@ services:
     networks:
       - prod-net
 
+  # ====== MediaMTX Stream Server ======
+  mediamtx:
+    ports:
+      - "9997:9997"
+      - "8888:8888"
+    networks:
+      - prod-net
+
   # ====== Config, Discovery, Gateway ======
   config-server:
     networks:
@@ -91,6 +99,10 @@ services:
       - prod-net
 
   search-service:
+    networks:
+      - prod-net
+
+  stream-service:
     networks:
       - prod-net
 

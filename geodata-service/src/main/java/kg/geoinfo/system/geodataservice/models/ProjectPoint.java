@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import kg.geoinfo.system.geodataservice.config.audit.AuditableCustom;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Point;
 
 import java.util.UUID;
@@ -44,4 +46,8 @@ public class ProjectPoint extends AuditableCustom<String> {
 
     @Column(name = "image_url", length = 1000)
     private String imageUrl;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private String characteristics;
 }

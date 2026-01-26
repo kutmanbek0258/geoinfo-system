@@ -1,0 +1,6 @@
+webrtc: yes
+webrtcAddress: :8888
+
+webrtcAllowOrigin: "*"
+webrtcAllowMethods: [GET, POST, OPTIONS]
+webrtcAllowHeaders: [Content-Type, Authorization, Accept]

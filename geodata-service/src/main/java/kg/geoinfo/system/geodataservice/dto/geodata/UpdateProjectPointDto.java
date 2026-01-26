@@ -5,12 +5,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.locationtech.jts.geom.Point;
 
+import java.util.Map;
+
 @Data
 @NoArgsConstructor
 public class UpdateProjectPointDto {
     private String name;
     private String description;
     private Status status;
-
     private Point geom;
+    private Map<String, Object> characteristics;
 }

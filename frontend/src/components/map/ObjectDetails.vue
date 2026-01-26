@@ -47,6 +47,19 @@
         <input type="file" ref="imageInput" @change="handleImageUpload" style="display: none" accept="image/*" />
       </div>
 
+      <!-- Camera Details and Stream Controls -->
+      <v-card v-if="isCamera" class="my-4" elevation="2">
+        <v-card-title class="text-subtitle-1">Camera Details</v-card-title>
+        <v-card-text>
+          <p><strong>IP Address:</strong> {{ cameraDetails?.ip_address }}</p>
+          <p><strong>Port:</strong> {{ cameraDetails?.port }}</p>
+          <p><strong>Login:</strong> {{ cameraDetails?.login }}</p>
+          <v-btn color="success" class="mt-3" @click="startStream" :loading="isLoading" :disabled="!!activeCameraStream">
+            <v-icon left>mdi-play-circle</v-icon> Start Viewing
+          </v-btn>
+        </v-card-text>
+      </v-card>
+
       <v-progress-linear :active="isLoading" indeterminate color="primary"></v-progress-linear>
 
       <v-list v-if="documents.length > 0" lines="two">
@@ -72,6 +85,31 @@
 
     </v-card-text>
 
+    <!-- Stream Viewer Dialog -->
+    <v-dialog v-model="showStreamModal" fullscreen :scrim="false" transition="dialog-bottom-transition">
+      <v-card>
+        <v-toolbar dark color="primary">
+          <v-btn icon dark @click="stopStream">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+          <v-toolbar-title>Camera Stream: {{ featureName }}</v-toolbar-title>
+          <v-spacer></v-spacer>
+          <v-toolbar-items>
+            <v-btn variant="text" dark @click="stopStream">Stop Stream</v-btn>
+          </v-toolbar-items>
+        </v-toolbar>
+        <v-card-text class="d-flex justify-center align-center h-screen bg-black">
+          <iframe
+              v-if="featureId"
+              :src="`http://localhost:8888/${featureId}`"
+              style="width: 100%; height: 100%; border: none;"
+              allow="autoplay; fullscreen"
+          ></iframe>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
+
     <!-- Диалог подтверждения загрузки -->
     <v-dialog v-model="uploadDialog" max-width="500px">
       <v-card>
@@ -96,6 +134,26 @@
         <v-card-text>
           <v-text-field v-model="featureToEdit.name" label="Name" required></v-text-field>
           <v-textarea v-model="featureToEdit.description" label="Description"></v-textarea>
+
+          <!-- Display Point Type -->
+          <v-text-field
+            v-if="featureType === 'Point' && featureToEdit.characteristics?.type"
+            :model-value="featureToEdit.characteristics.type"
+            label="Point Type"
+            readonly
+            variant="outlined"
+            class="mt-4"
+          ></v-text-field>
+
+          <!-- Camera Details (conditional and editable for camera type points) -->
+          <template v-if="isCamera">
+            <v-divider class="my-4"></v-divider>
+            <v-subheader>Camera Configuration</v-subheader>
+            <v-text-field v-model="cameraEditDetails.ip_address" label="Camera IP Address" required></v-text-field>
+            <v-text-field v-model="cameraEditDetails.port" label="Camera Port" type="number" required></v-text-field>
+            <v-text-field v-model="cameraEditDetails.login" label="Camera Login" required></v-text-field>
+            <v-text-field v-model="cameraEditDetails.password" label="Camera Password" type="password" required></v-text-field>
+          </template>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -109,12 +167,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router'; // Импортируем useRouter
+import { useRouter } from 'vue-router';
 import imageCompression from 'browser-image-compression';
-import type { Document } from '@/types/api';
+import type { Document, ProjectPoint } from '@/types/api';
 import documentService from '@/services/document.service';
+
+const videoEl = ref<HTMLVideoElement | null>(null)
+const pc = ref<RTCPeerConnection | null>(null)
+const isWebRtcLoading = ref(false)
 
 const props = defineProps({
   featureId: {
@@ -137,6 +199,11 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  // Added to get full feature data including characteristics
+  fullFeatureData: {
+    type: Object as () => ProjectPoint | null,
+    default: null,
+  }
 });
 
 const emit = defineEmits(['close', 'edit-geometry']);
@@ -145,6 +212,63 @@ const store = useStore();
 const router = useRouter();
 const fileInput = ref<HTMLInputElement | null>(null);
 const imageInput = ref<HTMLInputElement | null>(null); // For main image
+
+// State for camera streaming
+const showStreamModal = ref(false);
+const streamUrl = ref('');
+
+// --- Camera Streaming Logic ---
+const isCamera = computed(() => {
+  return props.featureType === 'Point' && props.fullFeatureData?.characteristics?.type === 'camera';
+});
+
+const cameraDetails = computed(() => {
+  if (isCamera.value && props.fullFeatureData?.characteristics) {
+    return {
+      ip_address: props.fullFeatureData.characteristics.ip_address,
+      port: props.fullFeatureData.characteristics.port,
+      login: props.fullFeatureData.characteristics.login,
+      password: props.fullFeatureData.characteristics.password,
+    };
+  }
+  return null;
+});
+
+const activeCameraStream = computed(() => store.state.geodata.activeCameraStream);
+
+const startStream = async () => {
+  if (!props.featureId) return
+
+  isWebRtcLoading.value = true
+
+  await store.dispatch('geodata/startCameraStream', props.featureId)
+
+  const stream = activeCameraStream.value
+  if (!stream) return
+
+  showStreamModal.value = true
+}
+
+const stopStream = async () => {
+  if (pc.value) {
+    pc.value.close()
+    pc.value = null
+  }
+
+  if (videoEl.value) {
+    videoEl.value.srcObject = null
+  }
+
+  await store.dispatch('geodata/stopCameraStream', props.featureId)
+  showStreamModal.value = false
+}
+
+// --- Lifecycle Hook to stop stream if component unmounts ---
+onUnmounted(() => {
+  if (props.featureId && activeCameraStream.value && activeCameraStream.value.geoObjectId === props.featureId) {
+    stopStream();
+  }
+});
 
 // Состояние для диалога загрузки
 const uploadDialog = ref(false);
@@ -155,7 +279,19 @@ const isCompressing = ref(false);
 
 // Состояние для диалога редактирования
 const editDialog = ref(false);
-const featureToEdit = ref<{ name: string, description: string }>({ name: '', description: '' });
+const featureToEdit = ref<{
+  name: string,
+  description: string,
+  type: string, // Add type
+  characteristics: Record<string, any> // Add characteristics
+}>({ name: '', description: '', type: '', characteristics: {} });
+
+const cameraEditDetails = ref({ // Для временного хранения данных камеры при редактировании
+  ip_address: '',
+  port: 8000,
+  login: '',
+  password: '',
+});
 
 // --- Вычисляемое свойство для отображения названия фичи ---
 const displayFeatureName = computed<string>(() => {
@@ -173,14 +309,31 @@ const documents = computed<Document[]>(() => store.state.document?.documents || 
 
 // --- Наблюдатель за изменением ID ---
 watch(() => props.featureId, (newId) => {
-  store.dispatch('document/fetchDocumentsForObject', newId);
+  if (newId) {
+    store.dispatch('document/fetchDocumentsForObject', newId);
+  }
 }, { immediate: true });
 
 const editFeature = () => {
   featureToEdit.value = {
     name: props.featureName,
     description: props.featureDescription,
+    type: props.featureType, // Assume featureType is the main type (Point, MultiLineString, Polygon)
+    characteristics: props.fullFeatureData?.characteristics || {},
   };
+
+  // If it's a camera, pre-fill cameraEditDetails
+  if (isCamera.value && props.fullFeatureData?.characteristics) {
+    cameraEditDetails.value = {
+      ip_address: props.fullFeatureData.characteristics.ip_address || '',
+      port: props.fullFeatureData.characteristics.port || 8000,
+      login: props.fullFeatureData.characteristics.login || '',
+      password: props.fullFeatureData.characteristics.password || '',
+    };
+  } else {
+    // Reset if not a camera
+    cameraEditDetails.value = { ip_address: '', port: 8000, login: '', password: '' };
+  }
   editDialog.value = true;
 };
 
@@ -189,10 +342,29 @@ const cancelEdit = () => {
 };
 
 const confirmEdit = () => {
+  const sanitizeString = (str: string) => {
+    if (typeof str !== 'string') return str;
+    return str.replace(/^"|"$/g, '').replace(/\\"/g, '"');
+  };
+  // Construct updated characteristics
+  let updatedCharacteristics = { ...featureToEdit.value.characteristics };
+  if (isCamera.value) { // Use isCamera to ensure we only update camera fields for camera points
+    updatedCharacteristics = { ...updatedCharacteristics, ...cameraEditDetails.value };
+  } else {
+      // If it was a camera and now being edited, ensure the 'type' in characteristics is maintained or reset
+      // For now, we assume the type is part of characteristics from backend
+      // and we just update camera details if it's a camera
+  }
+
+
   store.dispatch('geodata/updateFeature', {
     id: props.featureId,
-    type: props.featureType,
-    data: featureToEdit.value,
+    type: props.featureType, // This is 'Point', 'MultiLineString', 'Polygon'
+    data: {
+      name: featureToEdit.value.name,
+      description: featureToEdit.value.description,
+      characteristics: updatedCharacteristics,
+    },
   });
   editDialog.value = false;
 };

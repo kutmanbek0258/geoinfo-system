@@ -71,6 +71,7 @@
             :feature-description="selectedFeature?.description"
             :feature-type="selectedFeature?.type || ''"
             :feature-image-url="selectedFeature?.imageUrl"
+            :full-feature-data="selectedFeature"
             @close="store.dispatch('geodata/selectFeature', null)"
             @edit-geometry="enterGeometryEditMode"
         />
@@ -95,6 +96,23 @@
                 <v-text-field v-model="newObjectMetadata.name" label="Name" required></v-text-field>
                 <v-textarea v-model="newObjectMetadata.description" label="Description"></v-textarea>
                 <v-select v-model="newObjectMetadata.status" :items="['COMPLETED', 'IN_PROCESS', 'REJECTED']" label="Status" required></v-select>
+                
+                <!-- Point Type Selection (only for Point drawing) -->
+                <v-select
+                  v-if="drawingType === 'Point'"
+                  v-model="newObjectMetadata.type"
+                  :items="pointTypes"
+                  label="Point Type"
+                  required
+                ></v-select>
+
+                <!-- Camera Details (conditional) -->
+                <template v-if="drawingType === 'Point' && newObjectMetadata.type === 'camera'">
+                  <v-text-field v-model="newObjectCameraDetails.ip_address" label="Camera IP Address" required></v-text-field>
+                  <v-text-field v-model="newObjectCameraDetails.port" label="Camera Port" type="number" required></v-text-field>
+                  <v-text-field v-model="newObjectCameraDetails.login" label="Camera Login" required></v-text-field>
+                  <v-text-field v-model="newObjectCameraDetails.password" label="Camera Password" type="password" required></v-text-field>
+                </template>
             </v-card-text>
             <v-card-actions>
                 <v-spacer></v-spacer>
@@ -172,7 +190,20 @@ const selectedFeature = computed(() => {
 const metadataDialog = ref(false);
 const drawingType = ref('');
 const newObjectGeometry = ref<any>(null);
-const newObjectMetadata = ref({ name: '', description: '', status: 'IN_PROCESS' as Status });
+const pointTypes = ['camera', 'pillar', 'other']; // Добавленные типы точек
+const newObjectMetadata = ref({
+  name: '',
+  description: '',
+  status: 'IN_PROCESS' as Status,
+  type: 'other', // Default type for points
+  characteristics: {} as Record<string, any> // Initialize characteristics
+});
+const newObjectCameraDetails = ref({ // Для хранения специфичных данных камеры
+  ip_address: '',
+  port: 554,
+  login: '',
+  password: '',
+});
 
 // --- Данные из Vuex ---
 const imageryLayers = computed<ImageryLayer[]>(() => store.state.geodata.imageryLayers?.content || []);
@@ -360,7 +391,7 @@ watch(drawMode, (newMode) => {
                 newObjectGeometry.value = geoJsonFormat.writeGeometryObject(geometry);
                 
                 // Сбрасываем метаданные и открываем диалог
-                newObjectMetadata.value = { name: '', description: '', status: 'IN_PROCESS' as Status };
+                newObjectMetadata.value = { name: '', description: '', status: 'IN_PROCESS' as Status, type: 'other', characteristics: {} };
                 metadataDialog.value = true;
             }
 
@@ -373,22 +404,35 @@ watch(drawMode, (newMode) => {
 });
 
 const cancelNewFeature = () => {
-    metadataDialog.value = false;
-    // Можно опционально удалить фичу с карты, если она рисовалась на отдельном слое
+  metadataDialog.value = false;
+  // Сбрасываем метаданные
+  newObjectMetadata.value = { name: '', description: '', status: 'IN_PROCESS' as Status, type: 'other', characteristics: {} };
+  newObjectCameraDetails.value = { ip_address: '', port: 8000, login: '', password: '' };
 };
 
 const saveNewFeature = async () => {
     if (!newObjectGeometry.value || !props.projectId) return;
 
+    // Формируем объект characteristics
+    let characteristics = { type: newObjectMetadata.value.type };
+    if (newObjectMetadata.value.type === 'camera') {
+      characteristics = { ...characteristics, ...newObjectCameraDetails.value };
+    }
+    // Здесь также можно добавить характеристики для других типов, если они понадобятся
+
     const payload = {
         projectId: props.projectId,
         geom: newObjectGeometry.value,
-        ...newObjectMetadata.value
+        name: newObjectMetadata.value.name,
+        description: newObjectMetadata.value.description,
+        status: newObjectMetadata.value.status,
+        characteristics: characteristics,
     };
 
     await store.dispatch('geodata/createFeature', { type: drawingType.value, data: payload });
 
     metadataDialog.value = false;
+    cancelNewFeature(); // Сбрасываем форму после сохранения
 };
 
 // --- Логика редактирования геометрии ---
