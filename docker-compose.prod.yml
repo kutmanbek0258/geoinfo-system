@@ -37,7 +37,7 @@ services:
   # ====== GEOSERVER ======
   geoserver:
     ports:
-      - "8085:8080"
+      - "${GEOSERVER_PORT:-8085}:8080"
     networks:
       - prod-net
 
@@ -49,15 +49,15 @@ services:
   # ====== ONLYOFFICE DOC SERVER ======
   onlyoffice-doc-server:
     ports:
-      - "8081:80"
+      - "${ONLYOFFICE_PORT:-8081}:80"
     networks:
       - prod-net
 
   # ====== MediaMTX Stream Server ======
   mediamtx:
     ports:
-      - "9997:9997"
-      - "8888:8888"
+      - "${MEDIAMTX_API_PORT:-9997}:9997"
+      - "${MEDIAMTX_WEBRTC_PORT:-8888}:8888"
     networks:
       - prod-net
 
@@ -74,21 +74,21 @@ services:
 
   api-gateway:
     ports:
-      - "9005:9005"
+      - "${API_GATEWAY_PORT:-9005}:9005"
     networks:
       - prod-net
     environment:
-      CORS_ALLOWED_ORIGINS: http://127.0.0.1:8080
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:8080}
 
   # ====== Microservices ======
   auth-service:
     ports:
-      - "9001:9001"
+      - "${AUTH_SERVICE_PORT:-9001}:9001"
     networks:
       - prod-net
     environment:
-      CORS_ALLOWED_ORIGINS: http://127.0.0.1:8080
-      AUTH_SERVICE_DOMAIN: http://127.0.0.1:9001
+      AUTH_SERVICE_DOMAIN: ${AUTH_SERVICE_DOMAIN:-http://127.0.0.1:9001}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:8080}
 
   geodata-service:
     networks:
@@ -111,23 +111,23 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: /
-        VITE_API_GATEWAY_URL: http://127.0.0.1:8080/api
-        VITE_AUTH_SERVICE_URL: http://127.0.0.1:9001
-        VITE_AUTH_CALLBACK_URL: http://127.0.0.1:8080/code
-        VITE_ONLYOFFICE_URL: http://127.0.0.1:8081
-        VITE_GEOSERVER_URL: http://127.0.0.1:8080/geoserver/wms
-        VITE_ONLYOFFICE_API_URL: http://127.0.0.1:9003/api/documents
+        VITE_API_URL: ${VITE_API_URL:-/}
+        VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL:-http://127.0.0.1:8080/api}
+        VITE_AUTH_SERVICE_URL: ${VITE_AUTH_SERVICE_URL:-http://127.0.0.1:9001}
+        VITE_AUTH_CALLBACK_URL: ${VITE_AUTH_CALLBACK_URL:-http://127.0.0.1:8080/code}
+        VITE_ONLYOFFICE_URL: ${VITE_ONLYOFFICE_URL:-http://127.0.0.1:8081}
+        VITE_GEOSERVER_URL: ${VITE_GEOSERVER_URL:-http://127.0.0.1:8080/geoserver/wms}
+        VITE_ONLYOFFICE_API_URL: ${VITE_ONLYOFFICE_API_URL:-http://127.0.0.1:9003/api/documents}
     environment:
-      __VITE_API_URL__: /
-      __VITE_API_GATEWAY_URL__: http://127.0.0.1:8080/api
-      __VITE_AUTH_SERVICE_URL__: http://127.0.0.1:9001
-      __VITE_AUTH_CALLBACK_URL__: http://127.0.0.1:8080/code
-      __VITE_ONLYOFFICE_URL__: http://127.0.0.1:8081
-      __VITE_GEOSERVER_URL__: http://127.0.0.1:8080/geoserver/wms
-      __VITE_ONLYOFFICE_API_URL__: http://127.0.0.1:9003/api/documents
+      __VITE_API_URL__: ${VITE_API_URL:-/}
+      __VITE_API_GATEWAY_URL__: ${VITE_API_GATEWAY_URL:-http://127.0.0.1:8080/api}
+      __VITE_AUTH_SERVICE_URL__: ${VITE_AUTH_SERVICE_URL:-http://127.0.0.1:9001}
+      __VITE_AUTH_CALLBACK_URL__: ${VITE_AUTH_CALLBACK_URL:-http://127.0.0.1:8080/code}
+      __VITE_ONLYOFFICE_URL__: ${VITE_ONLYOFFICE_URL:-http://127.0.0.1:8081}
+      __VITE_GEOSERVER_URL__: ${VITE_GEOSERVER_URL:-http://127.0.0.1:8080/geoserver/wms}
+      __VITE_ONLYOFFICE_API_URL__: ${VITE_ONLYOFFICE_API_URL:-http://127.0.0.1:9003/api/documents}
     ports:
-      - "8080:8080"
+      - "${FRONTEND_PORT:-8080}:8080"
     networks:
       - prod-net
 
