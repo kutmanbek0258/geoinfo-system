@@ -9,7 +9,7 @@ export class StreamService {
   async startStream(geoObjectId: string): Promise<string> {
     try {
       const response = await api.post<{ webRtcUrl: string }>(`/streams/start`, { geoObjectId });
-      console.log(response.data.webRtcUrl)
+      console.log(response.data)
       return response.data.webRtcUrl;
     } catch (error) {
       console.error('Error starting stream:', error);

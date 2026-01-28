@@ -57,7 +57,9 @@ services:
   mediamtx:
     ports:
       - "${MEDIAMTX_API_PORT:-9997}:9997"
-      - "${MEDIAMTX_WEBRTC_PORT:-8888}:8888"
+      - "${MEDIAMTX_HLS_PORT:-8888}:8888"
+      - "8889:8889/tcp"
+      - "8189:8189/udp"
     networks:
       - prod-net
 
@@ -105,6 +107,8 @@ services:
   stream-service:
     networks:
       - prod-net
+    environment:
+      MEDIAMTX_WEBRTC_DOMAIN: ${MEDIAMTX_WEBRTC_DOMAIN:-http://127.0.0.1:8888}
 
   frontend:
     build:

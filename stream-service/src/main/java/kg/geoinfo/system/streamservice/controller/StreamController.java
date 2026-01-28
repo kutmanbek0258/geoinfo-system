@@ -1,9 +1,11 @@
 package kg.geoinfo.system.streamservice.controller;
 
+import kg.geoinfo.system.streamservice.dto.MediaMtxAuthRequest;
 import kg.geoinfo.system.streamservice.dto.StartStreamRequestDto;
 import kg.geoinfo.system.streamservice.dto.StartStreamResponseDto;
 import kg.geoinfo.system.streamservice.service.StreamManagerService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,5 +29,15 @@ public class StreamController {
     public ResponseEntity<Void> stopStream(@RequestBody StartStreamRequestDto request) {
         streamManagerService.stopStream(request.getGeoObjectId());
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/auth")
+    public ResponseEntity<Void> authenticateStream(@RequestBody MediaMtxAuthRequest authRequest) {
+        boolean isAllowed = streamManagerService.isStreamAccessAllowed(authRequest.getQuery());
+        if (isAllowed) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 }

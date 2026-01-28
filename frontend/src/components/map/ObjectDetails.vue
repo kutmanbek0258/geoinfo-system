@@ -86,26 +86,19 @@
     </v-card-text>
 
     <!-- Stream Viewer Dialog -->
-    <v-dialog v-model="showStreamModal" fullscreen :scrim="false" transition="dialog-bottom-transition">
+    <v-dialog v-model="showStreamModal" fullscreen :scrim="false" transition="dialog-bottom-transition" @update:modelValue="onStreamDialogClose">
       <v-card>
         <v-toolbar dark color="primary">
           <v-btn icon dark @click="stopStream">
             <v-icon>mdi-close</v-icon>
           </v-btn>
           <v-toolbar-title>Camera Stream: {{ featureName }}</v-toolbar-title>
-          <v-spacer></v-spacer>
-          <v-toolbar-items>
-            <v-btn variant="text" dark @click="stopStream">Stop Stream</v-btn>
-          </v-toolbar-items>
         </v-toolbar>
-        <v-card-text class="d-flex justify-center align-center h-screen bg-black">
-          <iframe
-              v-if="featureId"
-              :src="`http://localhost:8888/${featureId}`"
-              style="width: 100%; height: 100%; border: none;"
-              allow="autoplay; fullscreen"
-          ></iframe>
-        </v-card-text>
+        <WebRtcPlayer
+            v-if="activeCameraStream?.webRtcUrl"
+            :stream-url="activeCameraStream.webRtcUrl"
+            @close="stopStream"
+        />
       </v-card>
     </v-dialog>
 
@@ -173,6 +166,7 @@ import { useRouter } from 'vue-router';
 import imageCompression from 'browser-image-compression';
 import type { Document, ProjectPoint } from '@/types/api';
 import documentService from '@/services/document.service';
+import WebRtcPlayer from '@/components/webrtc/WebRtcPlayer.vue';
 
 const videoEl = ref<HTMLVideoElement | null>(null)
 const pc = ref<RTCPeerConnection | null>(null)
@@ -261,6 +255,12 @@ const stopStream = async () => {
 
   await store.dispatch('geodata/stopCameraStream', props.featureId)
   showStreamModal.value = false
+}
+
+const onStreamDialogClose = (isOpen: boolean) => {
+  if (!isOpen && activeCameraStream.value) {
+    stopStream();
+  }
 }
 
 // --- Lifecycle Hook to stop stream if component unmounts ---

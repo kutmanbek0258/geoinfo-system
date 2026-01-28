@@ -160,6 +160,7 @@ services:
     container_name: mediamtx
     environment:
       - MTX_API=yes
+      - MTX_EXTERNALAUTHENTICATIONURL=http://stream-service:9006/api/streams/auth
       - MTX_AUTHMETHOD=internal
       - MTX_AUTHINTERNALUSERS_0_USER=any
       - MTX_AUTHINTERNALUSERS_0_PASS=
@@ -170,7 +171,11 @@ services:
       - MTX_AUTHINTERNALUSERS_0_PERMISSIONS_4_ACTION=metrics
       - MTX_AUTHINTERNALUSERS_0_PERMISSIONS_5_ACTION=pprof
       - MTX_WEBRTCALLOWORIGIN=*
-      - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Headers=Content-Type
+      - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Methods=GET, POST, OPTIONS
+      - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Headers=Content-Type, Authorization
+      - MTX_WEBRTCICESERVERS2_0_URL=stun:stun.l.google.com:19302
+      - MTX_WEBRTCICEHOSTNAT1TO1IPS=10.214.30.39
+      - MTX_WEBRTCUDPLOCALADDRESS=:8189
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9997/v3/paths/list" ]
       interval: 10s

@@ -1,9 +1,10 @@
 package kg.geoinfo.system.streamservice.client;
 
 import kg.geoinfo.system.streamservice.dto.MediaMtxPathConfigDto;
-import org.springframework.beans.factory.annotation.Value;
+import kg.geoinfo.system.streamservice.dto.MediaMtxPathDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,4 +17,7 @@ public interface MediaMtxClient {
 
     @DeleteMapping("/v3/config/paths/delete/{path}")
     void deletePath(@PathVariable("path") String path);
+
+    @GetMapping("/v3/paths/get/{path}")
+    MediaMtxPathDto getPath(@PathVariable("path") String path);
 }

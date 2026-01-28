@@ -4,10 +4,12 @@ import kg.geoinfo.system.streamservice.config.security.introspector.CustomSpring
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -21,28 +23,30 @@ public class ResourceServerConfig {
     private final MappingJackson2HttpMessageConverter messageConverter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // выключаем поддержку сессий
-        http.sessionManagement(configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(customizer -> {
-                    customizer
-                            // ендпоинты swagger вынесем из под security
-                            .requestMatchers("/v3/api-docs").permitAll()
-                            .anyRequest().authenticated();
-                });
+    @Order(1)
+    public SecurityFilterChain publicEndpointsSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/api/streams/auth", "/v3/api-docs/**", "/swagger-ui/**")
+                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+                .csrf(AbstractHttpConfigurer::disable);
+        return http.build();
+    }
 
-        // подключаем поддержку OAuth2 Resource Server с Opaque Token.
-        // добавляем в качестве introspector нашу реализацию
-        http.oauth2ResourceServer(configurer -> {
-            configurer.opaqueToken(customizer -> {
-                customizer.introspector(new CustomSpringTokenIntrospection(
-                        resourceProperties.getIntrospectionUri(),
-                        resourceProperties.getClientId(),
-                        resourceProperties.getClientSecret(),
-                        messageConverter
-                ));
-            });
-        });
+    @Bean
+    @Order(2)
+    public SecurityFilterChain resourceServerSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                .sessionManagement(configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .oauth2ResourceServer(configurer -> configurer.opaqueToken(customizer -> {
+                    customizer.introspector(new CustomSpringTokenIntrospection(
+                            resourceProperties.getIntrospectionUri(),
+                            resourceProperties.getClientId(),
+                            resourceProperties.getClientSecret(),
+                            messageConverter
+                    ));
+                }))
+                .csrf(AbstractHttpConfigurer::disable);
         return http.build();
     }
 }

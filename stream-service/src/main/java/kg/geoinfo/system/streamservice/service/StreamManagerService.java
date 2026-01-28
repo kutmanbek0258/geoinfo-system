@@ -7,4 +7,5 @@ import java.util.UUID;
 public interface StreamManagerService {
     StartStreamResponseDto startStream(UUID geoObjectId);
     void stopStream(UUID geoObjectId);
+    boolean isStreamAccessAllowed(String query);
 }

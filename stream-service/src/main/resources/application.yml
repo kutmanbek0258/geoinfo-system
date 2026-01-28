@@ -5,7 +5,7 @@ mediamtx:
   api:
     url: http://mediamtx:9997
   webrtc:
-    url: http://localhost:8888
+    url: ${MEDIAMTX_WEBRTC_DOMAIN:http://localhost:8888}
 
 spring:
   application:
