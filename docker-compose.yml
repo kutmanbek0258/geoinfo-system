@@ -166,6 +166,11 @@ services:
       - MTX_WEBRTCALLOWORIGIN=*
       - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Methods=GET, POST, OPTIONS
       - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Headers=Content-Type, Authorization
+#
+#      # Включает режим "по требованию" для всех путей
+#      - MTX_PATHS_ALL_SOURCEONDEMAND=yes
+#      # Время ожидания после ухода последнего зрителя до закрытия RTSP-потока
+#      - MTX_PATHS_ALL_SOURCEONDEMANDCLOSEAFTER=10s
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9997/v3/paths/list" ]
       interval: 10s
