@@ -8,6 +8,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Point;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Table(name = "project_points", schema = "geodata", indexes = {
@@ -49,5 +50,5 @@ public class ProjectPoint extends AuditableCustom<String> {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private String characteristics;
+    private Map<String, Object> characteristics;
 }
