@@ -56,10 +56,7 @@ services:
   # ====== MediaMTX Stream Server ======
   mediamtx:
     ports:
-      - "${MEDIAMTX_API_PORT:-9997}:9997"
       - "${MEDIAMTX_HLS_PORT:-8888}:8888"
-      - "8889:8889/tcp"
-      - "8189:8189/udp"
     networks:
       - prod-net
 

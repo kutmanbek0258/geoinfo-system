@@ -11,7 +11,6 @@ import kg.geoinfo.system.streamservice.dto.StartStreamResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -38,7 +37,7 @@ public class StreamManagerServiceImpl implements StreamManagerService {
     private final OAuth2ResourceOpaqueProperties introspectionProperties;
 
 
-    @Value("${mediamtx.webrtc.url}")
+    @Value("${mediamtx.hls.url}")
     private String webRtcBaseUrl;
 
     // DTO for introspection response
@@ -105,7 +104,6 @@ public class StreamManagerServiceImpl implements StreamManagerService {
         // 7. Return the WebRTC URL to the client with token
         String webRtcUrl = UriComponentsBuilder.fromHttpUrl(webRtcBaseUrl)
                 .pathSegment(streamPath)
-                .pathSegment("whep")
                 .queryParam("token", token)
                 .toUriString();
 

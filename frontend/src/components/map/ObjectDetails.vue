@@ -94,9 +94,9 @@
           </v-btn>
           <v-toolbar-title>Camera Stream: {{ featureName }}</v-toolbar-title>
         </v-toolbar>
-        <WebRtcPlayer
+        <StreamPlayer
             v-if="activeCameraStream?.webRtcUrl"
-            :stream-url="activeCameraStream.webRtcUrl"
+            :webRtcUrl="activeCameraStream.webRtcUrl"
             @close="stopStream"
         />
       </v-card>
@@ -166,7 +166,7 @@ import { useRouter } from 'vue-router';
 import imageCompression from 'browser-image-compression';
 import type { Document, ProjectPoint } from '@/types/api';
 import documentService from '@/services/document.service';
-import WebRtcPlayer from '@/components/webrtc/WebRtcPlayer.vue';
+import StreamPlayer from '../player/StreamPlayer.vue';
 
 const videoEl = ref<HTMLVideoElement | null>(null)
 const pc = ref<RTCPeerConnection | null>(null)
