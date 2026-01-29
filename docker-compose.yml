@@ -161,6 +161,7 @@ services:
     environment:
       - MTX_API=yes
       - MTX_EXTERNALAUTHENTICATIONURL=http://stream-service:9006/api/streams/auth
+      - MTX_AUTHHTTPSESSIONS=yes
 
       - MTX_WEBRTCALLOWORIGIN=*
       - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Methods=GET, POST, OPTIONS
