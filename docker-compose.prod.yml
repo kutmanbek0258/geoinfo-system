@@ -105,7 +105,7 @@ services:
     networks:
       - prod-net
     environment:
-      MEDIAMTX_WEBRTC_DOMAIN: ${MEDIAMTX_HLS_DOMAIN:-http://127.0.0.1:8888}
+      MEDIAMTX_HLS_DOMAIN: ${MEDIAMTX_HLS_DOMAIN:-http://127.0.0.1:8888}
 
   frontend:
     build:
