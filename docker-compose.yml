@@ -166,6 +166,11 @@ services:
       - MTX_WEBRTCALLOWORIGIN=*
       - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Methods=GET, POST, OPTIONS
       - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Headers=Content-Type, Authorization
+
+      - MTX_HLS=yes
+      - MTX_HLSADDRESS=:8888
+      - MTX_HLSVARIANT=mpegts
+      - MTX_HLSDURATION=2s
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9997/v3/paths/list" ]
       interval: 10s

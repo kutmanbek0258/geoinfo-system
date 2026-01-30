@@ -11,6 +11,7 @@ import kg.geoinfo.system.streamservice.dto.StartStreamResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -94,12 +95,12 @@ public class StreamManagerServiceImpl implements StreamManagerService {
         log.info("WebRTC base URL: " + webRtcBaseUrl);
 
         // 7. Return the WebRTC URL to the client with token
-        String webRtcUrl = UriComponentsBuilder.fromHttpUrl(webRtcBaseUrl)
+        String hlsUrl = UriComponentsBuilder.fromHttpUrl(webRtcBaseUrl)
                 .pathSegment(streamPath)
                 .toUriString();
 
-        log.info("Created stream details: " + webRtcUrl);
-        return new StartStreamResponseDto(webRtcUrl);
+        log.info("Created stream details: " + hlsUrl);
+        return new StartStreamResponseDto(hlsUrl);
     }
 
     @Override
@@ -121,16 +122,13 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             log.warn("MediaMTX auth request without query string");
             return false;
         }
+        log.info(query);
 
         // Extract token from "token=value"
-        String token = null;
-        String[] params = query.split("&");
-        for (String param : params) {
-            if (param.startsWith("token=")) {
-                token = param.substring(6);
-                break;
-            }
-        }
+        String token = UriComponentsBuilder.fromUriString("?" + query)
+                .build()
+                .getQueryParams()
+                .getFirst("access_token");
 
         if (token == null) {
             log.warn("MediaMTX auth request query without 'token' parameter: {}", query);
