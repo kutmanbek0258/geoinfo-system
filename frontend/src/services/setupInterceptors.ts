@@ -9,7 +9,14 @@ const setup = () => {
     (config: InternalAxiosRequestConfig) => {
       const token = localStorage.getItem(ACCESS_TOKEN_KEY);
       if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
+        // If the request is for the MediaMTX proxy, add the token as a query parameter
+        if (config.url && config.url.includes('/mediamtx/')) {
+          config.params = config.params || {};
+          config.params.token = token;
+        } else {
+          // Otherwise, use the standard Authorization header
+          config.headers['Authorization'] = `Bearer ${token}`;
+        }
       }
       return config;
     },
@@ -30,8 +37,12 @@ const setup = () => {
 
         try {
           await LoginService.refreshToken();
+          // After refreshing, we need to retry the original request.
+          // The request interceptor will handle re-attaching the new token.
           return axiosInstance(originalConfig);
         } catch (_error) {
+          // If refresh fails, log out the user or handle appropriately
+          LoginService.logout();
           return Promise.reject(_error);
         }
       }

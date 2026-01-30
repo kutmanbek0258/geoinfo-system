@@ -1,0 +1,31 @@
+####################################
+# Global settings
+####################################
+logLevel: info
+logDestinations: [stdout]
+logStructured: no
+
+readTimeout: 10s
+writeTimeout: 10s
+writeQueueSize: 512
+udpMaxPayloadSize: 1472
+
+####################################
+# Authentication
+####################################
+authMethod: http
+authHTTPAddress: http://stream-service:9006/api/streams/auth
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+# принимает jwt в query
+authJWTInHTTPQuery: true
+
+####################################
+# HLS
+####################################
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigins: ['*']

@@ -5,8 +5,7 @@ import lombok.Data;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class MediaMtxPathDto {
-    private String name;
-    private boolean ready;
-    private MediaMtxSourceDto source;
+public class MediaMtxSourceDto {
+    private String type;
+    private String id;
 }

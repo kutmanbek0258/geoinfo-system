@@ -78,7 +78,7 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             log.info("Constructed RTSP URL: {}", rtspUrl);
 
             // 5. Call MediaMTX to add the path
-            MediaMtxPathConfigDto config = new MediaMtxPathConfigDto(rtspUrl);
+            MediaMtxPathConfigDto config = new MediaMtxPathConfigDto(rtspUrl, true, "20s");
             try {
                 mediaMtxClient.addPath(streamPath, config);
                 log.info("Successfully registered stream path '{}' with MediaMTX", streamPath);
@@ -91,20 +91,11 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             throw new RuntimeException("Could not start camera stream due to an unexpected error: " + e.getMessage());
         }
 
-
-        // 6. Get current user's token
-        String token = "";
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication instanceof BearerTokenAuthentication bearer) {
-            token = bearer.getToken().getTokenValue();
-        }
-
         log.info("WebRTC base URL: " + webRtcBaseUrl);
 
         // 7. Return the WebRTC URL to the client with token
         String webRtcUrl = UriComponentsBuilder.fromHttpUrl(webRtcBaseUrl)
                 .pathSegment(streamPath)
-                .queryParam("token", token)
                 .toUriString();
 
         log.info("Created stream details: " + webRtcUrl);

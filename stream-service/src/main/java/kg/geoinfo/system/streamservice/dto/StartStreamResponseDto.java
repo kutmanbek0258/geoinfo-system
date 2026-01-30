@@ -8,5 +8,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StartStreamResponseDto {
-    private String webRtcUrl;
+    private String streamPath;
 }
