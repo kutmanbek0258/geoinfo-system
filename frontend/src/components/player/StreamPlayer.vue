@@ -65,40 +65,56 @@ const initPlayer = () => {
   // --- HLS Event Handlers ---
 
   hls.on(Hls.Events.ERROR, async (_event: string, data: ErrorData) => {
-    console.error('[StreamPlayer] HLS Error:', data);
+    const responseCode = data.response?.code;
 
-    if (data.type === Hls.ErrorTypes.NETWORK_ERROR && data.response?.code === 401 && !isRetrying) {
+    // 1. Обработка ошибки 403 (Камера просыпается / Forbidden)
+    // В режиме sourceOnDemand MediaMTX часто отдает 403, пока RTSP поток не инициализирован
+    if (responseCode === 403) {
+      loading.value = true;
+      statusMessage.value = "Camera is warming up... please wait";
+      console.warn("[StreamPlayer] Camera not ready (403). Retrying in 2s...");
+
+      // Принудительно заставляем hls.js попробовать загрузить фрагмент/манифест снова
+      setTimeout(() => {
+        hls?.startLoad();
+      }, 2000);
+      return; // Выходим, чтобы не упасть в fatal error
+    }
+
+    // 2. Обработка ошибки 401 (Нужно обновить токен)
+    if (responseCode === 401 && !isRetrying) {
       isRetrying = true;
-      console.warn('[StreamPlayer] HLS stream returned 401. Attempting to refresh token...');
+      console.warn('[StreamPlayer] HLS stream returned 401. Refreshing token...');
 
       try {
         await LoginService.refreshToken();
-        console.log('[StreamPlayer] Token refreshed successfully. Reloading stream with new token.');
-
-        if (hls) {
-          const newUrl = getUrlWithToken(props.streamHlsUrl);
-          console.log(`[StreamPlayer] Reloading source with new URL: ${newUrl}`);
-          hls.loadSource(newUrl);
-        }
+        // Обновляем источник. Если вы используете xhrSetup (как я советовал выше),
+        // достаточно вызвать startLoad(), он подхватит новый токен из localStorage
+        hls?.startLoad();
       } catch (refreshError) {
-        console.error('[StreamPlayer] Failed to refresh token after HLS 401 error.', refreshError);
+        console.error('[StreamPlayer] Failed to refresh token.', refreshError);
         LoginService.logout();
       } finally {
-        setTimeout(() => { isRetrying = false; }, 5000); // Prevent rapid retries
+        setTimeout(() => { isRetrying = false; }, 5000);
       }
-    } else if (data.fatal) {
+      return;
+    }
+
+    // 3. Обработка фатальных ошибок (когда hls.js сам не может восстановиться)
+    if (data.fatal) {
       switch (data.type) {
         case Hls.ErrorTypes.NETWORK_ERROR:
-          statusMessage.value = 'Waiting for camera...';
-          console.warn('[StreamPlayer] Network error, retrying...', data);
+          console.error('[StreamPlayer] Fatal network error. Retrying load...', data);
+          statusMessage.value = 'Network error. Reconnecting...';
           hls?.startLoad();
           break;
         case Hls.ErrorTypes.MEDIA_ERROR:
-          console.warn('[StreamPlayer] Media error, recovering...');
+          console.warn('[StreamPlayer] Fatal media error. Recovering...');
           hls?.recoverMediaError();
           break;
         default:
-          initPlayer(); // Реинициализация при критических сбоях
+          console.error('[StreamPlayer] Unrecoverable error. Re-initializing player.');
+          initPlayer();
           break;
       }
     }

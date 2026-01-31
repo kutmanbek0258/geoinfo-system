@@ -76,7 +76,7 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             log.info("Constructed RTSP URL: {}", rtspUrl);
 
             // 5. Call MediaMTX to add the path
-            MediaMtxPathConfigDto config = new MediaMtxPathConfigDto(rtspUrl, true, "20s");
+            MediaMtxPathConfigDto config = new MediaMtxPathConfigDto(rtspUrl, false, "20s");
             try {
                 mediaMtxClient.addPath(streamPath, config);
                 log.info("Successfully registered stream path '{}' with MediaMTX", streamPath);
