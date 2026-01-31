@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -27,8 +29,16 @@ public class ResourceServerConfig {
     public SecurityFilterChain publicEndpointsSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .securityMatcher("/api/streams/auth", "/v3/api-docs/**", "/swagger-ui/**")
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
-                .csrf(AbstractHttpConfigurer::disable);
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults()) // Добавьте, если MediaMTX и фронтенд на разных доменах
+                .authorizeHttpRequests(authorize -> authorize
+                        // Явно разрешаем POST для MediaMTX
+                        .requestMatchers(HttpMethod.POST, "/api/streams/auth").permitAll()
+                        .anyRequest().permitAll()
+                )
+                // Отключаем сессии для этого эндпоинта
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
         return http.build();
     }
 

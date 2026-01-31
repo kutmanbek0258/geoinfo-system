@@ -144,7 +144,7 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             TokenInfo tokenInfo = restTemplate.postForObject(introspectionProperties.getIntrospectionUri(), request, TokenInfo.class);
 
             if (tokenInfo != null && tokenInfo.active()) {
-                log.debug("Token is active. Access granted.");
+                log.info("Token is active. Access granted.");
                 return true;
             } else {
                 log.warn("Token is inactive or invalid. Access denied.");
