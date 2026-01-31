@@ -13,7 +13,7 @@ interface GeodataState {
     selectedFeatureId: string | null;
     isLoading: boolean;
     error: string | null;
-    activeCameraStream: { geoObjectId: string, webRtcUrl: string } | null;
+    activeCameraStream: { geoObjectId: string, streamHlsUrl: string } | null;
 }
 
 const state: GeodataState = {
@@ -106,7 +106,7 @@ const mutations = {
         state[targetArrayName] = [...state[targetArrayName], data];
     },
 
-    SET_ACTIVE_CAMERA_STREAM(state: GeodataState, payload: { geoObjectId: string, webRtcUrl: string } | null) {
+    SET_ACTIVE_CAMERA_STREAM(state: GeodataState, payload: { geoObjectId: string, streamHlsUrl: string } | null) {
         state.activeCameraStream = payload;
     },
 };
@@ -351,8 +351,8 @@ const actions = {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const webRtcUrl = await streamService.startStream(geoObjectId);
-            commit('SET_ACTIVE_CAMERA_STREAM', { geoObjectId, webRtcUrl });
+            const streamHlsUrl = await streamService.startStream(geoObjectId);
+            commit('SET_ACTIVE_CAMERA_STREAM', { geoObjectId, streamHlsUrl });
         } catch (err) {
             commit('SET_ERROR', 'Failed to start camera stream.');
             dispatch('alert/error', 'Не удалось запустить трансляцию с камеры. Проверьте подключение или обратитесь к администратору.', { root: true });

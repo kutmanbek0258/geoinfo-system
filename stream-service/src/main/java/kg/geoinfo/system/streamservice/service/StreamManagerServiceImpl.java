@@ -14,8 +14,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthentication;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
@@ -38,7 +36,7 @@ public class StreamManagerServiceImpl implements StreamManagerService {
 
 
     @Value("${mediamtx.hls.url}")
-    private String webRtcBaseUrl;
+    private String hlsBaseUrl;
 
     // DTO for introspection response
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -91,15 +89,15 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             throw new RuntimeException("Could not start camera stream due to an unexpected error: " + e.getMessage());
         }
 
-        log.info("WebRTC base URL: " + webRtcBaseUrl);
+        log.info("WebRTC base URL: " + hlsBaseUrl);
 
         // 7. Return the WebRTC URL to the client with token
-        String webRtcUrl = UriComponentsBuilder.fromHttpUrl(webRtcBaseUrl)
+        String streamHlsUrl = UriComponentsBuilder.fromHttpUrl(hlsBaseUrl)
                 .pathSegment(streamPath)
                 .toUriString();
 
-        log.info("Created stream details: " + webRtcUrl);
-        return new StartStreamResponseDto(webRtcUrl);
+        log.info("Created stream details: " + streamHlsUrl);
+        return new StartStreamResponseDto(streamHlsUrl);
     }
 
     @Override
@@ -122,18 +120,14 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             return false;
         }
 
-        // Extract token from "token=value"
-        String token = null;
-        String[] params = query.split("&");
-        for (String param : params) {
-            if (param.startsWith("token=")) {
-                token = param.substring(6);
-                break;
-            }
-        }
+        // Надежно достаем только access_token, игнорируя _HLS_msn и прочее
+        String token = UriComponentsBuilder.fromUriString("?" + query)
+                .build()
+                .getQueryParams()
+                .getFirst("access_token");
 
         if (token == null) {
-            log.warn("MediaMTX auth request query without 'token' parameter: {}", query);
+            log.warn("MediaMTX auth request query without 'access_token' parameter: {}", query);
             return false;
         }
 

@@ -95,8 +95,8 @@
           <v-toolbar-title>Camera Stream: {{ featureName }}</v-toolbar-title>
         </v-toolbar>
         <StreamPlayer
-            v-if="activeCameraStream?.webRtcUrl"
-            :webRtcUrl="activeCameraStream.webRtcUrl"
+            v-if="activeCameraStream?.streamHlsUrl"
+            :streamHlsUrl="activeCameraStream.streamHlsUrl"
             @close="stopStream"
         />
       </v-card>

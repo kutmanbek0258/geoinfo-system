@@ -16,7 +16,7 @@ import type { ErrorData } from 'hls.js';
 import LoginService from '@/services/login.service';
 
 const props = defineProps<{
-  webRtcUrl: string; // The base URL for the stream from the backend
+  streamHlsUrl: string; // The base URL for the stream from the backend
 }>();
 
 const videoRef = ref<HTMLVideoElement | null>(null);
@@ -26,23 +26,11 @@ let isRetrying = false; // Flag to prevent infinite retry loops on 401 errors
 
 /**
  * Gets the current token from localStorage and appends it to the given URL.
- * @param baseUrl The clean URL without any token.
  * @returns The URL with the token appended as a query parameter, or the original URL if no token is found.
  */
 const getUrlWithToken = (baseUrl: string): string => {
   const token = localStorage.getItem('access_token');
-  if (!token) {
-    console.warn('[StreamPlayer] No access token found in localStorage.');
-    return baseUrl;
-  }
-  try {
-    const url = new URL(baseUrl, window.location.href);
-    url.searchParams.set('token', token);
-    return url.toString();
-  } catch (e) {
-    console.error('[StreamPlayer] Invalid base URL provided:', baseUrl, e);
-    return baseUrl; // Return base URL on error
-  }
+  return `${baseUrl}/index.m3u8?access_token=${token}`;
 };
 
 const initPlayer = () => {
@@ -76,7 +64,7 @@ const initPlayer = () => {
         console.log('[StreamPlayer] Token refreshed successfully. Reloading stream with new token.');
         
         if (hls) {
-          const newUrl = getUrlWithToken(props.webRtcUrl);
+          const newUrl = getUrlWithToken(props.streamHlsUrl);
           console.log(`[StreamPlayer] Reloading source with new URL: ${newUrl}`);
           hls.loadSource(newUrl);
         }
@@ -103,7 +91,7 @@ const initPlayer = () => {
 
   // --- Initial Load ---
 
-  const initialUrl = getUrlWithToken(props.webRtcUrl);
+  const initialUrl = getUrlWithToken(props.streamHlsUrl);
   console.log(`[StreamPlayer] Loading initial source: ${initialUrl}`);
   hls.loadSource(initialUrl);
   hls.attachMedia(videoRef.value);
@@ -121,7 +109,7 @@ onUnmounted(() => {
   }
 });
 
-watch(() => props.webRtcUrl, (newUrl, oldUrl) => {
+watch(() => props.streamHlsUrl, (newUrl, oldUrl) => {
   if (newUrl !== oldUrl) {
     console.log(`[StreamPlayer] Stream URL changed. Re-initializing player.` + newUrl);
     loading.value = true;
