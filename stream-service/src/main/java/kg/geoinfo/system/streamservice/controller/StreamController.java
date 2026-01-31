@@ -5,6 +5,7 @@ import kg.geoinfo.system.streamservice.dto.StartStreamRequestDto;
 import kg.geoinfo.system.streamservice.dto.StartStreamResponseDto;
 import kg.geoinfo.system.streamservice.service.StreamManagerService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/streams")
 @RequiredArgsConstructor
+@Slf4j
 public class StreamController {
 
     private final StreamManagerService streamManagerService;
@@ -32,12 +34,16 @@ public class StreamController {
     }
 
     @PostMapping("/auth")
-    public ResponseEntity<Void> authenticateStream(@RequestBody MediaMtxAuthRequest authRequest) {
-        boolean isAllowed = streamManagerService.isStreamAccessAllowed(authRequest.getQuery());
-        if (isAllowed) {
-            return ResponseEntity.ok().build();
+    public ResponseEntity<Void> authenticate(@RequestBody MediaMtxAuthRequest request) {
+        log.info("MediaMTX auth request for path: {}", request.getPath());
+
+        // Передаем строку query из JSON в ваш метод
+        boolean allowed = streamManagerService.isStreamAccessAllowed(request.getQuery());
+
+        if (allowed) {
+            return ResponseEntity.ok().build(); // Статус 200 - доступ разрешен
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // Статус 403 - отказ
         }
     }
 }
