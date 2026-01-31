@@ -163,9 +163,14 @@ services:
       - MTX_EXTERNALAUTHENTICATIONURL=http://stream-service:9006/api/streams/auth
       - MTX_AUTHHTTPSESSIONS=yes
 
-      - MTX_WEBRTCALLOWORIGIN=*
-      - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Methods=GET, POST, OPTIONS
-      - MTX_WEBRTCADDITIONALHEADERS_Access-Control-Allow-Headers=Content-Type, Authorization
+      # Включаем HLS
+      - MTX_HLS=yes
+      # РАЗРЕШАЕМ CORS (это заменяет ручную пропись заголовков)
+      - MTX_HLSALLOWORIGIN=*
+      # Всегда передаем заголовки, даже при ошибках
+      - MTX_HLSALWAYSTRANSMIT=yes
+      # Если все же нужны кастомные заголовки, пишите их ТАК (в кавычках):
+      - MTX_HLSHEADERS_Access-Control-Allow-Methods=GET, OPTIONS, HEAD
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9997/v3/paths/list" ]
       interval: 10s
