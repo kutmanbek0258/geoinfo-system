@@ -16,104 +16,108 @@ import type { ErrorData, HlsConfig } from 'hls.js';
 import LoginService from '@/services/login.service';
 
 const props = defineProps<{
-  streamHlsUrl: string; // The base URL for the stream from the backend
+  streamHlsUrl: string;
 }>();
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 const loading = ref(true);
-let hls: Hls | null = null;
-let isRetrying = false; // Flag to prevent infinite retry loops on 401 errors
 const statusMessage = ref('Loading stream...');
 
-/**
- * Gets the current token from localStorage and appends it to the given URL.
- * @returns The URL with the token appended as a query parameter, or the original URL if no token is found.
- */
-const getUrlWithToken = (baseUrl: string): string => {
-  const token = localStorage.getItem('access_token');
-  return `${baseUrl}/index.m3u8?access_token=${token}`;
-};
+let hls: Hls | null = null;
+let isRefreshing = false; // "Мьютекс" для процесса обновления
+let consecutive401Errors = 0; // Счетчик для предотвращения бесконечной петли
 
+/**
+ * Оптимизированный конфиг HLS
+ */
 const getHlsConfig = (): Partial<HlsConfig> => ({
-  // Начинаем воспроизведение, как только готов 1-й сегмент
   initialLiveManifestSize: 1,
-  // Настройки ретраев для манифеста (важно для sourceOnDemand)
-  manifestLoadingMaxRetry: 30,      // Пробуем в течение ~30 секунд
-  manifestLoadingRetryDelay: 1000,  // Пауза 1 сек между попытками
-  // Настройки для фрагментов
+  manifestLoadingMaxRetry: 30,
+  manifestLoadingRetryDelay: 1000,
   fragLoadingMaxRetry: 10,
   fragLoadingRetryDelay: 1000,
+
+  // КЛЮЧЕВОЙ МОМЕНТ: Динамическая подстановка токена в каждый запрос
+  xhrSetup: (xhr, url) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      const urlObj = new URL(url);
+      urlObj.searchParams.set('access_token', token);
+      xhr.open('GET', urlObj.toString(), true);
+    }
+  }
 });
 
-const initPlayer = () => {
-  if (!videoRef.value) {
-    console.error('[StreamPlayer] Video element not found.');
-    return;
-  }
-  if (!Hls.isSupported()) {
-    console.error('[StreamPlayer] HLS is not supported in this browser.');
-    return;
-  }
-  console.log('[StreamPlayer] Initializing player...');
+const handle401Error = async () => {
+  if (isRefreshing) return; // Если обновление уже идет, выходим
 
-  if (hls) {
-    hls.destroy();
+  if (consecutive401Errors >= 3) {
+    console.error('[StreamPlayer] Too many 401 errors. Stopping to prevent loop.');
+    LoginService.logout();
+    return;
   }
+
+  isRefreshing = true;
+  consecutive401Errors++;
+  statusMessage.value = "Updating session...";
+
+  try {
+    console.warn(`[StreamPlayer] 401 Unauthorized. Attempt ${consecutive401Errors} to refresh token...`);
+
+    // Останавливаем загрузку на время обновления
+    hls?.stopLoad();
+
+    await LoginService.refreshToken();
+
+    console.log('[StreamPlayer] Token refreshed. Resuming playback.');
+
+    // После успешного обновления сбрасываем счетчик через некоторое время
+    setTimeout(() => { consecutive401Errors = 0; }, 10000);
+
+    // Перезагружаем источник, чтобы hls.js перечитал манифест с новым токеном через xhrSetup
+    hls?.startLoad();
+  } catch (err) {
+    console.error('[StreamPlayer] Refresh token failed.', err);
+    LoginService.logout();
+  } finally {
+    isRefreshing = false;
+  }
+};
+
+const initPlayer = () => {
+  if (!videoRef.value || !Hls.isSupported()) return;
+
+  if (hls) hls.destroy();
 
   hls = new Hls(getHlsConfig());
 
-  // --- HLS Event Handlers ---
-
-  hls.on(Hls.Events.ERROR, async (_event: string, data: ErrorData) => {
+  hls.on(Hls.Events.ERROR, async (_event, data) => {
     const responseCode = data.response?.code;
 
-    // 1. Обработка ошибки 403 (Камера просыпается / Forbidden)
-    // В режиме sourceOnDemand MediaMTX часто отдает 403, пока RTSP поток не инициализирован
+    // 1. Ошибка 403 (Прогрев камеры при sourceOnDemand)
     if (responseCode === 403) {
       loading.value = true;
-      statusMessage.value = "Camera is warming up... please wait";
-      console.warn("[StreamPlayer] Camera not ready (403). Retrying in 2s...");
-
-      // Принудительно заставляем hls.js попробовать загрузить фрагмент/манифест снова
-      setTimeout(() => {
-        hls?.startLoad();
-      }, 2000);
-      return; // Выходим, чтобы не упасть в fatal error
-    }
-
-    // 2. Обработка ошибки 401 (Нужно обновить токен)
-    if (responseCode === 401 && !isRetrying) {
-      isRetrying = true;
-      console.warn('[StreamPlayer] HLS stream returned 401. Refreshing token...');
-
-      try {
-        await LoginService.refreshToken();
-        // Обновляем источник. Если вы используете xhrSetup (как я советовал выше),
-        // достаточно вызвать startLoad(), он подхватит новый токен из localStorage
-        hls?.startLoad();
-      } catch (refreshError) {
-        console.error('[StreamPlayer] Failed to refresh token.', refreshError);
-        LoginService.logout();
-      } finally {
-        setTimeout(() => { isRetrying = false; }, 5000);
-      }
+      statusMessage.value = "Camera is warming up...";
+      setTimeout(() => hls?.startLoad(), 2000);
       return;
     }
 
-    // 3. Обработка фатальных ошибок (когда hls.js сам не может восстановиться)
+    // 2. Ошибка 401 (Токен протух)
+    if (responseCode === 401) {
+      await handle401Error();
+      return;
+    }
+
+    // 3. Фатальные ошибки
     if (data.fatal) {
       switch (data.type) {
         case Hls.ErrorTypes.NETWORK_ERROR:
-          console.error('[StreamPlayer] Fatal network error. Retrying load...', data);
-          statusMessage.value = 'Network error. Reconnecting...';
           hls?.startLoad();
           break;
         case Hls.ErrorTypes.MEDIA_ERROR:
-          console.warn('[StreamPlayer] Fatal media error. Recovering...');
           hls?.recoverMediaError();
           break;
         default:
-          console.error('[StreamPlayer] Unrecoverable error. Re-initializing player.');
           initPlayer();
           break;
       }
@@ -121,19 +125,16 @@ const initPlayer = () => {
   });
 
   hls.on(Hls.Events.MANIFEST_PARSED, () => {
-    console.log('[StreamPlayer] Manifest parsed, playback should start.');
     loading.value = false;
+    videoRef.value?.play().catch(() => console.log("Autoplay blocked"));
   });
 
-  hls.on(Hls.Events.FRAG_LOADING, (_event, data) => {
-    console.log(`[StreamPlayer] Loading fragment: ${data.frag.sn}`);
-  });
+  // Загружаем чистый URL без токена (xhrSetup сам добавит его)
+  const cleanUrl = props.streamHlsUrl.endsWith('.m3u8')
+      ? props.streamHlsUrl
+      : `${props.streamHlsUrl}/index.m3u8`;
 
-  // --- Initial Load ---
-
-  const initialUrl = getUrlWithToken(props.streamHlsUrl);
-  console.log(`[StreamPlayer] Loading initial source: ${initialUrl}`);
-  hls.loadSource(initialUrl);
+  hls.loadSource(cleanUrl);
   hls.attachMedia(videoRef.value);
 };
 
@@ -153,7 +154,6 @@ watch(() => props.streamHlsUrl, (newUrl, oldUrl) => {
   if (newUrl !== oldUrl) {
     console.log(`[StreamPlayer] Stream URL changed. Re-initializing player.` + newUrl);
     loading.value = true;
-    isRetrying = false;
     initPlayer();
   }
 });
