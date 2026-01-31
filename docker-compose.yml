@@ -160,7 +160,8 @@ services:
     container_name: mediamtx
     environment:
       - MTX_API=yes
-      - MTX_EXTERNALAUTHENTICATIONURL=http://stream-service:9006/api/streams/auth
+      - MTX_AUTHMETHOD=http
+      - MTX_AUTHHTTPADDRESS=http://stream-service:9006/api/streams/auth
       - MTX_AUTHHTTPSESSIONS=yes
 
       # Включаем HLS
@@ -170,7 +171,8 @@ services:
       # Всегда передаем заголовки, даже при ошибках
       - MTX_HLSALWAYSTRANSMIT=yes
       # Если все же нужны кастомные заголовки, пишите их ТАК (в кавычках):
-      - MTX_HLSHEADERS_Access-Control-Allow-Methods=GET, OPTIONS, HEAD
+#      - MTX_HLSHEADERS_Access-Control-Allow-Methods=GET, POST, OPTIONS, HEAD
+      - "MTX_HLSHEADERS=Access-Control-Allow-Methods: GET, POST, OPTIONS, HEAD"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9997/v3/paths/list" ]
       interval: 10s
