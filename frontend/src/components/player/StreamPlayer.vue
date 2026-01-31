@@ -4,7 +4,7 @@
 
     <div v-if="loading" class="loading-overlay">
       <v-progress-circular indeterminate color="primary"></v-progress-circular>
-      <p class="mt-4">Loading stream...</p>
+      <p class="mt-4">{{ statusMessage }}</p>
     </div>
   </div>
 </template>
@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import Hls from 'hls.js';
-import type { ErrorData } from 'hls.js';
+import type { ErrorData, HlsConfig } from 'hls.js';
 import LoginService from '@/services/login.service';
 
 const props = defineProps<{
@@ -23,6 +23,7 @@ const videoRef = ref<HTMLVideoElement | null>(null);
 const loading = ref(true);
 let hls: Hls | null = null;
 let isRetrying = false; // Flag to prevent infinite retry loops on 401 errors
+const statusMessage = ref('Loading stream...');
 
 /**
  * Gets the current token from localStorage and appends it to the given URL.
@@ -32,6 +33,17 @@ const getUrlWithToken = (baseUrl: string): string => {
   const token = localStorage.getItem('access_token');
   return `${baseUrl}/index.m3u8?access_token=${token}`;
 };
+
+const getHlsConfig = (): Partial<HlsConfig> => ({
+  // Начинаем воспроизведение, как только готов 1-й сегмент
+  initialLiveManifestSize: 1,
+  // Настройки ретраев для манифеста (важно для sourceOnDemand)
+  manifestLoadingMaxRetry: 30,      // Пробуем в течение ~30 секунд
+  manifestLoadingRetryDelay: 1000,  // Пауза 1 сек между попытками
+  // Настройки для фрагментов
+  fragLoadingMaxRetry: 10,
+  fragLoadingRetryDelay: 1000,
+});
 
 const initPlayer = () => {
   if (!videoRef.value) {
@@ -48,7 +60,7 @@ const initPlayer = () => {
     hls.destroy();
   }
 
-  hls = new Hls({ autoStartLoad: true });
+  hls = new Hls(getHlsConfig());
 
   // --- HLS Event Handlers ---
 
@@ -62,7 +74,7 @@ const initPlayer = () => {
       try {
         await LoginService.refreshToken();
         console.log('[StreamPlayer] Token refreshed successfully. Reloading stream with new token.');
-        
+
         if (hls) {
           const newUrl = getUrlWithToken(props.streamHlsUrl);
           console.log(`[StreamPlayer] Reloading source with new URL: ${newUrl}`);
@@ -75,8 +87,20 @@ const initPlayer = () => {
         setTimeout(() => { isRetrying = false; }, 5000); // Prevent rapid retries
       }
     } else if (data.fatal) {
-      console.error('[StreamPlayer] Fatal HLS error encountered. Destroying player.', data);
-      hls?.destroy();
+      switch (data.type) {
+        case Hls.ErrorTypes.NETWORK_ERROR:
+          statusMessage.value = 'Waiting for camera...';
+          console.warn('[StreamPlayer] Network error, retrying...', data);
+          hls?.startLoad();
+          break;
+        case Hls.ErrorTypes.MEDIA_ERROR:
+          console.warn('[StreamPlayer] Media error, recovering...');
+          hls?.recoverMediaError();
+          break;
+        default:
+          initPlayer(); // Реинициализация при критических сбоях
+          break;
+      }
     }
   });
 
