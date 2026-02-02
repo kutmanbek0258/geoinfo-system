@@ -246,9 +246,6 @@ const startStream = async () => {
 const stopStream = async () => {
   const streamToStopId = activeCameraStream.value ? activeCameraStream.value.geoObjectId : null;
 
-  // Hide the modal to trigger the unmount of the player, stopping HLS requests.
-  showStreamModal.value = false;
-
   // Clean up local WebRTC objects, if they were used.
   if (pc.value) {
     pc.value.close();
@@ -269,6 +266,9 @@ const stopStream = async () => {
       console.error('Server-side stream stop failed, but client is clean:', error);
     }
   }
+
+  // Hide the modal to trigger the unmount of the player, stopping HLS requests.
+  showStreamModal.value = false;
 };
 
 const onStreamDialogClose = (isOpen: boolean) => {
