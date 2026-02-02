@@ -37,6 +37,10 @@ public class StreamManagerServiceImpl implements StreamManagerService {
 
     @Value("${mediamtx.hls.url}")
     private String hlsBaseUrl;
+    @Value("${mediamtx.hls.sourceOnDemand}")
+    private boolean sourceOnDemand;
+    @Value("${mediamtx.hls.sourceOnDemandCloseAfter}")
+    private String sourceOnDemandCloseAfter;
 
     // DTO for introspection response
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -76,7 +80,7 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             log.info("Constructed RTSP URL: {}", rtspUrl);
 
             // 5. Call MediaMTX to add the path
-            MediaMtxPathConfigDto config = new MediaMtxPathConfigDto(rtspUrl, false, "20s");
+            MediaMtxPathConfigDto config = new MediaMtxPathConfigDto(rtspUrl, sourceOnDemand, sourceOnDemandCloseAfter);
             try {
                 mediaMtxClient.addPath(streamPath, config);
                 log.info("Successfully registered stream path '{}' with MediaMTX", streamPath);

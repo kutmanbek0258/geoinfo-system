@@ -6,6 +6,8 @@ mediamtx:
     url: http://mediamtx:9997
   hls:
     url: ${MEDIAMTX_HLS_DOMAIN:http://localhost:8888}
+    sourceOnDemand: ${MEDIAMTX_SOURCEONDEMAND:true}
+    sourceOnDemandCloseAfter: ${MEDIAMTX_SOURCEONDEMANDCLOSEAFTER:20s}
   cleanup:
     rate-ms: ${MEDIAMTX_CLEANUP_RATE:300000}
 

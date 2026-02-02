@@ -244,18 +244,32 @@ const startStream = async () => {
 }
 
 const stopStream = async () => {
+  const streamToStopId = activeCameraStream.value ? activeCameraStream.value.geoObjectId : null;
+
+  // Hide the modal to trigger the unmount of the player, stopping HLS requests.
+  showStreamModal.value = false;
+
+  // Clean up local WebRTC objects, if they were used.
   if (pc.value) {
-    pc.value.close()
-    pc.value = null
+    pc.value.close();
+    pc.value = null;
   }
-
   if (videoEl.value) {
-    videoEl.value.srcObject = null
+    videoEl.value.srcObject = null;
   }
 
-  await store.dispatch('geodata/stopCameraStream', props.featureId)
-  showStreamModal.value = false
-}
+  // Allow a moment for the HLS player to tear down before telling the server to stop.
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  // Now, send the stop request to the server for the correct stream.
+  if (streamToStopId && streamToStopId === props.featureId) {
+    try {
+      await store.dispatch('geodata/stopCameraStream', streamToStopId);
+    } catch (error) {
+      console.error('Server-side stream stop failed, but client is clean:', error);
+    }
+  }
+};
 
 const onStreamDialogClose = (isOpen: boolean) => {
   if (!isOpen && activeCameraStream.value) {
