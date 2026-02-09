@@ -11,8 +11,8 @@ spring:
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://postgres-docs:5432/docs_db}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASS:password}
+    username: ${POSTGRES_USER_DOCS:postgres}
+    password: ${POSTGRES_PASSWORD_DOCS:password}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -35,8 +35,8 @@ spring:
     oauth2:
       resourceserver:
         opaquetoken:
-          client-id: j-service-client
-          client-secret: j-service-client
+          client-id: ${J_SERVICE_CLIENT_ID:j-service-client}
+          client-secret: ${J_SERVICE_CLIENT_SECRET:j-service-client}
           introspection-uri: ${SSO_URL:http://auth-service:9001}/oauth2/token-info
 
 resilience4j:
@@ -50,12 +50,12 @@ resilience4j:
         waitDurationInOpenState: 10000
 minio:
   endpoint: http://minio:9000
-  access-key: minio_access_key
-  secret-key: minio_secret_key
+  access-key: ${MINIO_ROOT_USER:minio_access_key}
+  secret-key: ${MINIO_ROOT_PASSWORD:minio_secret_key}
   bucket: documents
 
 onlyoffice:
-  jwt-secret: a_very_long_and_secure_secret_key_for_onlyoffice_jwt_32_chars
+  jwt-secret: ${ONLYOFFICE_JWT_SECRET:a_very_long_and_secure_secret_key_for_onlyoffice_jwt_32_chars}
   callback-base-url: http://document-service:9003/api/documents
   doc-service-url: http://document-service:9003
   internal-doc-server-url: http://onlyoffice-doc-server # For SSRF protection

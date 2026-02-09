@@ -15,8 +15,8 @@ spring:
     oauth2:
       resourceserver:
         opaquetoken:
-          client-id: j-service-client
-          client-secret: j-service-client
+          client-id: ${J_SERVICE_CLIENT_ID:j-service-client}
+          client-secret: ${J_SERVICE_CLIENT_SECRET:j-service-client}
           introspection-uri: ${SSO_URL:http://auth-service:9001}/oauth2/token-info
   cloud:
     gateway:
