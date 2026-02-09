@@ -60,17 +60,17 @@
 2. Выполните в корневой директории проекта:
 
    ```shell
-   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+   docker compose --env-file .env.example --env-file .env.secrets.example -f docker-compose.yml -f docker-compose.prod.yml up --build
    ```
    - `--build`: Эта опция пересобирает образы, если в исходном коде были изменения. Используйте ее при первом запуске или после внесения правок.
 
-3. После запуска всех контейнеров приложение будет доступно по адресу: **http://localhost:8080**.
+3. После запуска всех контейнеров приложение будет доступно по адресу: **http://127.0.0.1:8080**.
 
 **Остановка:**
 - Для остановки всех сервисов нажмите `Ctrl+C` в терминале, где была запущена команда.
 - Либо, из другой консоли, выполните:
   ```shell
-  docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+  docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
   ```
 
 ## Структура репозитория
