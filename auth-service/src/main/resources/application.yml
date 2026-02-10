@@ -3,7 +3,11 @@ server:
   error:
     include-stacktrace: ALWAYS
   servlet:
-    context-path:
+    context-path: /auth
+    session:
+      cookie:
+        same-site: None
+        secure: true
 spring:
   application:
     name: auth-service
@@ -15,7 +19,7 @@ spring:
     cors:
       configs:
         - pattern: /**
-          allowed-origins: ${CORS_ALLOWED_ORIGINS:http://127.0.0.1:8080,http://localhost:8080,http://192.168.0.150:8080}
+          allowed-origins: ${CORS_ALLOWED_ORIGINS:http://127.0.0.1:8181,http://localhost:8181,http://192.168.0.150:8181}
           allowed-headers: "*"
           exposed-headers: ${spring.security.oauth2.authorizationserver.custom-handler-header-name}
           allowed-methods: "*"
@@ -89,12 +93,12 @@ spring:
         opaquetoken:
           client-id: sso-client
           client-secret: sso-client
-          introspection-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}/oauth2/token-info
+          introspection-uri: http://auth-service:9001/oauth2/token-info
       authorizationserver:
-        issuer-url: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}
+        issuer-url: http://auth-service:9001${server.servlet.context-path}
         introspection-endpoint: /oauth2/token-info
         reset-password-endpoint: /client/auth/reset-password
-        authentication-success-url: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/client/oauth/continue
+        authentication-success-url: ${AUTH_CLIENT_DOMAIN:http://localhost:8181}/oauth/continue
         saved-request-url-starts-with: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/oauth2/authorize
         custom-handler-header-name: J-Sso-Next-Location
         authorization-ttl: 10800000
@@ -112,12 +116,12 @@ spring:
           github:
             clientId: ${GITHUB_CLIENT_ID}
             clientSecret: ${GITHUB_CLIENT_SECRET}
-            redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/login/oauth2/code/github
+            redirect-uri: ${AUTH_CLIENT_DOMAIN:http://localhost:8181}/login/oauth2/code/github
 
           google:
             clientId: ${GOOGLE_CLIENT_ID}
             clientSecret: ${GOOGLE_CLIENT_SECRET}
-            redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/login/oauth2/code/google
+            redirect-uri: ${AUTH_CLIENT_DOMAIN:http://localhost:8181}/login/oauth2/code/google
             scope:
               - email
               - profile
@@ -126,7 +130,7 @@ spring:
             provider: yandex
             clientId: ${YANDEX_CLIENT_ID}
             clientSecret: ${YANDEX_CLIENT_SECRET}
-            redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/login/oauth2/code/yandex
+            redirect-uri: ${AUTH_CLIENT_DOMAIN:http://localhost:8181}/login/oauth2/code/yandex
             authorizationGrantType: authorization_code
             clientName: Yandex
 

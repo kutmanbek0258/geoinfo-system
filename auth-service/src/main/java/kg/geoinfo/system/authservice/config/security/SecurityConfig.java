@@ -88,6 +88,7 @@ public class SecurityConfig {
         http.csrf(configurer -> configurer
                 .csrfTokenRepository(new HttpSessionCsrfTokenRepository())
                 .csrfTokenRequestHandler(new CustomCsrfTokenRequestHandler())
+                .ignoringRequestMatchers(LOGIN_PROCESSING_URL, LOGOUT_PROCESSING_URL)
         );
 
         http.headers(customizer -> {

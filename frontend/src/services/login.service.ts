@@ -1,7 +1,7 @@
 import axios from "axios";
 import router from '@/router';
 
-const serverUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:9001';
+const serverUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:9001/auth';
 const clientId = 'test-client';
 const authHeaderValue = 'Basic dGVzdC1jbGllbnQ6dGVzdC1jbGllbnQ=';
 const redirectUri = import.meta.env.VITE_AUTH_CALLBACK_URL || 'http://localhost:8080/code';
@@ -17,7 +17,7 @@ class LoginService {
             redirect_uri: redirectUri,
             scope: 'SSO.USER_PROFILE_INFO SSO.USER_AVATAR SSO.USER_IDENTIFICATION SSO.USER_AUTHORITIES'
         });
-        window.location.href = `${serverUrl}/oauth2/authorize?${requestParams}`;
+        window.location.href = `http://127.0.0.1:80/oauth2/authorize?${requestParams}`;
     }
 
     async refreshToken() {

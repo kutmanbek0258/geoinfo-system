@@ -324,3 +324,27 @@ services:
         delay: 3s
         max_attempts: 3
         window: 120s
+
+  auth-client:
+    build:
+      context: ./auth-client
+      dockerfile: Dockerfile
+    container_name: auth-client
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 3
+        window: 120s
+
+  nginx-proxy:
+    build:
+      context: ./nginx-proxy
+      dockerfile: Dockerfile
+    container_name: nginx-proxy
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 3
+        window: 120s
