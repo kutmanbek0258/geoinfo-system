@@ -10,7 +10,7 @@ export class StreamService {
     try {
       const response = await api.post(`/streams/start`, { geoObjectId });
       console.log(response.data)
-      return response.data.hlsStreamUrl;
+      return response.data.streamHlsUrl;
     } catch (error) {
       console.error('Error starting stream:', error);
       throw error;

@@ -11,12 +11,9 @@ import kg.geoinfo.system.streamservice.dto.StartStreamResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthentication;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
@@ -39,7 +36,11 @@ public class StreamManagerServiceImpl implements StreamManagerService {
 
 
     @Value("${mediamtx.hls.url}")
-    private String webRtcBaseUrl;
+    private String hlsBaseUrl;
+    @Value("${mediamtx.hls.sourceOnDemand}")
+    private boolean sourceOnDemand;
+    @Value("${mediamtx.hls.sourceOnDemandCloseAfter}")
+    private String sourceOnDemandCloseAfter;
 
     // DTO for introspection response
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -79,7 +80,7 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             log.info("Constructed RTSP URL: {}", rtspUrl);
 
             // 5. Call MediaMTX to add the path
-            MediaMtxPathConfigDto config = new MediaMtxPathConfigDto(rtspUrl, true, "20s");
+            MediaMtxPathConfigDto config = new MediaMtxPathConfigDto(rtspUrl, sourceOnDemand, sourceOnDemandCloseAfter);
             try {
                 mediaMtxClient.addPath(streamPath, config);
                 log.info("Successfully registered stream path '{}' with MediaMTX", streamPath);
@@ -92,15 +93,15 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             throw new RuntimeException("Could not start camera stream due to an unexpected error: " + e.getMessage());
         }
 
-        log.info("WebRTC base URL: " + webRtcBaseUrl);
+        log.info("WebRTC base URL: " + hlsBaseUrl);
 
         // 7. Return the WebRTC URL to the client with token
-        String hlsUrl = UriComponentsBuilder.fromHttpUrl(webRtcBaseUrl)
+        String streamHlsUrl = UriComponentsBuilder.fromHttpUrl(hlsBaseUrl)
                 .pathSegment(streamPath)
                 .toUriString();
 
-        log.info("Created stream details: " + hlsUrl);
-        return new StartStreamResponseDto(hlsUrl);
+        log.info("Created stream details: " + streamHlsUrl);
+        return new StartStreamResponseDto(streamHlsUrl);
     }
 
     @Override
@@ -122,16 +123,15 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             log.warn("MediaMTX auth request without query string");
             return false;
         }
-        log.info(query);
 
-        // Extract token from "token=value"
+        // Надежно достаем только access_token, игнорируя _HLS_msn и прочее
         String token = UriComponentsBuilder.fromUriString("?" + query)
                 .build()
                 .getQueryParams()
                 .getFirst("access_token");
 
         if (token == null) {
-            log.warn("MediaMTX auth request query without 'token' parameter: {}", query);
+            log.warn("MediaMTX auth request query without 'access_token' parameter: {}", query);
             return false;
         }
 
@@ -148,7 +148,7 @@ public class StreamManagerServiceImpl implements StreamManagerService {
             TokenInfo tokenInfo = restTemplate.postForObject(introspectionProperties.getIntrospectionUri(), request, TokenInfo.class);
 
             if (tokenInfo != null && tokenInfo.active()) {
-                log.debug("Token is active. Access granted.");
+                log.info("Token is active. Access granted.");
                 return true;
             } else {
                 log.warn("Token is inactive or invalid. Access denied.");

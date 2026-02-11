@@ -28,7 +28,7 @@ spring:
       database: ${REDIS_DB:0}
       host: ${REDIS_HOST:redis-auth}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASS:qwerty12345678}
+      password: ${REDIS_PASSWORD:qwerty12345678}
       lettuce:
         pool:
           max-active: 16
@@ -38,9 +38,9 @@ spring:
     change-log: classpath:database/db.changelog.yaml
     contexts: prod, dev
   datasource:
-    url: ${PG_URL:jdbc:postgresql://postgres-auth:5432/auth_db}
-    username: ${PG_USER:postgres}
-    password: ${PG_PASS:password}
+    url: ${DB_URL:jdbc:postgresql://postgres-auth:5432/auth_db}
+    username: ${POSTGRES_USER_AUTH:postgres}
+    password: ${POSTGRES_PASSWORD_AUTH:password}
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-timeout: 30000
@@ -71,8 +71,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${USER_SERVICE_SMTP_EMAIL}
-    password: ${USER_SERVICE_SMTP_PASSWORD}
+    username: ${SMTP_USER}
+    password: ${SMTP_PASSWORD}
     properties:
       mail:
         transport:
@@ -103,20 +103,20 @@ spring:
         registration:
 #          azure:
 #            provider: azure
-#            client-id: <your id>
-#            client-secret: <your credentails>
+#            client-id: ${AZURE_CLIENT_ID}
+#            client-secret: ${AZURE_CLIENT_SECRET}
 #            scope:
 #              - openid
 #              - profile
 #              - email
           github:
-            clientId: ${USER_SERVICE_GITHUB_CLIENT_ID}
-            clientSecret: ${USER_SERVICE_GITHUB_CLIENT_SECRET}
+            clientId: ${GITHUB_CLIENT_ID}
+            clientSecret: ${GITHUB_CLIENT_SECRET}
             redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/login/oauth2/code/github
 
           google:
-            clientId: ${USER_SERVICE_GOOGLE_CLIENT_ID}
-            clientSecret: ${USER_SERVICE_GOOGLE_CLIENT_SECRET}
+            clientId: ${GOOGLE_CLIENT_ID}
+            clientSecret: ${GOOGLE_CLIENT_SECRET}
             redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/login/oauth2/code/google
             scope:
               - email
@@ -124,15 +124,15 @@ spring:
 
           yandex:
             provider: yandex
-            clientId: ${USER_SERVICE_YANDEX_CLIENT_ID}
-            clientSecret: ${USER_SERVICE_YANDEX_CLIENT_SECRET}
+            clientId: ${YANDEX_CLIENT_ID}
+            clientSecret: ${YANDEX_CLIENT_SECRET}
             redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/login/oauth2/code/yandex
             authorizationGrantType: authorization_code
             clientName: Yandex
 
         provider:
-#          azure:
-#            issuer-uri: https://login.microsoftonline.com/<your creadentails>/v2.0
+          #          azure:
+          #            issuer-uri: https://login.microsoftonline.com/<your creadentails>/v2.0
           yandex:
             authorization-uri: https://oauth.yandex.ru/authorize
             token-uri: https://oauth.yandex.ru/token
