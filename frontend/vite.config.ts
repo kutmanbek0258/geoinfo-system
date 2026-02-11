@@ -6,6 +6,7 @@ import vuetify from "vite-plugin-vuetify";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/gis/',
   plugins: [
     vue(),
     vuetify({

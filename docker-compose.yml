@@ -342,9 +342,19 @@ services:
       context: ./nginx-proxy
       dockerfile: Dockerfile
     container_name: nginx-proxy
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 3s
-        max_attempts: 3
-        window: 120s
+    volumes:
+      - nginx_cache:/var/cache/nginx
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - auth-client
+      - api-gateway
+      - auth-service
+      - geoserver
+      - onlyoffice-doc-server
+      - mediamtx
+    restart: unless-stopped
+
+volumes:
+  nginx_cache:
+  nginx_logs:

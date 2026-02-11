@@ -91,7 +91,7 @@ const routes = [
 const router = createRouter({
 
     // Добавим "контекст" для клиента
-    history: createWebHistory("/"),
+    history: createWebHistory("/sso/"),
     routes,
 });
 

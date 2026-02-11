@@ -1,13 +1,18 @@
 FROM nginx:stable-alpine
 
-# Удаляем дефолтный конфиг Nginx, чтобы он не конфликтовал с нашим
-RUN rm /etc/nginx/conf.d/default.conf
+# Удаляем дефолтные конфиги
+RUN rm -rf /etc/nginx/conf.d/*
 
-# Копируем ваш файл конфигурации в папку конфигов Nginx
-COPY ./nginx/proxy.conf /etc/nginx/conf.d/
+# Копируем наш главный конфиг
+COPY ./nginx/proxy.conf /etc/nginx/nginx.conf
 
-# Открываем стандартный порт
+# Директории для кеша и логов
+RUN mkdir -p /var/cache/nginx \
+    && mkdir -p /var/log/nginx \
+    && chown -R nginx:nginx /var/cache/nginx /var/log/nginx
+
 EXPOSE 80
 
-# Запускаем Nginx в фоновом режиме
+STOPSIGNAL SIGTERM
+
 CMD ["nginx", "-g", "daemon off;"]
