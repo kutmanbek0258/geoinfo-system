@@ -3,7 +3,7 @@ server:
   error:
     include-stacktrace: ALWAYS
   servlet:
-    context-path: /auth
+    context-path:
     session:
       cookie:
         same-site: None
@@ -98,7 +98,7 @@ spring:
         issuer-url: http://auth-service:9001${server.servlet.context-path}
         introspection-endpoint: /oauth2/token-info
         reset-password-endpoint: /client/auth/reset-password
-        authentication-success-url: ${AUTH_CLIENT_DOMAIN:http://localhost:8181}/oauth/continue
+        authentication-success-url: ${AUTH_SERVICE_DOMAIN:http://localhost:8181}/client/oauth/continue
         saved-request-url-starts-with: ${AUTH_SERVICE_DOMAIN:http://localhost:9001}${server.servlet.context-path}/oauth2/authorize
         custom-handler-header-name: J-Sso-Next-Location
         authorization-ttl: 10800000
@@ -116,12 +116,12 @@ spring:
           github:
             clientId: ${GITHUB_CLIENT_ID}
             clientSecret: ${GITHUB_CLIENT_SECRET}
-            redirect-uri: ${AUTH_CLIENT_DOMAIN:http://localhost:8181}/login/oauth2/code/github
+            redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:8181}/login/oauth2/code/github
 
           google:
             clientId: ${GOOGLE_CLIENT_ID}
             clientSecret: ${GOOGLE_CLIENT_SECRET}
-            redirect-uri: ${AUTH_CLIENT_DOMAIN:http://localhost:8181}/login/oauth2/code/google
+            redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:8181}/login/oauth2/code/google
             scope:
               - email
               - profile
@@ -130,7 +130,7 @@ spring:
             provider: yandex
             clientId: ${YANDEX_CLIENT_ID}
             clientSecret: ${YANDEX_CLIENT_SECRET}
-            redirect-uri: ${AUTH_CLIENT_DOMAIN:http://localhost:8181}/login/oauth2/code/yandex
+            redirect-uri: ${AUTH_SERVICE_DOMAIN:http://localhost:8181}/login/oauth2/code/yandex
             authorizationGrantType: authorization_code
             clientName: Yandex
 

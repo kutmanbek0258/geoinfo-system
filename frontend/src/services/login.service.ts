@@ -17,7 +17,7 @@ class LoginService {
             redirect_uri: redirectUri,
             scope: 'SSO.USER_PROFILE_INFO SSO.USER_AVATAR SSO.USER_IDENTIFICATION SSO.USER_AUTHORITIES'
         });
-        window.location.href = `http://127.0.0.1:80/oauth2/authorize?${requestParams}`;
+        window.location.href = `${serverUrl}/oauth2/authorize?${requestParams}`;
     }
 
     async refreshToken() {
