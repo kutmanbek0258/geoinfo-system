@@ -73,8 +73,8 @@ spring:
       pool:
         size: 2
   mail:
-    host: smtp.gmail.com
-    port: 587
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
     username: ${SMTP_USER}
     password: ${SMTP_PASSWORD}
     properties:
