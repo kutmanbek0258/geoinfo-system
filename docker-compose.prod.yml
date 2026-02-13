@@ -36,8 +36,6 @@ services:
 
   # ====== GEOSERVER ======
   geoserver:
-    ports:
-      - "${GEOSERVER_PORT:-8085}:8080"
     networks:
       - prod-net
 
@@ -48,8 +46,6 @@ services:
 
   # ====== ONLYOFFICE DOC SERVER ======
   onlyoffice-doc-server:
-    ports:
-      - "${ONLYOFFICE_PORT:-8081}:80"
     networks:
       - prod-net
 
@@ -72,8 +68,6 @@ services:
       EUREKA_INSTANCE_HOSTNAME: discovery-server
 
   api-gateway:
-    ports:
-      - "${API_GATEWAY_PORT:-9005}:9005"
     networks:
       - prod-net
     environment:
@@ -81,8 +75,6 @@ services:
 
   # ====== Microservices ======
   auth-service:
-    ports:
-      - "${AUTH_SERVICE_PORT:-9001}:9001"
     networks:
       - prod-net
     environment:
@@ -129,17 +121,6 @@ services:
       __VITE_ONLYOFFICE_URL__: ${VITE_ONLYOFFICE_URL:-http://127.0.0.1:8081}
       __VITE_GEOSERVER_URL__: ${VITE_GEOSERVER_URL:-http://127.0.0.1:8080/geoserver/wms}
       __VITE_ONLYOFFICE_API_URL__: ${VITE_ONLYOFFICE_API_URL:-http://127.0.0.1:9003/api/documents}
-    ports:
-      - "${FRONTEND_PORT:-8080}:8080"
-    networks:
-      - prod-net
-
-  auth-client:
-    build:
-      context: ./auth-client
-      dockerfile: Dockerfile
-    ports:
-      - "8181:8181"
     networks:
       - prod-net
 
