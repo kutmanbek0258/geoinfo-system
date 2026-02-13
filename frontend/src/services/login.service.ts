@@ -1,7 +1,7 @@
 import axios from "axios";
 import router from '@/router';
 
-const serverUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:9001';
+const serverUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:9001/auth';
 const clientId = 'test-client';
 const authHeaderValue = 'Basic dGVzdC1jbGllbnQ6dGVzdC1jbGllbnQ=';
 const redirectUri = import.meta.env.VITE_AUTH_CALLBACK_URL || 'http://localhost:8080/code';

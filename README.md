@@ -19,7 +19,7 @@
 ```
 [ Клиент (Vue.js) ]
        |
-[ Nginx (Прокси) ]
+[ nginx-proxy (Обратный прокси, балансировщик, кэш) ]
        |
 [ API Gateway (Spring Cloud) ]
        |
@@ -45,7 +45,7 @@
 - **Backend:** Java 17, Spring Boot 3, Spring Cloud
 - **Базы данных:** PostgreSQL, PostGIS, Elasticsearch, Redis
 - **Хранилище файлов:** MinIO
-- **Инфраструктура:** Docker, Docker Compose, Nginx, Kafka, GeoServer, OnlyOffice
+- **Инфраструктура:** Docker, Docker Compose, Nginx, nginx-proxy, Kafka, GeoServer, OnlyOffice
 
 ## Быстрый старт (режим разработки)
 
@@ -64,7 +64,7 @@
    ```
    - `--build`: Эта опция пересобирает образы, если в исходном коде были изменения. Используйте ее при первом запуске или после внесения правок.
 
-3. После запуска всех контейнеров приложение будет доступно по адресу: **http://127.0.0.1:8080**.
+3. После запуска всех контейнеров приложение будет доступно по адресу: **http://127.0.0.1**.
 
 **Остановка:**
 - Для остановки всех сервисов нажмите `Ctrl+C` в терминале, где была запущена команда.
@@ -84,6 +84,7 @@
 - **[<code>frontend/</code>](./frontend/README.md):** Клиентское приложение на Vue.js.
 - **[<code>geodata-service/</code>](./geodata-service/README.md):** Сервис управления геоданными.
 - **[<code>search-service/</code>](./search-service/README.md):** Сервис поиска.
+- **[<code>nginx-proxy/</code>](./nginx-proxy/README.md):** Обратный прокси, балансировщик нагрузки и кэширующий слой.
 - **`docs/`:** Техническая и архитектурная документация.
 
 ## Дополнительная документация
