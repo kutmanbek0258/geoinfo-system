@@ -24,7 +24,7 @@ public class ResourceServerController {
     @GetMapping(value = "/user/{userId}/avatar")
     @PreAuthorize("hasAuthority('SCOPE_SSO.USER_AVATAR')")
     @Operation(description = "Получение аватарки пользователя")
-    public ResponseEntity<byte[]> downloadUserAvatar(@PathVariable UUID userId) {
+    public ResponseEntity<byte[]> downloadUserAvatar(@PathVariable("userId") UUID userId) {
         return resourceServerService.getUserAvatar(userId);
     }
 }
