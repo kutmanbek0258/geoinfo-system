@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document id="document">
+	<name>Template</name>
+	<gx:CascadingStyle kml:id="__managed_style_267626632D3E58CECADE">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>6</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_1FF11E081E3E58CECADE">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_00D489499B3E58CECADE">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_1FF11E081E3E58CECADE</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_267626632D3E58CECADE</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Placemark id="0FAD7264573E58CECAD0">
+		<name>Building 35</name>
+		<LookAt>
+			<longitude>71.17748858111527</longitude>
+			<latitude>41.4983791603862</latitude>
+			<altitude>1854.820319661116</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>30</gx:fovy>
+			<range>579.7424980210782</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_00D489499B3E58CECADE</styleUrl>
+		<Polygon>
+			<outerBoundaryIs>
+				<LinearRing>
+					<coordinates>
+						71.17769910645306,41.49796222027024,0 71.17864059019151,41.49857172201401,0 71.17820178940788,41.49893316888328,0 71.17725669633195,41.49833729174421,0 71.17769910645306,41.49796222027024,0 
+					</coordinates>
+				</LinearRing>
+			</outerBoundaryIs>
+		</Polygon>
+	</Placemark>
+	<Placemark id="0C17B176EA3E58CF1250">
+		<name>SCADA control room</name>
+		<LookAt>
+			<longitude>71.17748858111527</longitude>
+			<latitude>41.4983791603862</latitude>
+			<altitude>1854.820319661116</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>30</gx:fovy>
+			<range>579.7424980210782</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_00D489499B3E58CECADE</styleUrl>
+		<Point>
+			<coordinates>71.17745557012185,41.4986124964927,1850.199612793227</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="05616DC4C63E58CFCFE0">
+		<name>Road 133</name>
+		<LookAt>
+			<longitude>71.17609269596905</longitude>
+			<latitude>41.49981519517181</latitude>
+			<altitude>1805.024787332361</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>30</gx:fovy>
+			<range>1472.535003292433</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_00D489499B3E58CECADE</styleUrl>
+		<LineString>
+			<coordinates>
+				71.17879285180038,41.50163370351697,0 71.17893732070027,41.50128811275701,0 71.17878763461457,41.5009270973684,0 71.17856733177705,41.50044399377152,0 71.17860462910549,41.50001067811274,0 71.1789527313545,41.49982620131258,0 71.17944836331999,41.49938524506265,0 71.17974375075551,41.49926014942343,0 71.18041426592087,41.49925846117979,0 
+			</coordinates>
+		</LineString>
+	</Placemark>
+</Document>
+</kml>
