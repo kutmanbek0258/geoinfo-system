@@ -23,6 +23,21 @@ class GeodataService {
         return api.post(`/geodata/project/${projectId}/share`, { email, permissionLevel });
     }
 
+    // --- Import ---
+    importKml(file: File, projectName?: string) {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (projectName) {
+            formData.append('projectName', projectName);
+        }
+
+        return api.post<Project>('/geodata/import/kml', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    }
+
     // --- Imagery Layers ---
     getImageryLayers(page = 0, size = 10) {
         return api.get<Page<ImageryLayer>>('/geodata/imagery-layer/page-query', { params: { page, size } });
