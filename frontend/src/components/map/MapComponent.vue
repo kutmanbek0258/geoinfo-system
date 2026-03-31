@@ -322,13 +322,17 @@ const updateVectorSource = () => {
     const allObjects = [...points.value, ...multilines.value, ...polygons.value];
     
     const features = allObjects.flatMap(obj => {
-        const readFeatures = geoJsonFormat.readFeature(obj.geom);
+        // Читаем геометрию с трансформацией из 4326 (БД) в 3857 (Карта)
+        const readFeatures = geoJsonFormat.readFeatures(obj.geom, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+        });
         const featureArray = Array.isArray(readFeatures) ? readFeatures : [readFeatures];
         
         featureArray.forEach(feature => {
             if (feature) {
-                feature.setId(obj.id); // Устанавливаем внутренний ID для OpenLayers
-                feature.set('id', obj.id); // Устанавливаем ID в свойства фичи для обратной совместимости
+                feature.setId(obj.id);
+                feature.set('id', obj.id);
             }
         });
         
@@ -424,7 +428,11 @@ watch(drawMode, (newMode) => {
         drawInteraction.on('drawend', (event) => {
             const geometry = event.feature.getGeometry();
             if (geometry) {
-                newObjectGeometry.value = geoJsonFormat.writeGeometryObject(geometry);
+                // Пишем геометрию с трансформацией из 3857 (Карта) в 4326 (БД)
+                newObjectGeometry.value = geoJsonFormat.writeGeometryObject(geometry, {
+                    featureProjection: 'EPSG:3857',
+                    dataProjection: 'EPSG:4326'
+                });
                 
                 // Сбрасываем метаданные и открываем диалог
                 newObjectMetadata.value = { name: '', description: '', status: 'IN_PROCESS' as Status, type: 'other', characteristics: {} };
@@ -514,7 +522,11 @@ const confirmGeometryEdit = async () => {
     const newGeometry = modifiedFeature.getGeometry();
 
     if (newGeometry) {
-        const newGeomAsGeoJSON = geoJsonFormat.writeGeometryObject(newGeometry);
+        // Пишем геометрию с трансформацией из 3857 (Карта) в 4326 (БД)
+        const newGeomAsGeoJSON = geoJsonFormat.writeGeometryObject(newGeometry, {
+            featureProjection: 'EPSG:3857',
+            dataProjection: 'EPSG:4326'
+        });
 
         // Dispatch the update action to the store with the new geometry.
         await store.dispatch('geodata/updateFeature', {

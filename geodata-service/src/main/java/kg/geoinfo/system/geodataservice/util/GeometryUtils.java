@@ -1,7 +1,6 @@
 package kg.geoinfo.system.geodataservice.util;
 
 import org.locationtech.jts.geom.*;
-import org.locationtech.jts.geom.util.GeometryTransformer;
 
 public class GeometryUtils {
 
@@ -10,21 +9,42 @@ public class GeometryUtils {
     public static Geometry ensure3D(Geometry geom) {
         if (geom == null) return null;
 
-        GeometryTransformer transformer = new GeometryTransformer() {
-            protected CoordinateSequence transformCoordinateSequence(CoordinateSequence coords, Geometry parent) {
-                CoordinateSequenceFactory factory = geometryFactory.getCoordinateSequenceFactory();
-                CoordinateSequence newSeq = factory.create(coords.size(), 3);
-                for (int i = 0; i < coords.size(); i++) {
-                    newSeq.setOrdinate(i, 0, coords.getX(i));
-                    newSeq.setOrdinate(i, 1, coords.getY(i));
-                    double z = coords.getZ(i);
-                    newSeq.setOrdinate(i, 2, Double.isNaN(z) ? 0.0 : z);
-                }
-                return newSeq;
-            }
-        };
+        Coordinate[] oldCoords = geom.getCoordinates();
+        Coordinate[] newCoords = new Coordinate[oldCoords.length];
 
-        return transformer.transform(geom);
+        for (int i = 0; i < oldCoords.length; i++) {
+            Coordinate old = oldCoords[i];
+            // Создаем Coordinate с 3-мя значениями (X, Y, Z), Z=0 если NaN
+            newCoords[i] = new Coordinate(old.x, old.y, Double.isNaN(old.getZ()) ? 0.0 : old.getZ());
+        }
+
+        Geometry result;
+        if (geom instanceof Point) {
+            result = geometryFactory.createPoint(newCoords[0]);
+        } else if (geom instanceof LineString) {
+            result = geometryFactory.createLineString(newCoords);
+        } else if (geom instanceof Polygon) {
+            result = geometryFactory.createPolygon(newCoords);
+        } else if (geom instanceof MultiLineString) {
+            LineString[] lines = new LineString[geom.getNumGeometries()];
+            for (int i = 0; i < geom.getNumGeometries(); i++) {
+                lines[i] = (LineString) ensure3D(geom.getGeometryN(i));
+            }
+            result = geometryFactory.createMultiLineString(lines);
+        } else if (geom instanceof MultiPolygon) {
+            Polygon[] polygons = new Polygon[geom.getNumGeometries()];
+            for (int i = 0; i < geom.getNumGeometries(); i++) {
+                polygons[i] = (Polygon) ensure3D(geom.getGeometryN(i));
+            }
+            result = geometryFactory.createMultiPolygon(polygons);
+        } else {
+            result = geom;
+        }
+
+        if (result != null) {
+            result.setSRID(4326);
+        }
+        return result;
     }
 
     public static MultiLineString ensureMultiLineString3D(Geometry geom) {

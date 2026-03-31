@@ -56,8 +56,9 @@ public class ProjectPointServiceImpl implements ProjectPointService {
     @Override
     @Transactional
     public ProjectPointDto create(String currentUserEmail, CreateProjectPointDto createProjectPointDto) {
-        log.info("Creating point with data: " + createProjectPointDto.toString());
+        log.info("Creating point for user: {}", currentUserEmail);
         checkProjectAccess(currentUserEmail, createProjectPointDto.getProjectId());
+        
         ProjectPoint projectPoint = projectPointMapper.toEntity(createProjectPointDto);
         projectPoint.setGeom(GeometryUtils.ensurePoint3D(projectPoint.getGeom()));
         projectPoint = projectPointRepository.save(projectPoint);

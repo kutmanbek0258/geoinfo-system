@@ -126,11 +126,6 @@ public class KmlImportServiceImpl implements KmlImportService {
                 String geometryXml = elementToString(geometryElement);
                 try {
                     Geometry geometry = kmlReader.read(geometryXml);
-                    if (geometry != null) {
-                        Coordinate c = geometry.getCoordinate();
-                        log.info("Parsed Placemark '{}': Type={}, Lon(X)={}, Lat(Y)={}, Z={}", 
-                                name, geometry.getGeometryType(), c.x, c.y, c.getZ());
-                    }
 
                     if (geometry instanceof Point) {
                         savePoint(project, name, description, (Point) geometry);
@@ -161,7 +156,6 @@ public class KmlImportServiceImpl implements KmlImportService {
                                          .replaceAll("\\s+", " ")
                                          .trim();
                 coordsElem.setTextContent(cleaned);
-                log.debug("Cleaned coordinates: {}", cleaned);
             }
         }
     }
@@ -185,7 +179,8 @@ public class KmlImportServiceImpl implements KmlImportService {
         point.setName(name);
         point.setDescription(description);
         point.setStatus(Status.COMPLETED);
-        point.setGeom((Point) GeometryUtils.ensure3D(geom));
+        Point geom3D = (Point) GeometryUtils.ensure3D(geom);
+        point.setGeom(geom3D);
         projectPointRepository.save(point);
     }
 
