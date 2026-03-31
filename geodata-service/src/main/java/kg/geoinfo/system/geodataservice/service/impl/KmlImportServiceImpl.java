@@ -1,11 +1,14 @@
 package kg.geoinfo.system.geodataservice.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.dto.ProjectDto;
 import kg.geoinfo.system.geodataservice.mapper.ProjectMapper;
 import kg.geoinfo.system.geodataservice.models.*;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import kg.geoinfo.system.geodataservice.repository.*;
 import kg.geoinfo.system.geodataservice.service.KmlImportService;
+import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
 import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +30,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.StringWriter;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -38,6 +42,8 @@ public class KmlImportServiceImpl implements KmlImportService {
     private final ProjectPointRepository projectPointRepository;
     private final ProjectMultilineRepository projectMultilineRepository;
     private final ProjectPolygonRepository projectPolygonRepository;
+    private final KafkaProducerService kafkaProducerService;
+    private final ObjectMapper objectMapper;
     private final ProjectMapper projectMapper;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -182,6 +188,9 @@ public class KmlImportServiceImpl implements KmlImportService {
         Point geom3D = (Point) GeometryUtils.ensure3D(geom);
         point.setGeom(geom3D);
         projectPointRepository.save(point);
+        Map<String, Object> payload = objectMapper.convertValue(point, Map.class);
+        payload.put("type", "point");
+        kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
     }
 
     private void saveMultiline(Project project, String name, String description, Geometry geom) {
@@ -199,6 +208,9 @@ public class KmlImportServiceImpl implements KmlImportService {
         }
 
         projectMultilineRepository.save(line);
+        Map<String, Object> payload = objectMapper.convertValue(line, Map.class);
+        payload.put("type", "multiline");
+        kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
     }
 
     private void savePolygon(Project project, String name, String description, Geometry geom) {
@@ -218,6 +230,9 @@ public class KmlImportServiceImpl implements KmlImportService {
         }
 
         projectPolygonRepository.save(polygon);
+        Map<String, Object> payload = objectMapper.convertValue(polygon, Map.class);
+        payload.put("type", "polygon");
+        kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
     }
 
     private String getElementValue(Element parent, String tagName) {
