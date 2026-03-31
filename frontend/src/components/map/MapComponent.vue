@@ -364,7 +364,7 @@ watch(selectedFeatureId, (newId) => {
     const geometry = feature.getGeometry();
     if (geometry) {
       const extent = geometry.getExtent();
-      map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
+      map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000, maxZoom: 18 });
     }
   }
 });
