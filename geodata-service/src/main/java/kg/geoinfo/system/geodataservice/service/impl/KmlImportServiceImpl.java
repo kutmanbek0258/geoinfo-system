@@ -6,6 +6,7 @@ import kg.geoinfo.system.geodataservice.models.*;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import kg.geoinfo.system.geodataservice.repository.*;
 import kg.geoinfo.system.geodataservice.service.KmlImportService;
+import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.*;
@@ -46,12 +47,8 @@ public class KmlImportServiceImpl implements KmlImportService {
         log.info("Starting KML import for user: {}, file: {}, project: {}", currentUserEmail, file.getOriginalFilename(), projectName);
 
         try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(file.getInputStream());
-            doc.getDocumentElement().normalize();
-
+            Document doc = parseKmlFile(file);
+            
             // Попытка получить имя проекта из тега <name> внутри <Document> или <Folder>
             String kmlProjectName = null;
             NodeList docNodes = doc.getElementsByTagNameNS("*", "Document");
@@ -69,19 +66,71 @@ public class KmlImportServiceImpl implements KmlImportService {
             project.setCreatedBy(currentUserEmail);
             project = projectRepository.save(project);
 
-            NodeList placemarks = doc.getElementsByTagNameNS("*", "Placemark");
-            KMLReader kmlReader = new KMLReader(geometryFactory);
+            processKmlPlacemarks(doc, project);
+            
+            return projectMapper.toDto(project);
 
-            for (int i = 0; i < placemarks.getLength(); i++) {
-                Element placemark = (Element) placemarks.item(i);
-                String name = getElementValue(placemark, "name");
-                String description = getElementValue(placemark, "description");
+        } catch (Exception e) {
+            log.error("Error parsing KML file", e);
+            throw new RuntimeException("Failed to import KML: " + e.getMessage());
+        }
+    }
 
-                // Ищем геометрический элемент внутри Placemark (Point, LineString, Polygon, MultiGeometry)
-                Element geometryElement = findGeometryElement(placemark);
-                if (geometryElement != null) {
-                    String geometryXml = elementToString(geometryElement);
+    @Override
+    @Transactional
+    public ProjectDto importKmlToProject(String currentUserEmail, UUID projectId, MultipartFile file) {
+        log.info("Starting KML import for user: {}, file: {}, into existing project: {}", currentUserEmail, file.getOriginalFilename(), projectId);
+
+        try {
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
+            
+            // Проверка прав доступа может быть добавлена здесь, если требуется
+
+            Document doc = parseKmlFile(file);
+            processKmlPlacemarks(doc, project);
+            
+            return projectMapper.toDto(project);
+
+        } catch (Exception e) {
+            log.error("Error importing KML to project " + projectId, e);
+            throw new RuntimeException("Failed to import KML: " + e.getMessage());
+        }
+    }
+
+    private Document parseKmlFile(MultipartFile file) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document doc = builder.parse(file.getInputStream());
+        doc.getDocumentElement().normalize();
+        return doc;
+    }
+
+    private void processKmlPlacemarks(Document doc, Project project) throws Exception {
+        NodeList placemarks = doc.getElementsByTagNameNS("*", "Placemark");
+        log.info("Found {} placemarks in KML", placemarks.getLength());
+        KMLReader kmlReader = new KMLReader(geometryFactory);
+
+        for (int i = 0; i < placemarks.getLength(); i++) {
+            Element placemark = (Element) placemarks.item(i);
+            String name = getElementValue(placemark, "name");
+            String description = getElementValue(placemark, "description");
+
+            // Ищем геометрический элемент внутри Placemark (Point, LineString, Polygon, MultiGeometry)
+            Element geometryElement = findGeometryElement(placemark);
+            if (geometryElement != null) {
+                // Очистка координат от лишних пробелов и переносов строк перед парсингом
+                cleanCoordinates(geometryElement);
+
+                String geometryXml = elementToString(geometryElement);
+                try {
                     Geometry geometry = kmlReader.read(geometryXml);
+                    if (geometry != null) {
+                        Coordinate c = geometry.getCoordinate();
+                        log.info("Parsed Placemark '{}': Type={}, Lon(X)={}, Lat(Y)={}, Z={}", 
+                                name, geometry.getGeometryType(), c.x, c.y, c.getZ());
+                    }
 
                     if (geometry instanceof Point) {
                         savePoint(project, name, description, (Point) geometry);
@@ -92,13 +141,28 @@ public class KmlImportServiceImpl implements KmlImportService {
                     } else if (geometry instanceof GeometryCollection) {
                         processGeometryCollection(project, name, description, (GeometryCollection) geometry);
                     }
+                } catch (Exception e) {
+                    log.error("Failed to parse or save geometry for placemark: {}. Error: {}", name, e.getMessage(), e);
                 }
             }
-            return projectMapper.toDto(project);
+        }
+    }
 
-        } catch (Exception e) {
-            log.error("Error parsing KML file", e);
-            throw new RuntimeException("Failed to import KML: " + e.getMessage());
+    private void cleanCoordinates(Element element) {
+        NodeList coordsList = element.getElementsByTagName("coordinates");
+        for (int i = 0; i < coordsList.getLength(); i++) {
+            Element coordsElem = (Element) coordsList.item(i);
+            String original = coordsElem.getTextContent();
+            if (original != null) {
+                // 1. Удаляем пробелы вокруг запятых
+                // 2. Заменяем любые последовательности пробельных символов (переносы, табуляции) на один пробел
+                // 3. Убираем пробелы в начале и конце
+                String cleaned = original.replaceAll("\\s*,\\s*", ",")
+                                         .replaceAll("\\s+", " ")
+                                         .trim();
+                coordsElem.setTextContent(cleaned);
+                log.debug("Cleaned coordinates: {}", cleaned);
+            }
         }
     }
 
@@ -121,7 +185,7 @@ public class KmlImportServiceImpl implements KmlImportService {
         point.setName(name);
         point.setDescription(description);
         point.setStatus(Status.COMPLETED);
-        point.setGeom(geom);
+        point.setGeom((Point) GeometryUtils.ensure3D(geom));
         projectPointRepository.save(point);
     }
 
@@ -131,7 +195,14 @@ public class KmlImportServiceImpl implements KmlImportService {
         line.setName(name);
         line.setDescription(description);
         line.setStatus(Status.COMPLETED);
-        line.setGeom((MultiLineString) geom);
+
+        Geometry geom3D = GeometryUtils.ensure3D(geom);
+        if (geom3D instanceof MultiLineString) {
+            line.setGeom((MultiLineString) geom3D);
+        } else if (geom3D instanceof LineString) {
+            line.setGeom(geometryFactory.createMultiLineString(new LineString[]{(LineString) geom3D}));
+        }
+
         projectMultilineRepository.save(line);
     }
 
@@ -141,7 +212,16 @@ public class KmlImportServiceImpl implements KmlImportService {
         polygon.setName(name);
         polygon.setDescription(description);
         polygon.setStatus(Status.COMPLETED);
-        polygon.setGeom((Polygon) geom);
+
+        Geometry geom3D = GeometryUtils.ensure3D(geom);
+        if (geom3D instanceof Polygon) {
+            polygon.setGeom((Polygon) geom3D);
+        } else if (geom3D instanceof MultiPolygon) {
+            if (geom3D.getNumGeometries() > 0) {
+                polygon.setGeom((Polygon) geom3D.getGeometryN(0));
+            }
+        }
+
         projectPolygonRepository.save(polygon);
     }
 

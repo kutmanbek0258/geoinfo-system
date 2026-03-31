@@ -41,7 +41,7 @@ public class ProjectMultiline extends AuditableCustom<String> {
     @Column(name = "status", nullable = false)
     private Status status;
 
-    @Column(columnDefinition = "geometry(MultiLineString,4326)", nullable = false)
+    @Column(columnDefinition = "geometry(MultiLineStringZ,4326)", nullable = false)
     private MultiLineString geom;
 
     @Column(name = "length_m")

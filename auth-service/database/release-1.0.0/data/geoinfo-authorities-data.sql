@@ -7,6 +7,7 @@ VALUES ('GEO_PROJECT_READ', 'Право на чтение проектов', 'Ge
        ('GEO_PROJECT_UPDATE', 'Право на обновление проектов', 'GeoInfo'),
        ('GEO_PROJECT_DELETE', 'Право на удаление проектов', 'GeoInfo'),
        ('GEO_PROJECT_SHARE', 'Право на предоставление доступа к проектам', 'GeoInfo'),
+       ('GEO_PROJECT_IMPORT', 'Право на импорт KML в проекты', 'GeoInfo'),
        ('GEO_FEATURE_READ', 'Право на чтение объектов (точки, линии, полигоны)', 'GeoInfo'),
        ('GEO_FEATURE_CREATE', 'Право на создание объектов', 'GeoInfo'),
        ('GEO_FEATURE_UPDATE', 'Право на обновление объектов', 'GeoInfo'),

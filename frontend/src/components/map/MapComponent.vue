@@ -48,7 +48,15 @@
 <!--    </v-card>-->
 
     <!-- Оверлей 3: Кнопки добавления -->
-    <div class="map-overlay bottom-right">
+    <div class="map-overlay bottom-right d-flex flex-column align-end">
+      <v-btn
+        icon="mdi-file-import"
+        color="primary"
+        class="mb-2"
+        @click="openImportKmlDialog"
+        title="Import KML to this project"
+      ></v-btn>
+      
       <v-btn-toggle v-model="drawMode" variant="elevated" density="comfortable">
         <v-btn value="Point" title="Add Point">
           <v-icon>mdi-map-marker</v-icon>
@@ -61,6 +69,27 @@
         </v-btn>
       </v-btn-toggle>
     </div>
+
+    <!-- Import KML Dialog -->
+    <v-dialog v-model="importKmlDialog" max-width="500px">
+      <v-card>
+        <v-card-title>Import KML to Project</v-card-title>
+        <v-card-text>
+          <v-file-input
+            v-model="importKmlFile"
+            label="Select KML File"
+            accept=".kml"
+            prepend-icon="mdi-file-xml"
+            show-size
+          ></v-file-input>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="importKmlDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="executeKmlImport" :loading="isImporting">Import</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Оверлей 4: Детали объекта -->
     <div v-if="selectedFeatureId && !isGeometryEditMode"
@@ -143,6 +172,7 @@ import type { ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Stat
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import {FullScreen} from "ol/control";
+import GeodataService from '@/services/geodata.service';
 
 // --- Props & Store ---
 const props = defineProps({
@@ -170,6 +200,12 @@ let modifyInteraction: Modify | null = null;
 const visibleLayerIds = ref<string[]>([]);
 const activeImageLayers = ref<Record<string, TileLayer<TileWMS>>>({}); // Используем plain object
 const layerOpacities = ref<Record<string, number>>({}); // Для хранения прозрачности
+
+// --- Состояние импорта KML ---
+const importKmlDialog = ref(false);
+const importKmlFile = ref<File | null>(null);
+const isImporting = ref(false);
+
 const selectedFeatureId = computed(() => store.state.geodata.selectedFeatureId);
 const selectedFeature = computed(() => {
   if (!selectedFeatureId.value) return null;
@@ -526,6 +562,29 @@ const zoomToExtent = () => {
 
   if (extent && extent.every(isFinite) && (extent[0] !== Infinity)) {
     map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
+  }
+};
+
+// --- KML Import ---
+const openImportKmlDialog = () => {
+  importKmlFile.value = null;
+  importKmlDialog.value = true;
+};
+
+const executeKmlImport = async () => {
+  if (!importKmlFile.value || !props.projectId) return;
+
+  isImporting.value = true;
+  try {
+    await GeodataService.importKmlToProject(props.projectId, importKmlFile.value);
+    // Refresh data
+    await store.dispatch('geodata/fetchVectorDataForProject', props.projectId);
+    importKmlDialog.value = false;
+  } catch (error) {
+    console.error("KML Import failed:", error);
+    // You might want to show an error notification here
+  } finally {
+    isImporting.value = false;
   }
 };
 

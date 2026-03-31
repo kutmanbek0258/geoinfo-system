@@ -38,6 +38,17 @@ class GeodataService {
         });
     }
 
+    importKmlToProject(projectId: string, file: File) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        return api.post<Project>(`/geodata/import/kml/${projectId}`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    }
+
     // --- Imagery Layers ---
     getImageryLayers(page = 0, size = 10) {
         return api.get<Page<ImageryLayer>>('/geodata/imagery-layer/page-query', { params: { page, size } });

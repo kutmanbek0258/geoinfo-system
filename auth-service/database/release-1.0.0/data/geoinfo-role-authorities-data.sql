@@ -19,6 +19,7 @@ FROM sso.authorities a WHERE a.authority_code IN (
     'GEO_PROJECT_UPDATE',
     'GEO_PROJECT_DELETE',
     'GEO_PROJECT_SHARE',
+    'GEO_PROJECT_IMPORT',
     'GEO_FEATURE_READ',
     'GEO_FEATURE_CREATE',
     'GEO_FEATURE_UPDATE',
