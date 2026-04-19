@@ -3,6 +3,9 @@
     <v-toolbar color="primary" dark>
       <v-toolbar-title>Projects</v-toolbar-title>
       <v-spacer></v-spacer>
+      <v-btn icon @click="openImportDialog" title="Import KML">
+        <v-icon>mdi-file-import</v-icon>
+      </v-btn>
       <v-btn icon @click="openCreateDialog">
         <v-icon>mdi-plus</v-icon>
       </v-btn>
@@ -89,6 +92,38 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Import KML Dialog -->
+    <v-dialog v-model="importDialog" max-width="500px">
+      <v-card>
+        <v-card-title>
+          <span class="headline">Import KML Project</span>
+        </v-card-title>
+        <v-card-text>
+          <v-form ref="importForm">
+            <v-file-input
+              v-model="importFile"
+              label="Select KML File"
+              accept=".kml"
+              prepend-icon="mdi-file-xml"
+              :rules="[v => !!v || 'File is required']"
+              required
+            ></v-file-input>
+            <v-text-field
+              v-model="importProjectName"
+              label="Project Name (Optional)"
+              hint="Leave empty to use filename or KML document name"
+              persistent-hint
+            ></v-text-field>
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="blue darken-1" variant="text" @click="importDialog = false">Cancel</v-btn>
+          <v-btn color="blue darken-1" variant="text" @click="executeImport" :loading="isLoading">Import</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
@@ -116,6 +151,12 @@ const projectToShare = ref<Project | null>(null);
 const shareEmail = ref('');
 const sharePermissionLevel = ref('READ_ONLY');
 const shareForm = ref<any>(null);
+
+// --- Состояние для Import Dialog ---
+const importDialog = ref(false);
+const importFile = ref<File | null>(null);
+const importProjectName = ref('');
+const importForm = ref<any>(null);
 
 // --- Получение данных из Vuex ---
 const isLoading = computed(() => store.state.geodata.isLoading);
@@ -196,6 +237,29 @@ const executeShare = async () => {
   } catch (error) {
     // Тут можно показать сообщение об ошибке
     console.error("Failed to share project:", error);
+  }
+};
+
+const openImportDialog = () => {
+  importFile.value = null;
+  importProjectName.value = '';
+  importDialog.value = true;
+};
+
+const executeImport = async () => {
+  const { valid } = await importForm.value.validate();
+  if (!valid || !importFile.value) return;
+
+  try {
+    await store.dispatch('geodata/importKml', {
+      file: importFile.value,
+      projectName: importProjectName.value,
+      page: currentPage.value - 1,
+      size: pageSize.value
+    });
+    importDialog.value = false;
+  } catch (error) {
+    console.error("Failed to import KML:", error);
   }
 };
 

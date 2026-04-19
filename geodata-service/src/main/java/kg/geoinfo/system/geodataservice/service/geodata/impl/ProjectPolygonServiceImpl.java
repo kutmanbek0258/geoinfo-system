@@ -14,7 +14,9 @@ import kg.geoinfo.system.geodataservice.repository.ProjectRepository;
 import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPolygonService;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
+import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
+import org.locationtech.jts.geom.Polygon;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -54,6 +56,7 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
     public ProjectPolygonDto create(String currentUserEmail, CreateProjectPolygonDto createProjectPolygonDto) {
         checkProjectAccess(currentUserEmail, createProjectPolygonDto.getProjectId());
         ProjectPolygon projectPolygon = projectPolygonMapper.toEntity(createProjectPolygonDto);
+        projectPolygon.setGeom(GeometryUtils.ensurePolygon3D(projectPolygon.getGeom()));
         projectPolygon = projectPolygonRepository.save(projectPolygon);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPolygon, Map.class);
@@ -92,6 +95,7 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
                 .orElseThrow(() -> new RuntimeException("ProjectPolygon not found with id: " + id));
         checkProjectAccess(currentUserEmail, projectPolygon.getProject().getId());
         projectPolygonMapper.update(projectPolygon, updateProjectPolygonDto);
+        projectPolygon.setGeom(GeometryUtils.ensurePolygon3D(projectPolygon.getGeom()));
         projectPolygon = projectPolygonRepository.save(projectPolygon);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPolygonMapper.toDto(projectPolygon), Map.class);

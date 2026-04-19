@@ -41,14 +41,14 @@ public class AdminUserController {
     @PostMapping("/dismiss/{userId}")
     @PreAuthorize("hasAnyAuthority('ASSIGN_ADMIN_ROLE')")
     @Operation(description = "Снять роль администратора SSO с пользователя с указанным ID")
-    public void dismissAdmin(@PathVariable UUID userId) {
+    public void dismissAdmin(@PathVariable("userId") UUID userId) {
         adminUserService.dismissAdmin(userId);
     }
 
     @GetMapping(value = "/avatar/{userId}")
     @PreAuthorize("hasAnyAuthority('GET_ADMIN_USER_DATA')")
     @Operation(description = "Получить аватарку пользователя-администратора")
-    public ResponseEntity<byte[]> downloadAdminAvatar(@PathVariable UUID userId) {
+    public ResponseEntity<byte[]> downloadAdminAvatar(@PathVariable("userId") UUID userId) {
         return adminUserService.getAvatar(userId);
     }
 }

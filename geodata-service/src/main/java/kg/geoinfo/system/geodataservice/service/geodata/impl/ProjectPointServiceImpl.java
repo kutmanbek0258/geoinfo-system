@@ -14,8 +14,10 @@ import kg.geoinfo.system.geodataservice.service.geodata.ProjectPointService;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
 import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
 import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
+import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.Point;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -54,9 +56,11 @@ public class ProjectPointServiceImpl implements ProjectPointService {
     @Override
     @Transactional
     public ProjectPointDto create(String currentUserEmail, CreateProjectPointDto createProjectPointDto) {
-        log.info("Creating point with data: " + createProjectPointDto.toString());
+        log.info("Creating point for user: {}", currentUserEmail);
         checkProjectAccess(currentUserEmail, createProjectPointDto.getProjectId());
+        
         ProjectPoint projectPoint = projectPointMapper.toEntity(createProjectPointDto);
+        projectPoint.setGeom(GeometryUtils.ensurePoint3D(projectPoint.getGeom()));
         projectPoint = projectPointRepository.save(projectPoint);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPoint, Map.class);
@@ -95,6 +99,7 @@ public class ProjectPointServiceImpl implements ProjectPointService {
                 .orElseThrow(() -> new RuntimeException("ProjectPoint not found with id: " + id));
         checkProjectAccess(currentUserEmail, projectPoint.getProject().getId());
         projectPointMapper.update(projectPoint, updateProjectPointDto);
+        projectPoint.setGeom(GeometryUtils.ensurePoint3D(projectPoint.getGeom()));
         projectPoint = projectPointRepository.save(projectPoint);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPointMapper.toDto(projectPoint), Map.class);

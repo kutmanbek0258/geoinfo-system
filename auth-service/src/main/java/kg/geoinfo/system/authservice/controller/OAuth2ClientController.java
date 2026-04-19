@@ -46,7 +46,7 @@ public class OAuth2ClientController {
     @PostMapping(value = "/gen-secret/{clientId}")
     @PreAuthorize("hasAnyAuthority('CHANGE_OAUTH_CLIENT_DATA')")
     @Operation(description = "Генерация и установка нового clientSecret для клиента с указанным clientId")
-    public String generateSecret(@PathVariable String clientId) {
+    public String generateSecret(@PathVariable("clientId") String clientId) {
         return oAuth2ClientService.generateSecret(clientId);
     }
 

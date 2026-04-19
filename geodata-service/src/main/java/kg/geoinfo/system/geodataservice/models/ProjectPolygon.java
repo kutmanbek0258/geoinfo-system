@@ -44,7 +44,7 @@ public class ProjectPolygon extends AuditableCustom<String> {
     @Column(name = "area_m2")
     private Double areaM2;
 
-    @Column(columnDefinition = "geometry(Polygon,4326)", nullable = false)
+    @Column(columnDefinition = "geometry(PolygonZ,4326)", nullable = false)
     private Polygon geom;
 
     @Column(name = "image_url", length = 1000)

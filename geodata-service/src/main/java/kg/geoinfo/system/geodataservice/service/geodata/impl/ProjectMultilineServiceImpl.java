@@ -14,7 +14,9 @@ import kg.geoinfo.system.geodataservice.service.geodata.ProjectMultilineService;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
 import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
 import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
+import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
+import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -54,6 +56,7 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
     public ProjectMultilineDto create(String currentUserEmail, CreateProjectMultilineDto createProjectMultilineDto) {
         checkProjectAccess(currentUserEmail, createProjectMultilineDto.getProjectId());
         ProjectMultiline projectMultiline = projectMultilineMapper.toEntity(createProjectMultilineDto);
+        projectMultiline.setGeom(GeometryUtils.ensureMultiLineString3D(projectMultiline.getGeom()));
         projectMultiline = projectMultilineRepository.save(projectMultiline);
 
         Map<String, Object> payload = objectMapper.convertValue(projectMultiline, Map.class);
@@ -92,6 +95,7 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
                 .orElseThrow(() -> new RuntimeException("ProjectMultiline not found with id: " + id));
         checkProjectAccess(currentUserEmail, projectMultiline.getProject().getId());
         projectMultilineMapper.update(projectMultiline, updateProjectMultilineDto);
+        projectMultiline.setGeom(GeometryUtils.ensureMultiLineString3D(projectMultiline.getGeom()));
         projectMultiline = projectMultilineRepository.save(projectMultiline);
 
         Map<String, Object> payload = objectMapper.convertValue(projectMultilineMapper.toDto(projectMultiline), Map.class);

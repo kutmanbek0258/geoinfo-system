@@ -137,6 +137,20 @@ const actions = {
         dispatch('fetchProjects', { page, size });
     },
 
+    async importKml({ dispatch, commit }: ActionContext<GeodataState, any>, { file, projectName, page, size }: { file: File, projectName?: string, page: number, size: number }) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            await geodataService.importKml(file, projectName);
+            dispatch('fetchProjects', { page, size });
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to import KML.');
+            throw err;
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
     async shareProject({ commit }: ActionContext<GeodataState, any>, { projectId, email, permissionLevel }: { projectId: string, email: string, permissionLevel: string }) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
