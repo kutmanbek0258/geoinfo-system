@@ -5,6 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.locationtech.jts.geom.MultiLineString;
 
+import java.util.Map;
+
 @Data
 @NoArgsConstructor
 public class UpdateProjectMultilineDto {
@@ -13,4 +15,5 @@ public class UpdateProjectMultilineDto {
     private Status status;
 
     private MultiLineString geom;
+    private Map<String, Object> characteristics;
 }

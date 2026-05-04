@@ -16,3 +16,6 @@ databaseChangeLog:
   - include:
       file: object/update_geom_to_3d.sql
       relativeToChangelogFile: true
+  - include:
+      file: object/add_characteristics_to_all_geo_objects.sql
+      relativeToChangelogFile: true

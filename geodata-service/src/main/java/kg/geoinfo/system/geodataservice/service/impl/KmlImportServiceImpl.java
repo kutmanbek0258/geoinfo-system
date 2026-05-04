@@ -8,14 +8,18 @@ import kg.geoinfo.system.geodataservice.models.*;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import kg.geoinfo.system.geodataservice.repository.*;
 import kg.geoinfo.system.geodataservice.service.KmlImportService;
+import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
 import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.simple.JSONObject;
 import org.locationtech.jts.geom.*;
 import org.locationtech.jts.io.kml.KMLReader;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -30,6 +34,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.StringWriter;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -43,8 +48,10 @@ public class KmlImportServiceImpl implements KmlImportService {
     private final ProjectMultilineRepository projectMultilineRepository;
     private final ProjectPolygonRepository projectPolygonRepository;
     private final KafkaProducerService kafkaProducerService;
+    private final DocumentServiceClient documentServiceClient;
     private final ObjectMapper objectMapper;
     private final ProjectMapper projectMapper;
+    private final RestTemplate restTemplate = new RestTemplate();
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
     @Override
@@ -54,6 +61,7 @@ public class KmlImportServiceImpl implements KmlImportService {
 
         try {
             Document doc = parseKmlFile(file);
+            Map<String, Map<String, Object>> styles = parseStyles(doc);
             
             // Попытка получить имя проекта из тега <name> внутри <Document> или <Folder>
             String kmlProjectName = null;
@@ -72,7 +80,7 @@ public class KmlImportServiceImpl implements KmlImportService {
             project.setCreatedBy(currentUserEmail);
             project = projectRepository.save(project);
 
-            processKmlPlacemarks(doc, project);
+            processKmlPlacemarks(doc, project, styles);
             
             return projectMapper.toDto(project);
 
@@ -94,7 +102,8 @@ public class KmlImportServiceImpl implements KmlImportService {
             // Проверка прав доступа может быть добавлена здесь, если требуется
 
             Document doc = parseKmlFile(file);
-            processKmlPlacemarks(doc, project);
+            Map<String, Map<String, Object>> styles = parseStyles(doc);
+            processKmlPlacemarks(doc, project, styles);
             
             return projectMapper.toDto(project);
 
@@ -113,7 +122,7 @@ public class KmlImportServiceImpl implements KmlImportService {
         return doc;
     }
 
-    private void processKmlPlacemarks(Document doc, Project project) throws Exception {
+    private void processKmlPlacemarks(Document doc, Project project, Map<String, Map<String, Object>> styles) throws Exception {
         NodeList placemarks = doc.getElementsByTagNameNS("*", "Placemark");
         log.info("Found {} placemarks in KML", placemarks.getLength());
         KMLReader kmlReader = new KMLReader(geometryFactory);
@@ -122,6 +131,18 @@ public class KmlImportServiceImpl implements KmlImportService {
             Element placemark = (Element) placemarks.item(i);
             String name = getElementValue(placemark, "name");
             String description = getElementValue(placemark, "description");
+            String styleUrl = getElementValue(placemark, "styleUrl");
+            
+            Map<String, Object> characteristics = null;
+            if (styleUrl != null) {
+                // Убираем '#' из начала styleUrl
+                String styleId = styleUrl.startsWith("#") ? styleUrl.substring(1) : styleUrl;
+                Map<String, Object> styleData = styles.get(styleId);
+                if (styleData != null) {
+                    characteristics = new java.util.HashMap<>();
+                    characteristics.put("style", styleData);
+                }
+            }
 
             // Ищем геометрический элемент внутри Placemark (Point, LineString, Polygon, MultiGeometry)
             Element geometryElement = findGeometryElement(placemark);
@@ -134,13 +155,13 @@ public class KmlImportServiceImpl implements KmlImportService {
                     Geometry geometry = kmlReader.read(geometryXml);
 
                     if (geometry instanceof Point) {
-                        savePoint(project, name, description, (Point) geometry);
+                        savePoint(project, name, description, (Point) geometry, characteristics);
                     } else if (geometry instanceof LineString || geometry instanceof MultiLineString) {
-                        saveMultiline(project, name, description, geometry);
+                        saveMultiline(project, name, description, geometry, characteristics);
                     } else if (geometry instanceof Polygon || geometry instanceof MultiPolygon) {
-                        savePolygon(project, name, description, geometry);
+                        savePolygon(project, name, description, geometry, characteristics);
                     } else if (geometry instanceof GeometryCollection) {
-                        processGeometryCollection(project, name, description, (GeometryCollection) geometry);
+                        processGeometryCollection(project, name, description, (GeometryCollection) geometry, characteristics);
                     }
                 } catch (Exception e) {
                     log.error("Failed to parse or save geometry for placemark: {}. Error: {}", name, e.getMessage(), e);
@@ -166,20 +187,24 @@ public class KmlImportServiceImpl implements KmlImportService {
         }
     }
 
-    private void processGeometryCollection(Project project, String name, String description, GeometryCollection collection) {
+    private void processGeometryCollection(Project project, String name, String description, GeometryCollection collection, Map<String, Object> characteristics) {
         for (int i = 0; i < collection.getNumGeometries(); i++) {
             Geometry geom = collection.getGeometryN(i);
             if (geom instanceof Point) {
-                savePoint(project, name, description, (Point) geom);
+                savePoint(project, name, description, (Point) geom, characteristics);
             } else if (geom instanceof LineString || geom instanceof MultiLineString) {
-                saveMultiline(project, name, description, geom);
+                saveMultiline(project, name, description, geom, characteristics);
             } else if (geom instanceof Polygon || geom instanceof MultiPolygon) {
-                savePolygon(project, name, description, geom);
+                savePolygon(project, name, description, geom, characteristics);
             }
         }
     }
 
-    private void savePoint(Project project, String name, String description, Point geom) {
+    private void savePoint(Project project, String name, String description, Point geom, Map<String, Object> characteristics) {
+        if (characteristics == null) {
+            characteristics = new HashMap<>();
+        }
+        characteristics.put("type", "other");
         ProjectPoint point = new ProjectPoint();
         point.setProject(project);
         point.setName(name);
@@ -187,18 +212,20 @@ public class KmlImportServiceImpl implements KmlImportService {
         point.setStatus(Status.COMPLETED);
         Point geom3D = (Point) GeometryUtils.ensure3D(geom);
         point.setGeom(geom3D);
+        point.setCharacteristics(characteristics);
         projectPointRepository.save(point);
         Map<String, Object> payload = objectMapper.convertValue(point, Map.class);
         payload.put("type", "point");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
     }
 
-    private void saveMultiline(Project project, String name, String description, Geometry geom) {
+    private void saveMultiline(Project project, String name, String description, Geometry geom, Map<String, Object> characteristics) {
         ProjectMultiline line = new ProjectMultiline();
         line.setProject(project);
         line.setName(name);
         line.setDescription(description);
         line.setStatus(Status.COMPLETED);
+        line.setCharacteristics(characteristics);
 
         Geometry geom3D = GeometryUtils.ensure3D(geom);
         if (geom3D instanceof MultiLineString) {
@@ -213,12 +240,13 @@ public class KmlImportServiceImpl implements KmlImportService {
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
     }
 
-    private void savePolygon(Project project, String name, String description, Geometry geom) {
+    private void savePolygon(Project project, String name, String description, Geometry geom, Map<String, Object> characteristics) {
         ProjectPolygon polygon = new ProjectPolygon();
         polygon.setProject(project);
         polygon.setName(name);
         polygon.setDescription(description);
         polygon.setStatus(Status.COMPLETED);
+        polygon.setCharacteristics(characteristics);
 
         Geometry geom3D = GeometryUtils.ensure3D(geom);
         if (geom3D instanceof Polygon) {
@@ -261,5 +289,205 @@ public class KmlImportServiceImpl implements KmlImportService {
         StringWriter writer = new StringWriter();
         transformer.transform(new DOMSource(el), new StreamResult(writer));
         return writer.getBuffer().toString();
+    }
+
+    private Map<String, Map<String, Object>> parseStyles(Document doc) {
+        Map<String, Map<String, Object>> styleMap = new java.util.HashMap<>();
+
+        // Сначала парсим обычные стили <Style>
+        NodeList styles = doc.getElementsByTagNameNS("*", "Style");
+        for (int i = 0; i < styles.getLength(); i++) {
+            Element styleElem = (Element) styles.item(i);
+            String id = styleElem.getAttribute("id");
+            if (id != null && !id.isEmpty()) {
+                styleMap.put(id, extractStyleProperties(styleElem));
+            }
+        }
+
+        // Затем парсим <StyleMap>, которые ссылаются на <Style>
+        NodeList styleMaps = doc.getElementsByTagNameNS("*", "StyleMap");
+        for (int i = 0; i < styleMaps.getLength(); i++) {
+            Element styleMapElem = (Element) styleMaps.item(i);
+            String id = styleMapElem.getAttribute("id");
+            if (id != null && !id.isEmpty()) {
+                // Для простоты берем стиль 'normal' из StyleMap
+                NodeList pairs = styleMapElem.getElementsByTagNameNS("*", "Pair");
+                for (int j = 0; j < pairs.getLength(); j++) {
+                    Element pair = (Element) pairs.item(j);
+                    String key = getElementValue(pair, "key");
+                    if ("normal".equals(key)) {
+                        String styleUrl = getElementValue(pair, "styleUrl");
+                        if (styleUrl != null) {
+                            String styleId = styleUrl.startsWith("#") ? styleUrl.substring(1) : styleUrl;
+                            Map<String, Object> styleProps = styleMap.get(styleId);
+                            if (styleProps != null) {
+                                styleMap.put(id, styleProps);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return styleMap;
+    }
+
+    private Map<String, Object> extractStyleProperties(Element styleElem) {
+        Map<String, Object> properties = new java.util.HashMap<>();
+
+        // IconStyle
+        NodeList iconStyles = styleElem.getElementsByTagNameNS("*", "IconStyle");
+        if (iconStyles.getLength() > 0) {
+            Map<String, Object> iconProps = new java.util.HashMap<>();
+            Element iconStyle = (Element) iconStyles.item(0);
+            
+            String scale = getElementValue(iconStyle, "scale");
+            if (scale != null) iconProps.put("scale", Double.parseDouble(scale));
+
+            String heading = getElementValue(iconStyle, "heading");
+            if (heading != null) iconProps.put("heading", Double.parseDouble(heading));
+
+            NodeList icons = iconStyle.getElementsByTagNameNS("*", "Icon");
+            if (icons.getLength() > 0) {
+                Element icon = (Element) icons.item(0);
+                String href = getElementValue(icon, "href");
+                if (href != null) {
+                    String storedUrl = uploadIcon(href);
+                    iconProps.put("url", storedUrl);
+                }
+            }
+            
+            NodeList hotSpots = iconStyle.getElementsByTagNameNS("*", "hotSpot");
+            if (hotSpots.getLength() > 0) {
+                Element hotSpot = (Element) hotSpots.item(0);
+                Map<String, Object> hsProps = new java.util.HashMap<>();
+                hsProps.put("x", hotSpot.getAttribute("x"));
+                hsProps.put("y", hotSpot.getAttribute("y"));
+                hsProps.put("xunits", hotSpot.getAttribute("xunits"));
+                hsProps.put("yunits", hotSpot.getAttribute("yunits"));
+                iconProps.put("hotSpot", hsProps);
+            }
+
+            properties.put("icon", iconProps);
+        }
+
+        // LineStyle
+        NodeList lineStyles = styleElem.getElementsByTagNameNS("*", "LineStyle");
+        if (lineStyles.getLength() > 0) {
+            Map<String, Object> lineProps = new java.util.HashMap<>();
+            Element lineStyle = (Element) lineStyles.item(0);
+            
+            String color = getElementValue(lineStyle, "color");
+            if (color != null) lineProps.put("color", kmlColorToHex(color));
+
+            String width = getElementValue(lineStyle, "width");
+            if (width != null) lineProps.put("width", Double.parseDouble(width));
+
+            properties.put("line", lineProps);
+        }
+
+        // PolyStyle
+        NodeList polyStyles = styleElem.getElementsByTagNameNS("*", "PolyStyle");
+        if (polyStyles.getLength() > 0) {
+            Map<String, Object> polyProps = new java.util.HashMap<>();
+            Element polyStyle = (Element) polyStyles.item(0);
+            
+            String color = getElementValue(polyStyle, "color");
+            if (color != null) polyProps.put("fillColor", kmlColorToHex(color));
+
+            String fill = getElementValue(polyStyle, "fill");
+            if (fill != null) polyProps.put("fill", "1".equals(fill));
+
+            String outline = getElementValue(polyStyle, "outline");
+            if (outline != null) polyProps.put("outline", "1".equals(outline));
+
+            properties.put("poly", polyProps);
+        }
+        
+        // LabelStyle
+        NodeList labelStyles = styleElem.getElementsByTagNameNS("*", "LabelStyle");
+        if (labelStyles.getLength() > 0) {
+            Map<String, Object> labelProps = new java.util.HashMap<>();
+            Element labelStyle = (Element) labelStyles.item(0);
+            
+            String color = getElementValue(labelStyle, "color");
+            if (color != null) labelProps.put("color", kmlColorToHex(color));
+
+            String scale = getElementValue(labelStyle, "scale");
+            if (scale != null) labelProps.put("scale", Double.parseDouble(scale));
+
+            properties.put("label", labelProps);
+        }
+
+        return properties;
+    }
+
+    private String uploadIcon(String href) {
+        if (href == null || href.isEmpty()) return null;
+        
+        try {
+            byte[] imageBytes;
+            String fileName;
+            
+            if (href.startsWith("http")) {
+                ResponseEntity<byte[]> response = restTemplate.getForEntity(href, byte[].class);
+                imageBytes = response.getBody();
+                fileName = href.substring(href.lastIndexOf("/") + 1);
+                // Simple sanitize filename
+                fileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+            } else {
+                return href; 
+            }
+
+            if (imageBytes != null) {
+                MultipartFile multipartFile = new CustomMultipartFile(fileName, fileName, "image/png", imageBytes);
+                // Используем фиктивный geoObjectId или создаем специальный для системных ресурсов
+                var docDto = documentServiceClient.uploadDocument(multipartFile, UUID.randomUUID(), "KML Icon: " + fileName, "icon");
+                return "/api/documents/public/image/" + docDto.getId();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to download/upload icon: {}. Error: {}", href, e.getMessage());
+        }
+        return href;
+    }
+
+    private String kmlColorToHex(String kmlColor) {
+        // KML color format: aabbggrr (hex)
+        // CSS color format: #rrggbbaa (hex)
+        if (kmlColor == null || kmlColor.length() != 8) return kmlColor;
+        
+        String a = kmlColor.substring(0, 2);
+        String b = kmlColor.substring(2, 4);
+        String g = kmlColor.substring(4, 6);
+        String r = kmlColor.substring(6, 8);
+        
+        return "#" + r + g + b + a;
+    }
+
+    private static class CustomMultipartFile implements MultipartFile {
+        private final String name;
+        private final String originalFilename;
+        private final String contentType;
+        private final byte[] content;
+
+        public CustomMultipartFile(String name, String originalFilename, String contentType, byte[] content) {
+            this.name = name;
+            this.originalFilename = originalFilename;
+            this.contentType = contentType;
+            this.content = content;
+        }
+
+        @Override public String getName() { return name; }
+        @Override public String getOriginalFilename() { return originalFilename; }
+        @Override public String getContentType() { return contentType; }
+        @Override public boolean isEmpty() { return content == null || content.length == 0; }
+        @Override public long getSize() { return content.length; }
+        @Override public byte[] getBytes() { return content; }
+        @Override public java.io.InputStream getInputStream() { return new java.io.ByteArrayInputStream(content); }
+        @Override public void transferTo(java.io.File dest) throws java.io.IOException {
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(dest)) {
+                fos.write(content);
+            }
+        }
     }
 }

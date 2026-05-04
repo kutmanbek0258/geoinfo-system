@@ -31,6 +31,12 @@ public class IndexingServiceImpl implements IndexingService {
             deleteDocumentFromIndex(GEO_INDEX_NAME, id);
         } else { // CREATED or UPDATED
             GeoObjectIndex geoObjectIndex = objectMapper.convertValue(event.getPayload(), GeoObjectIndex.class);
+            
+            // Исключаем стили из индексации, так как они нужны только для отрисовки
+            if (geoObjectIndex.getCharacteristics() != null) {
+                geoObjectIndex.getCharacteristics().remove("style");
+            }
+
             if (event.getPayload().get("project") instanceof java.util.Map) {
                 java.util.Map<String, Object> project = (java.util.Map<String, Object>) event.getPayload().get("project");
                 if (project.get("id") != null) {

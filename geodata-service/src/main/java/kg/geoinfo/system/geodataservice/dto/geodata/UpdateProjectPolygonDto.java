@@ -5,6 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.locationtech.jts.geom.Polygon;
 
+import java.util.Map;
+
 @Data
 @NoArgsConstructor
 public class UpdateProjectPolygonDto {
@@ -13,4 +15,5 @@ public class UpdateProjectPolygonDto {
     private Status status;
 
     private Polygon geom;
+    private Map<String, Object> characteristics;
 }

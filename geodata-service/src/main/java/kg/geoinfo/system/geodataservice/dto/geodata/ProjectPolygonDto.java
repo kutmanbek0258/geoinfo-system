@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.locationtech.jts.geom.Polygon;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -22,4 +23,5 @@ public class ProjectPolygonDto {
 
     private Double areaM2;
     private String imageUrl;
+    private Map<String, Object> characteristics;
 }

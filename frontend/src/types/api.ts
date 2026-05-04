@@ -47,6 +47,7 @@ export interface ProjectMultiline {
     geom: any; // GeoJSON MultiLineString
     lengthM?: number;
     imageUrl?: string;
+    characteristics?: Record<string, any>;
 }
 
 export interface ProjectPolygon {
@@ -58,6 +59,7 @@ export interface ProjectPolygon {
     geom: any; // GeoJSON Polygon
     areaM2?: number;
     imageUrl?: string;
+    characteristics?: Record<string, any>;
 }
 
 export interface Document {

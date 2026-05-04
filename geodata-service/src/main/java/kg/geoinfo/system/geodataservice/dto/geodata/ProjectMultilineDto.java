@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.locationtech.jts.geom.MultiLineString;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -22,4 +23,5 @@ public class ProjectMultilineDto {
 
     private Double lengthM;
     private String imageUrl;
+    private Map<String, Object> characteristics;
 }

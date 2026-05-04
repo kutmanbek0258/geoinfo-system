@@ -147,6 +147,40 @@
             <v-text-field v-model="cameraEditDetails.login" label="Camera Login" required></v-text-field>
             <v-text-field v-model="cameraEditDetails.password" label="Camera Password" type="password" required></v-text-field>
           </template>
+
+          <!-- Styling Section -->
+          <v-divider class="my-4"></v-divider>
+          <v-expansion-panels flat variant="default">
+            <v-expansion-panel title="Styling">
+              <v-expansion-panel-text>
+                <!-- Icon styling for Points -->
+                <div v-if="featureType === 'Point'">
+                  <div class="d-flex align-center mb-4">
+                    <v-avatar v-if="styleToEdit.icon?.url" rounded="0" size="40" class="mr-4 border">
+                      <v-img :src="styleToEdit.icon.url"></v-img>
+                    </v-avatar>
+                    <v-icon v-else size="40" class="mr-4">mdi-map-marker</v-icon>
+                    <v-btn size="small" color="primary" @click="iconInput?.click()">Change Icon</v-btn>
+                    <input type="file" ref="iconInput" @change="handleIconUpload" style="display: none" accept="image/*" />
+                  </div>
+                  <v-slider v-model="styleToEdit.icon.scale" min="0.1" max="5" step="0.1" label="Icon Scale" thumb-label></v-slider>
+                </div>
+
+                <!-- Line styling for Lines and Polygons -->
+                <div v-if="featureType !== 'Point' || !styleToEdit.icon?.url">
+                  <p class="text-caption mb-1">Line Color</p>
+                  <v-color-picker v-model="styleToEdit.line.color" hide-inputs show-swatches height="100" class="mb-4"></v-color-picker>
+                  <v-slider v-model="styleToEdit.line.width" min="1" max="20" step="1" label="Line Width" thumb-label></v-slider>
+                </div>
+
+                <!-- Fill styling for Polygons -->
+                <div v-if="featureType === 'Polygon'">
+                  <p class="text-caption mb-1">Fill Color</p>
+                  <v-color-picker v-model="styleToEdit.poly.fillColor" hide-inputs show-swatches height="100"></v-color-picker>
+                </div>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -206,6 +240,13 @@ const store = useStore();
 const router = useRouter();
 const fileInput = ref<HTMLInputElement | null>(null);
 const imageInput = ref<HTMLInputElement | null>(null); // For main image
+const iconInput = ref<HTMLInputElement | null>(null); // For icon
+
+const styleToEdit = ref({
+  icon: { url: '', scale: 1.0 },
+  line: { color: '#3399CC', width: 2 },
+  poly: { fillColor: 'rgba(51, 153, 204, 0.4)' },
+});
 
 // State for camera streaming
 const showStreamModal = ref(false);
@@ -336,6 +377,22 @@ const editFeature = () => {
     characteristics: props.fullFeatureData?.characteristics || {},
   };
 
+  // Initialize styleToEdit from characteristics
+  const currentStyle = props.fullFeatureData?.characteristics?.style || {};
+  styleToEdit.value = {
+    icon: { 
+      url: currentStyle.icon?.url || '', 
+      scale: currentStyle.icon?.scale || 1.0 
+    },
+    line: { 
+      color: currentStyle.line?.color || '#3399CC', 
+      width: currentStyle.line?.width || 2 
+    },
+    poly: { 
+      fillColor: currentStyle.poly?.fillColor || 'rgba(51, 153, 204, 0.4)' 
+    },
+  };
+
   // If it's a camera, pre-fill cameraEditDetails
   if (isCamera.value && props.fullFeatureData?.characteristics) {
     cameraEditDetails.value = {
@@ -362,6 +419,16 @@ const confirmEdit = () => {
   };
   // Construct updated characteristics
   let updatedCharacteristics = { ...featureToEdit.value.characteristics };
+  
+  // Merge style
+  updatedCharacteristics.style = {
+    line: styleToEdit.value.line,
+    poly: styleToEdit.value.poly,
+  };
+  if (props.featureType === 'Point') {
+    updatedCharacteristics.style.icon = styleToEdit.value.icon;
+  }
+
   if (isCamera.value) { // Use isCamera to ensure we only update camera fields for camera points
     updatedCharacteristics = { ...updatedCharacteristics, ...cameraEditDetails.value };
   } else {
@@ -462,6 +529,32 @@ const confirmUpload = async () => {
 
 const onUploadImageClick = () => {
   imageInput.value?.click();
+};
+
+const handleIconUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file || !props.featureId) return;
+
+  try {
+    const uploadedDoc = await store.dispatch('document/uploadDocument', {
+      file,
+      geoObjectId: props.featureId,
+      description: `Icon for ${props.featureName}`,
+      tags: 'icon,kml-style',
+    });
+    
+    // store.dispatch returns the result if implemented that way, 
+    // let's check document.store.ts to be sure.
+    // Assuming it does for now, otherwise we can get it from store.state.document.documents[0]
+    if (uploadedDoc && uploadedDoc.id) {
+      styleToEdit.value.icon.url = `/api/documents/public/image/${uploadedDoc.id}`;
+    }
+  } catch (error) {
+    console.error('Icon upload failed:', error);
+  } finally {
+    target.value = '';
+  }
 };
 
 const handleImageUpload = async (event: Event) => {

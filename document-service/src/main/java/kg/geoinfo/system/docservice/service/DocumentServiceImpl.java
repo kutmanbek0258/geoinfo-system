@@ -176,10 +176,14 @@ public class DocumentServiceImpl implements DocumentService {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new RuntimeException("Document not found"));
 
-        boolean isMainImage = document.getTags().stream()
-                .anyMatch(tag -> "main-image".equalsIgnoreCase(tag.getName()));
+        boolean isPublicImage = document.getTags().stream()
+                .map(Tag::getName)
+                .anyMatch(tag ->
+                        "main-image".equalsIgnoreCase(tag) ||
+                        "icon".equalsIgnoreCase(tag)
+                );
 
-        if (!isMainImage) {
+        if (!isPublicImage) {
             throw new AccessDeniedException("This document is not a public main image.");
         }
 

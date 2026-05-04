@@ -7,8 +7,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Polygon;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Table(name = "project_polygons", schema = "geodata", indexes = {
@@ -49,4 +52,8 @@ public class ProjectPolygon extends AuditableCustom<String> {
 
     @Column(name = "image_url", length = 1000)
     private String imageUrl;
-}
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> characteristics;
+    }

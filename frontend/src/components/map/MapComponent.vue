@@ -173,6 +173,7 @@ import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import {FullScreen} from "ol/control";
 import GeodataService from '@/services/geodata.service';
+import { parseStyle } from '@/util/style.util';
 
 // --- Props & Store ---
 const props = defineProps({
@@ -333,6 +334,8 @@ const updateVectorSource = () => {
             if (feature) {
                 feature.setId(obj.id);
                 feature.set('id', obj.id);
+                // Применяем стиль из характеристик
+                feature.setStyle(parseStyle(obj.characteristics, obj.name));
             }
         });
         

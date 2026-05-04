@@ -60,11 +60,13 @@ const actions = {
         commit('SET_UPLOADING', true);
         commit('SET_ERROR', null);
         try {
-            await documentService.uploadDocument(geoObjectId, file, description, tags);
+            const response = await documentService.uploadDocument(geoObjectId, file, description, tags);
             // После успешной загрузки обновляем список
             dispatch('fetchDocumentsForObject', geoObjectId);
+            return response.data;
         } catch (err) {
             commit('SET_ERROR', 'Failed to upload document.');
+            throw err;
         } finally {
             commit('SET_UPLOADING', false);
         }
