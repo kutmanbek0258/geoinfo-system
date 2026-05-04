@@ -24,25 +24,25 @@ class GeodataService {
     }
 
     // --- Import ---
-    importKml(file: File, projectName?: string) {
+    importFile(file: File, projectName?: string) {
         const formData = new FormData();
         formData.append('file', file);
         if (projectName) {
             formData.append('projectName', projectName);
         }
 
-        return api.post<Project>('/geodata/import/kml', formData, {
+        return api.post<Project>('/geodata/import/file', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
         });
     }
 
-    importKmlToProject(projectId: string, file: File) {
+    importFileToProject(projectId: string, file: File) {
         const formData = new FormData();
         formData.append('file', file);
 
-        return api.post<Project>(`/geodata/import/kml/${projectId}`, formData, {
+        return api.post<Project>(`/geodata/import/file/${projectId}`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },

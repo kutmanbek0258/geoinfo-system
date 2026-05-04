@@ -53,8 +53,8 @@
         icon="mdi-file-import"
         color="primary"
         class="mb-2"
-        @click="openImportKmlDialog"
-        title="Import KML to this project"
+        @click="openImportFileDialog"
+        title="Import KML/KMZ to this project"
       ></v-btn>
       
       <v-btn-toggle v-model="drawMode" variant="elevated" density="comfortable">
@@ -70,23 +70,23 @@
       </v-btn-toggle>
     </div>
 
-    <!-- Import KML Dialog -->
-    <v-dialog v-model="importKmlDialog" max-width="500px">
+    <!-- Import File Dialog -->
+    <v-dialog v-model="importFileDialog" max-width="500px">
       <v-card>
-        <v-card-title>Import KML to Project</v-card-title>
+        <v-card-title>Import KML/KMZ to Project</v-card-title>
         <v-card-text>
           <v-file-input
-            v-model="importKmlFile"
-            label="Select KML File"
-            accept=".kml"
+            v-model="importFile"
+            label="Select KML or KMZ File"
+            accept=".kml,.kmz"
             prepend-icon="mdi-file-xml"
             show-size
           ></v-file-input>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn variant="text" @click="importKmlDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="executeKmlImport" :loading="isImporting">Import</v-btn>
+          <v-btn variant="text" @click="importFileDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="executeFileImport" :loading="isImporting">Import</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -202,9 +202,9 @@ const visibleLayerIds = ref<string[]>([]);
 const activeImageLayers = ref<Record<string, TileLayer<TileWMS>>>({}); // Используем plain object
 const layerOpacities = ref<Record<string, number>>({}); // Для хранения прозрачности
 
-// --- Состояние импорта KML ---
-const importKmlDialog = ref(false);
-const importKmlFile = ref<File | null>(null);
+// --- Состояние импорта ---
+const importFileDialog = ref(false);
+const importFile = ref<File | null>(null);
 const isImporting = ref(false);
 
 const selectedFeatureId = computed(() => store.state.geodata.selectedFeatureId);
@@ -580,23 +580,23 @@ const zoomToExtent = () => {
   }
 };
 
-// --- KML Import ---
-const openImportKmlDialog = () => {
-  importKmlFile.value = null;
-  importKmlDialog.value = true;
+// --- File Import ---
+const openImportFileDialog = () => {
+  importFile.value = null;
+  importFileDialog.value = true;
 };
 
-const executeKmlImport = async () => {
-  if (!importKmlFile.value || !props.projectId) return;
+const executeFileImport = async () => {
+  if (!importFile.value || !props.projectId) return;
 
   isImporting.value = true;
   try {
-    await GeodataService.importKmlToProject(props.projectId, importKmlFile.value);
+    await GeodataService.importFileToProject(props.projectId, importFile.value);
     // Refresh data
     await store.dispatch('geodata/fetchVectorDataForProject', props.projectId);
-    importKmlDialog.value = false;
+    importFileDialog.value = false;
   } catch (error) {
-    console.error("KML Import failed:", error);
+    console.error("Import failed:", error);
     // You might want to show an error notification here
   } finally {
     isImporting.value = false;

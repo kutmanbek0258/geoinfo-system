@@ -32,11 +32,12 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import java.io.InputStream;
 import java.io.StringWriter;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.io.ByteArrayOutputStream;
 
 @Slf4j
 @Service
@@ -57,13 +58,13 @@ public class KmlImportServiceImpl implements KmlImportService {
     @Override
     @Transactional
     public ProjectDto importKml(String currentUserEmail, MultipartFile file, String projectName) {
-        log.info("Starting KML import for user: {}, file: {}, project: {}", currentUserEmail, file.getOriginalFilename(), projectName);
+        log.info("Starting import for user: {}, file: {}, project: {}", currentUserEmail, file.getOriginalFilename(), projectName);
 
         try {
-            Document doc = parseKmlFile(file);
-            Map<String, Map<String, Object>> styles = parseStyles(doc);
+            KmzContent kmzContent = getKmzContent(file);
+            Document doc = parseKmlFromStream(kmzContent.getKmlStream());
+            Map<String, Map<String, Object>> styles = parseStyles(doc, kmzContent.getResources());
             
-            // Попытка получить имя проекта из тега <name> внутри <Document> или <Folder>
             String kmlProjectName = null;
             NodeList docNodes = doc.getElementsByTagNameNS("*", "Document");
             if (docNodes.getLength() > 0) {
@@ -80,49 +81,112 @@ public class KmlImportServiceImpl implements KmlImportService {
             project.setCreatedBy(currentUserEmail);
             project = projectRepository.save(project);
 
-            processKmlPlacemarks(doc, project, styles);
+            processKmlPlacemarks(doc, project, styles, kmzContent.getResources());
             
             return projectMapper.toDto(project);
 
         } catch (Exception e) {
-            log.error("Error parsing KML file", e);
-            throw new RuntimeException("Failed to import KML: " + e.getMessage());
+            log.error("Error importing file", e);
+            throw new RuntimeException("Failed to import: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
     public ProjectDto importKmlToProject(String currentUserEmail, UUID projectId, MultipartFile file) {
-        log.info("Starting KML import for user: {}, file: {}, into existing project: {}", currentUserEmail, file.getOriginalFilename(), projectId);
+        log.info("Starting import for user: {}, file: {}, into existing project: {}", currentUserEmail, file.getOriginalFilename(), projectId);
 
         try {
             Project project = projectRepository.findById(projectId)
                     .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
             
-            // Проверка прав доступа может быть добавлена здесь, если требуется
-
-            Document doc = parseKmlFile(file);
-            Map<String, Map<String, Object>> styles = parseStyles(doc);
-            processKmlPlacemarks(doc, project, styles);
+            KmzContent kmzContent = getKmzContent(file);
+            Document doc = parseKmlFromStream(kmzContent.getKmlStream());
+            Map<String, Map<String, Object>> styles = parseStyles(doc, kmzContent.getResources());
+            processKmlPlacemarks(doc, project, styles, kmzContent.getResources());
             
             return projectMapper.toDto(project);
 
         } catch (Exception e) {
-            log.error("Error importing KML to project " + projectId, e);
-            throw new RuntimeException("Failed to import KML: " + e.getMessage());
+            log.error("Error importing to project " + projectId, e);
+            throw new RuntimeException("Failed to import: " + e.getMessage());
         }
     }
 
-    private Document parseKmlFile(MultipartFile file) throws Exception {
+    private KmzContent getKmzContent(MultipartFile file) throws Exception {
+        String filename = file.getOriginalFilename();
+        if (filename != null && filename.toLowerCase().endsWith(".kmz")) {
+            return unzippingKmz(file.getInputStream());
+        } else {
+            return new KmzContent(file.getInputStream(), new HashMap<>());
+        }
+    }
+
+    private KmzContent unzippingKmz(InputStream inputStream) throws Exception {
+        Map<String, byte[]> resources = new HashMap<>();
+        byte[] kmlData = null;
+
+        try (ZipInputStream zis = new ZipInputStream(inputStream)) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                if (entry.isDirectory()) continue;
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buffer = new byte[4096];
+                int len;
+                while ((len = zis.read(buffer)) > 0) {
+                    baos.write(buffer, 0, len);
+                }
+                byte[] data = baos.toByteArray();
+
+                if (entry.getName().toLowerCase().endsWith(".kml") && kmlData == null) {
+                    kmlData = data;
+                } else {
+                    resources.put(entry.getName(), data);
+                    // Также сохраняем с нормализованным путем (без начальных слэшей)
+                    String normalizedPath = entry.getName().replace("\\", "/");
+                    if (normalizedPath.startsWith("/")) {
+                        normalizedPath = normalizedPath.substring(1);
+                    }
+                    resources.put(normalizedPath, data);
+                }
+            }
+        }
+
+        if (kmlData == null) {
+            throw new RuntimeException("No KML file found in KMZ archive");
+        }
+
+        return new KmzContent(new java.io.ByteArrayInputStream(kmlData), resources);
+    }
+
+    private static class KmzContent {
+        private final InputStream kmlStream;
+        private final Map<String, byte[]> resources;
+
+        public KmzContent(InputStream kmlStream, Map<String, byte[]> resources) {
+            this.kmlStream = kmlStream;
+            this.resources = resources;
+        }
+
+        public InputStream getKmlStream() { return kmlStream; }
+        public Map<String, byte[]> getResources() { return resources; }
+    }
+
+    private Document parseKmlFromStream(InputStream inputStream) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(file.getInputStream());
+        Document doc = builder.parse(inputStream);
         doc.getDocumentElement().normalize();
         return doc;
     }
 
-    private void processKmlPlacemarks(Document doc, Project project, Map<String, Map<String, Object>> styles) throws Exception {
+    private Document parseKmlFile(MultipartFile file) throws Exception {
+        return parseKmlFromStream(file.getInputStream());
+    }
+
+    private void processKmlPlacemarks(Document doc, Project project, Map<String, Map<String, Object>> styles, Map<String, byte[]> resources) throws Exception {
         NodeList placemarks = doc.getElementsByTagNameNS("*", "Placemark");
         log.info("Found {} placemarks in KML", placemarks.getLength());
         KMLReader kmlReader = new KMLReader(geometryFactory);
@@ -291,7 +355,7 @@ public class KmlImportServiceImpl implements KmlImportService {
         return writer.getBuffer().toString();
     }
 
-    private Map<String, Map<String, Object>> parseStyles(Document doc) {
+    private Map<String, Map<String, Object>> parseStyles(Document doc, Map<String, byte[]> resources) {
         Map<String, Map<String, Object>> styleMap = new java.util.HashMap<>();
 
         // Сначала парсим обычные стили <Style>
@@ -300,7 +364,7 @@ public class KmlImportServiceImpl implements KmlImportService {
             Element styleElem = (Element) styles.item(i);
             String id = styleElem.getAttribute("id");
             if (id != null && !id.isEmpty()) {
-                styleMap.put(id, extractStyleProperties(styleElem));
+                styleMap.put(id, extractStyleProperties(styleElem, resources));
             }
         }
 
@@ -332,7 +396,7 @@ public class KmlImportServiceImpl implements KmlImportService {
         return styleMap;
     }
 
-    private Map<String, Object> extractStyleProperties(Element styleElem) {
+    private Map<String, Object> extractStyleProperties(Element styleElem, Map<String, byte[]> resources) {
         Map<String, Object> properties = new java.util.HashMap<>();
 
         // IconStyle
@@ -352,7 +416,7 @@ public class KmlImportServiceImpl implements KmlImportService {
                 Element icon = (Element) icons.item(0);
                 String href = getElementValue(icon, "href");
                 if (href != null) {
-                    String storedUrl = uploadIcon(href);
+                    String storedUrl = uploadIcon(href, resources);
                     iconProps.put("url", storedUrl);
                 }
             }
@@ -422,27 +486,34 @@ public class KmlImportServiceImpl implements KmlImportService {
         return properties;
     }
 
-    private String uploadIcon(String href) {
+    private String uploadIcon(String href, Map<String, byte[]> resources) {
         if (href == null || href.isEmpty()) return null;
         
         try {
-            byte[] imageBytes;
-            String fileName;
-            
-            if (href.startsWith("http")) {
+            byte[] imageBytes = null;
+            String fileName = null;
+
+            // 1. Сначала ищем в локальных ресурсах (для KMZ)
+            String normalizedHref = href.replace("\\", "/");
+            if (normalizedHref.startsWith("./")) {
+                normalizedHref = normalizedHref.substring(2);
+            }
+            if (resources.containsKey(normalizedHref)) {
+                imageBytes = resources.get(normalizedHref);
+                fileName = normalizedHref.substring(normalizedHref.lastIndexOf("/") + 1);
+            } 
+            // 2. Если не нашли и это HTTP ссылка, скачиваем
+            else if (href.startsWith("http")) {
                 ResponseEntity<byte[]> response = restTemplate.getForEntity(href, byte[].class);
                 imageBytes = response.getBody();
                 fileName = href.substring(href.lastIndexOf("/") + 1);
-                // Simple sanitize filename
-                fileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
-            } else {
-                return href; 
             }
 
-            if (imageBytes != null) {
+            if (imageBytes != null && fileName != null) {
+                // Sanitize filename
+                fileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
                 MultipartFile multipartFile = new CustomMultipartFile(fileName, fileName, "image/png", imageBytes);
-                // Используем фиктивный geoObjectId или создаем специальный для системных ресурсов
-                var docDto = documentServiceClient.uploadDocument(multipartFile, UUID.randomUUID(), "KML Icon: " + fileName, "icon");
+                var docDto = documentServiceClient.uploadDocument(multipartFile, UUID.randomUUID(), "KML/KMZ Icon: " + fileName, "icon");
                 return "/api/documents/public/image/" + docDto.getId();
             }
         } catch (Exception e) {

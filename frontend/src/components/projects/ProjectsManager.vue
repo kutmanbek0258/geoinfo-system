@@ -3,7 +3,7 @@
     <v-toolbar color="primary" dark>
       <v-toolbar-title>Projects</v-toolbar-title>
       <v-spacer></v-spacer>
-      <v-btn icon @click="openImportDialog" title="Import KML">
+      <v-btn icon @click="openImportDialog" title="Import KML/KMZ">
         <v-icon>mdi-file-import</v-icon>
       </v-btn>
       <v-btn icon @click="openCreateDialog">
@@ -93,18 +93,18 @@
       </v-card>
     </v-dialog>
 
-    <!-- Import KML Dialog -->
+    <!-- Import File Dialog -->
     <v-dialog v-model="importDialog" max-width="500px">
       <v-card>
         <v-card-title>
-          <span class="headline">Import KML Project</span>
+          <span class="headline">Import KML/KMZ Project</span>
         </v-card-title>
         <v-card-text>
           <v-form ref="importForm">
             <v-file-input
               v-model="importFile"
-              label="Select KML File"
-              accept=".kml"
+              label="Select KML or KMZ File"
+              accept=".kml,.kmz"
               prepend-icon="mdi-file-xml"
               :rules="[v => !!v || 'File is required']"
               required
@@ -251,7 +251,7 @@ const executeImport = async () => {
   if (!valid || !importFile.value) return;
 
   try {
-    await store.dispatch('geodata/importKml', {
+    await store.dispatch('geodata/importFile', {
       file: importFile.value,
       projectName: importProjectName.value,
       page: currentPage.value - 1,
@@ -259,7 +259,7 @@ const executeImport = async () => {
     });
     importDialog.value = false;
   } catch (error) {
-    console.error("Failed to import KML:", error);
+    console.error("Failed to import file:", error);
   }
 };
 

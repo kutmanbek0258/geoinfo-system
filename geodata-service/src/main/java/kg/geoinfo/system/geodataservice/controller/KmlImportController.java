@@ -13,7 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/geodata/import/kml")
+@RequestMapping("/api/geodata/import/file")
 @RequiredArgsConstructor
 public class KmlImportController {
 
@@ -21,7 +21,7 @@ public class KmlImportController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('GEO_PROJECT_CREATE')")
-    public ResponseEntity<ProjectDto> importKml(
+    public ResponseEntity<ProjectDto> importFile(
             @AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "projectName", required = false) String projectName) {
@@ -30,7 +30,7 @@ public class KmlImportController {
 
     @PostMapping("/{projectId}")
     @PreAuthorize("hasAuthority('GEO_PROJECT_CREATE')")
-    public ResponseEntity<ProjectDto> importKmlToProject(
+    public ResponseEntity<ProjectDto> importFileToProject(
             @AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal,
             @PathVariable("projectId") UUID projectId,
             @RequestParam("file") MultipartFile file) {
