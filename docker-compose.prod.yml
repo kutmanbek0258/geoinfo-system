@@ -18,6 +18,10 @@ services:
     networks:
       - prod-net
 
+  postgres-terrain:
+    networks:
+      - prod-net
+
   # ====== Message Broker ======
   kafka:
     depends_on:
@@ -64,28 +68,25 @@ services:
   discovery-server:
     networks:
       - prod-net
-    environment:
-      EUREKA_INSTANCE_HOSTNAME: discovery-server
 
   api-gateway:
     networks:
       - prod-net
-    environment:
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:8080}
 
   # ====== Microservices ======
   auth-service:
     networks:
       - prod-net
-    environment:
-      AUTH_SERVICE_DOMAIN: ${AUTH_SERVICE_DOMAIN:-http://127.0.0.1:8181}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:8181}
 
   geodata-service:
     networks:
       - prod-net
 
   document-service:
+    networks:
+      - prod-net
+
+  terrain-service:
     networks:
       - prod-net
 
@@ -96,31 +97,11 @@ services:
   stream-service:
     networks:
       - prod-net
-    environment:
-      MEDIAMTX_HLS_DOMAIN: ${MEDIAMTX_HLS_DOMAIN:-http://127.0.0.1:8888}
-      MEDIAMTX_SOURCEONDEMAND: ${MEDIAMTX_SOURCEONDEMAND:-false}
-      MEDIAMTX_SOURCEONDEMANDCLOSEAFTER: ${MEDIAMTX_SOURCEONDEMANDCLOSEAFTER:-20s}
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL:-/}
-        VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL:-http://127.0.0.1:8080/api}
-        VITE_AUTH_SERVICE_URL: ${VITE_AUTH_SERVICE_URL:-http://127.0.0.1:9001}
-        VITE_AUTH_CALLBACK_URL: ${VITE_AUTH_CALLBACK_URL:-http://127.0.0.1:8080/code}
-        VITE_ONLYOFFICE_URL: ${VITE_ONLYOFFICE_URL:-http://127.0.0.1:8081}
-        VITE_GEOSERVER_URL: ${VITE_GEOSERVER_URL:-http://127.0.0.1:8080/geoserver/wms}
-        VITE_ONLYOFFICE_API_URL: ${VITE_ONLYOFFICE_API_URL:-http://127.0.0.1:9003/api/documents}
-    environment:
-      __VITE_API_URL__: ${VITE_API_URL:-/}
-      __VITE_API_GATEWAY_URL__: ${VITE_API_GATEWAY_URL:-http://127.0.0.1:8080/api}
-      __VITE_AUTH_SERVICE_URL__: ${VITE_AUTH_SERVICE_URL:-http://127.0.0.1:9001}
-      __VITE_AUTH_CALLBACK_URL__: ${VITE_AUTH_CALLBACK_URL:-http://127.0.0.1:8080/code}
-      __VITE_ONLYOFFICE_URL__: ${VITE_ONLYOFFICE_URL:-http://127.0.0.1:8081}
-      __VITE_GEOSERVER_URL__: ${VITE_GEOSERVER_URL:-http://127.0.0.1:8080/geoserver/wms}
-      __VITE_ONLYOFFICE_API_URL__: ${VITE_ONLYOFFICE_API_URL:-http://127.0.0.1:9003/api/documents}
     networks:
       - prod-net
 

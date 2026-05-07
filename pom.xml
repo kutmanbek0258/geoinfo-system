@@ -32,6 +32,7 @@
         <module>search-service</module>
 		<module>stream-service</module>
         <module>common-lib</module>
+        <module>terrain-service</module>
     </modules>
 	<properties>
 		<java.version>17</java.version>

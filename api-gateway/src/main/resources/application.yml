@@ -41,6 +41,11 @@ spring:
           predicates:
             - Path=/api/streams/**
 
+        - id: terrain-service
+          uri: lb://terrain-service
+          predicates:
+            - Path=/api/terrain/**
+
       httpserver:
         wiretap: true
       httpclient:

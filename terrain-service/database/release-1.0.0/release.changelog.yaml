@@ -1,0 +1,5 @@
+databaseChangeLog:
+  #  Objects
+  - include:
+      file: object/database.sql
+      relativeToChangelogFile: true

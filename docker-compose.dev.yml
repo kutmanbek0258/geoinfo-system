@@ -26,6 +26,12 @@ services:
     networks:
       - dev-net
 
+  postgres-terrain:
+    ports:
+      - "5436:5432"
+    networks:
+      - dev-net
+
   # ====== Message Broker ======
   kafka:
     deploy:
@@ -118,6 +124,12 @@ services:
   document-service:
     ports:
       - "9003:9003"
+    networks:
+      - dev-net
+
+  terrain-service:
+    ports:
+      - "9007:9007"
     networks:
       - dev-net
 
