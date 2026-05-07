@@ -21,6 +21,7 @@
     "lodash": "^4.17.21",
     "maska": "^1.5.0",
     "ol": "^10.6.1",
+    "cesium": "^1.117.0",
     "vite-plugin-vuetify": "1.0.2",
     "vue": "3.3.0",
     "vue-router": "4.0.12",
@@ -49,6 +50,7 @@
     "sass-loader": "^10.0.0",
     "typescript": "~5.0.2",
     "vite": "4.1.1",
+    "vite-plugin-cesium": "^1.2.22",
     "vue-cli-plugin-vuetify": "2.5.5",
     "vue-tsc": "1.0.3",
     "vuetify-loader": "^2.0.0-alpha.9"

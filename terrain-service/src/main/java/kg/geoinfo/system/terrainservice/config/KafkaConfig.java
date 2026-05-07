@@ -9,6 +9,8 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.springframework.kafka.config.TopicBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,6 +19,14 @@ import java.util.Map;
 public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
+
+    @Bean
+    public NewTopic terrainEventsTopic() {
+        return TopicBuilder.name("terrain.data.events")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
 
     @Bean
     public ProducerFactory<String, Object> producerFactory() {

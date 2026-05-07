@@ -20,8 +20,11 @@ CREATE TABLE terrain.terrain_jobs (
     max_height DOUBLE PRECISION,
     file_size BIGINT,
     error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    -- Audit Fields
+    created_by              VARCHAR(255),
+    created_date            TIMESTAMP,
+    last_modified_by        VARCHAR(255),
+    last_modified_date      TIMESTAMP
 );
 
 CREATE TABLE terrain.terrain_layers (
@@ -33,7 +36,11 @@ CREATE TABLE terrain.terrain_layers (
     terrain_url VARCHAR(512),
     status VARCHAR(50),
     is_visible BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    -- Audit Fields
+    created_by              VARCHAR(255),
+    created_date            TIMESTAMP,
+    last_modified_by        VARCHAR(255),
+    last_modified_date      TIMESTAMP
 );
 
 -- Index for spatial queries

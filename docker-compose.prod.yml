@@ -90,6 +90,10 @@ services:
     networks:
       - prod-net
 
+  terrain-worker:
+    networks:
+      - prod-net
+
   search-service:
     networks:
       - prod-net

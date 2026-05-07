@@ -1,0 +1,28 @@
+import api from "./api";
+
+const API_URL = "/terrain";
+
+class TerrainService {
+  createJob(projectId: string, name: string, file: File) {
+    const formData = new FormData();
+    formData.append("projectId", projectId);
+    formData.append("name", name);
+    formData.append("file", file);
+
+    return api.post(`${API_URL}/jobs`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  }
+
+  getJob(id: string) {
+    return api.get(`${API_URL}/jobs/${id}`);
+  }
+
+  getLayersByProject(projectId: string) {
+    return api.get(`${API_URL}/projects/${projectId}/layers`);
+  }
+}
+
+export default new TerrainService();
