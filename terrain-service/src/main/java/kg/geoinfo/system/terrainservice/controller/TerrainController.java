@@ -4,6 +4,10 @@ import kg.geoinfo.system.terrainservice.dto.TerrainJobDto;
 import kg.geoinfo.system.terrainservice.dto.TerrainLayerDto;
 import kg.geoinfo.system.terrainservice.service.TerrainService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,8 +35,8 @@ public class TerrainController {
         return ResponseEntity.ok(terrainService.getJob(id));
     }
 
-    @GetMapping("/projects/{projectId}/layers")
-    public ResponseEntity<List<TerrainLayerDto>> getLayers(@PathVariable UUID projectId) {
-        return ResponseEntity.ok(terrainService.getLayersByProject(projectId));
+    @GetMapping("/layers")
+    public ResponseEntity<Page<TerrainLayerDto>> getAllLayers(@PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable){
+        return ResponseEntity.ok(terrainService.getLayers(pageable));
     }
 }

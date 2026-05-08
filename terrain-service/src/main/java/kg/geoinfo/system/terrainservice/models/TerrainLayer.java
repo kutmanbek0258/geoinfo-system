@@ -26,9 +26,6 @@ public class TerrainLayer extends AuditableCustom<String> {
     @JoinColumn(name = "job_id")
     private TerrainJob job;
 
-    @Column(name = "project_id", nullable = false)
-    private UUID projectId;
-
     @Column(name = "title", nullable = false)
     private String title;
 

@@ -82,8 +82,6 @@ CesiumJS opens terrain
 4. Легче масштабировать worker отдельно.
 5. В будущем можно добавить другие генераторы: DSM, DTM, point cloud, 3D mesh.
 
-`geodata-service` при этом можно оставить ответственным за каталог проектов и привязку terrain-слоёв к проекту.
-
 ---
 
 ## 5. План изменений в backend
@@ -107,7 +105,6 @@ CesiumJS opens terrain
 Поля:
 
 - `id: UUID`
-- `projectId: UUID | null`
 - `name: String`
 - `status: TerrainJobStatus`
 - `sourceBucket: String`
@@ -129,7 +126,6 @@ CesiumJS opens terrain
 
 - `id`
 - `jobId`
-- `projectId`
 - `title`
 - `description`
 - `terrainUrl`
@@ -178,9 +174,9 @@ Multipart upload GeoTIFF.
 
 `GET /api/terrain/jobs/{id}`
 
-#### Получить список terrain слоёв проекта
+#### Получить список terrain слоёв
 
-`GET /api/projects/{projectId}/terrain-layers`
+`GET /api/terrain/layers`
 
 #### Получить URL для Cesium
 
@@ -210,7 +206,6 @@ Payload должен содержать минимум:
 - `jobId`
 - `sourceObjectKey`
 - `outputPrefix`
-- `projectId`
 - `attempt`
 - `timestamp`
 
@@ -222,16 +217,15 @@ Payload должен содержать минимум:
 
 ### Что добавить:
 
-1. Связь проекта с terrain-слоями.
-2. Методы получения списка terrain по проекту.
-3. Метаданные слоя:
+1. Методы получения списка terrain.
+2. Метаданные слоя:
    - имя,
    - дата создания,
    - статус,
    - extent,
    - CRS,
    - ссылка на готовый terrain.
-4. При необходимости — сущность `RasterLayer` или `TerrainLayer` в доменной модели.
+3. При необходимости — сущность `RasterLayer` или `TerrainLayer` в доменной модели.
 
 ### Что не добавлять:
 
@@ -381,7 +375,7 @@ ctb-tile -f Mesh -C -N -o terrain <inputfile.tif or input.vrt>
 
 В frontend добавить отдельный экран:
 
-- `2D Map` — текущий OpenLayers режим;
+- `2D Map` — текущий OpenLayers режим(остается без изменений);
 - `3D Terrain` — CesiumJS режим.
 
 ### 11.2. Загрузка terrain
@@ -403,14 +397,18 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
 4. После статуса `READY` появляется кнопка `Open in 3D`.
 5. CesiumJS открывает terrain.
 
-### 11.4. Полезные элементы интерфейса
+### 11.4. UX сценарий
+
+1. Отдельный компонент управления слоев Terrain
+2. Кнопки добавления и удаления
+
+### 11.5. Полезные элементы интерфейса
 
 - прогресс-бар;
 - статус job;
 - карточка слоя;
 - кнопка повторной генерации;
 - кнопка удаления;
-- выбор проекта.
 
 ---
 
@@ -483,13 +481,7 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
 - Добавить CesiumJS viewer.
 - Подключить готовый terrain URL.
 
-### Этап 5. Интеграция с проектами
-
-- Привязать terrain к проектам.
-- Показать terrain в карточке проекта.
-- Добавить удаление и повторную генерацию.
-
-### Этап 6. Hardening
+### Этап 5. Hardening
 
 - Retry policy.
 - Dead letter queue.
@@ -526,7 +518,7 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
 
 ### Риск: слишком большие файлы
 
-Мера: лимит размера upload, квоты на проект, pre-processing.
+Мера: лимит размера upload, pre-processing.
 
 ### Риск: нестабильная отдача terrain
 

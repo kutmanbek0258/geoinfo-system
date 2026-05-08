@@ -4,6 +4,7 @@ import kg.geoinfo.system.common.TerrainJobEvent;
 import kg.geoinfo.system.terrainservice.config.MinioProperties;
 import kg.geoinfo.system.terrainservice.dto.TerrainJobDto;
 import kg.geoinfo.system.terrainservice.dto.TerrainLayerDto;
+import kg.geoinfo.system.terrainservice.mapper.TerrainLayerMapper;
 import kg.geoinfo.system.terrainservice.mapper.TerrainMapper;
 import kg.geoinfo.system.terrainservice.models.TerrainJob;
 import kg.geoinfo.system.terrainservice.models.TerrainLayer;
@@ -14,13 +15,13 @@ import kg.geoinfo.system.terrainservice.service.filestore.FileStoreService;
 import kg.geoinfo.system.terrainservice.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,6 +33,7 @@ public class TerrainServiceImpl implements TerrainService {
     private final FileStoreService fileStoreService;
     private final KafkaProducerService kafkaProducerService;
     private final TerrainMapper terrainMapper;
+    private final TerrainLayerMapper terrainLayerMapper;
     private final MinioProperties minioProperties;
 
     @Override
@@ -44,7 +46,6 @@ public class TerrainServiceImpl implements TerrainService {
 
         // 2. Create job in DB
         TerrainJob job = new TerrainJob();
-        job.setProjectId(projectId);
         job.setName(name);
         job.setStatus(TerrainJobStatus.QUEUED);
         job.setSourceBucket(minioProperties.getBucket());
@@ -58,7 +59,6 @@ public class TerrainServiceImpl implements TerrainService {
         // 3. Send event to Kafka
         TerrainJobEvent event = TerrainJobEvent.builder()
                 .jobId(job.getId())
-                .projectId(job.getProjectId())
                 .name(job.getName())
                 .eventType(TerrainJobEvent.EventType.QUEUED)
                 .sourceBucket(job.getSourceBucket())
@@ -80,10 +80,9 @@ public class TerrainServiceImpl implements TerrainService {
     }
 
     @Override
-    public List<TerrainLayerDto> getLayersByProject(UUID projectId) {
-        return layerRepository.findByProjectId(projectId).stream()
-                .map(terrainMapper::toDto)
-                .collect(Collectors.toList());
+    public Page<TerrainLayerDto> getLayers(Pageable pageable) {
+        return layerRepository.findAll(pageable)
+                .map(terrainLayerMapper::toDto);
     }
 
     @Override
@@ -104,7 +103,6 @@ public class TerrainServiceImpl implements TerrainService {
             // Create or update TerrainLayer
             TerrainLayer layer = new TerrainLayer();
             layer.setJob(job);
-            layer.setProjectId(job.getProjectId());
             layer.setTitle(job.getName());
             layer.setTerrainUrl(terrainUrl);
             layer.setStatus("READY");

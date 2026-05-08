@@ -7,7 +7,6 @@ SET search_path = terrain, public;
 
 CREATE TABLE terrain.terrain_jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID,
     name VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL,
     source_bucket VARCHAR(255),
@@ -30,7 +29,6 @@ CREATE TABLE terrain.terrain_jobs (
 CREATE TABLE terrain.terrain_layers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     job_id UUID REFERENCES terrain.terrain_jobs(id) ON DELETE SET NULL,
-    project_id UUID NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     terrain_url VARCHAR(512),
@@ -45,4 +43,3 @@ CREATE TABLE terrain.terrain_layers (
 
 -- Index for spatial queries
 CREATE INDEX idx_terrain_jobs_bbox ON terrain.terrain_jobs USING GIST (bbox);
-CREATE INDEX idx_terrain_layers_project_id ON terrain.terrain_layers(project_id);

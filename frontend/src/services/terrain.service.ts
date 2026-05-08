@@ -19,10 +19,6 @@ class TerrainService {
   getJob(id: string) {
     return api.get(`${API_URL}/jobs/${id}`);
   }
-
-  getLayersByProject(projectId: string) {
-    return api.get(`${API_URL}/projects/${projectId}/layers`);
-  }
 }
 
 export default new TerrainService();

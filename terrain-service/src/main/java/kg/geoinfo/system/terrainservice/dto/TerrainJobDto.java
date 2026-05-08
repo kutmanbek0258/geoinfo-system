@@ -11,7 +11,6 @@ import java.util.UUID;
 @EqualsAndHashCode(callSuper = true)
 public class TerrainJobDto extends AbstractDto {
     private UUID id;
-    private UUID projectId;
     private String name;
     private TerrainJobStatus status;
     private String sourceBucket;

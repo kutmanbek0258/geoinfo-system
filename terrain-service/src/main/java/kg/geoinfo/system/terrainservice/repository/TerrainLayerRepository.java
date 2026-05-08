@@ -8,6 +8,4 @@ import java.util.UUID;
 import java.util.List;
 
 @Repository
-public interface TerrainLayerRepository extends JpaRepository<TerrainLayer, UUID> {
-    List<TerrainLayer> findByProjectId(UUID projectId);
-}
+public interface TerrainLayerRepository extends JpaRepository<TerrainLayer, UUID> {}

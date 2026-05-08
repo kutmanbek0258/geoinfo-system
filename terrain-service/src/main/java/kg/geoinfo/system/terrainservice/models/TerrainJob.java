@@ -24,9 +24,6 @@ public class TerrainJob extends AuditableCustom<String> {
     @Column(name = "id", nullable = false)
     private UUID id;
 
-    @Column(name = "project_id")
-    private UUID projectId;
-
     @Column(name = "name", nullable = false)
     private String name;
 

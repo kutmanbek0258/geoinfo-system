@@ -11,7 +11,6 @@ import java.util.UUID;
 public class TerrainLayerDto extends AbstractDto {
     private UUID id;
     private UUID jobId;
-    private UUID projectId;
     private String title;
     private String description;
     private String terrainUrl;
