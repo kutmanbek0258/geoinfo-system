@@ -37,6 +37,11 @@ const sidebarItem: menu[] = [
         icon: CopyIcon,
         to: '/ui/layers'
     },
+    {
+        title: 'Terrain layers',
+        icon: ApertureIcon,
+        to: '/ui/terrain'
+    },
     // { header: 'auth' },
     // {
     //     title: 'Login',

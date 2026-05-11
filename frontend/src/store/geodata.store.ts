@@ -1,11 +1,13 @@
 import geodataService from "@/services/geodata.service";
 import streamService from "@/services/stream.service";
-import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, Page } from "@/types/api";
+import terrainService from "@/services/terrain.service";
+import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, Page } from "@/types/api";
 import type { ActionContext } from "vuex";
 
 interface GeodataState {
     projects: Page<Project> | null;
     imageryLayers: Page<ImageryLayer> | null;
+    terrainLayers: Page<TerrainLayer> | null;
     points: ProjectPoint[];
     multilines: ProjectMultiline[];
     polygons: ProjectPolygon[];
@@ -19,6 +21,7 @@ interface GeodataState {
 const state: GeodataState = {
     projects: null,
     imageryLayers: null,
+    terrainLayers: null,
     points: [],
     multilines: [],
     polygons: [],
@@ -54,6 +57,10 @@ const mutations = {
     // Imagery Layer Mutations
     SET_IMAGERY_LAYERS(state: GeodataState, layers: Page<ImageryLayer> | null) {
         state.imageryLayers = layers;
+    },
+
+    SET_TERRAIN_LAYERS(state: GeodataState, layers: Page<TerrainLayer> | null) {
+        state.terrainLayers = layers;
     },
 
     UPDATE_FEATURE(state: GeodataState, { type, data }: { type: 'Point' | 'MultiLineString' | 'Polygon', data: any }) {
@@ -189,6 +196,24 @@ const actions = {
     async deleteImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
         await geodataService.deleteImageryLayer(layerId);
         dispatch('fetchImageryLayers', { page, size });
+    },
+
+    // Terrain Layer Actions
+    async fetchTerrainLayers({ commit }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            const response = await terrainService.getLayers(page, size);
+            commit('SET_TERRAIN_LAYERS', response.data);
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to fetch terrain layers.');
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+    async deleteTerrainLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
+        await terrainService.deleteLayer(layerId);
+        dispatch('fetchTerrainLayers', { page, size });
     },
 
     // Feature Selection

@@ -38,8 +38,8 @@ public class TerrainServiceImpl implements TerrainService {
 
     @Override
     @Transactional
-    public TerrainJobDto createJob(UUID projectId, String name, MultipartFile file) {
-        log.info("Creating terrain job for project {} with name {}", projectId, name);
+    public TerrainJobDto createJob(String name, MultipartFile file) {
+        log.info("Creating terrain job with name {}", name);
 
         // 1. Save file to MinIO
         String objectKey = fileStoreService.save(file);
@@ -92,6 +92,19 @@ public class TerrainServiceImpl implements TerrainService {
         TerrainJob job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobId));
 
+        // If job is already in a final state, don't update it (prevents re-processing noise)
+        if (job.getStatus() == TerrainJobStatus.READY) {
+            log.info("Job {} is already READY, ignoring update to {}", jobId, status);
+            return;
+        }
+
+        // Normalize terrainUrl: Cesium needs the directory, not the layer.json file path
+        if (terrainUrl != null && terrainUrl.endsWith("/layer.json")) {
+            terrainUrl = terrainUrl.substring(0, terrainUrl.length() - 10);
+        } else if (terrainUrl != null && terrainUrl.endsWith("/layer.json/")) {
+            terrainUrl = terrainUrl.substring(0, terrainUrl.length() - 11);
+        }
+
         TerrainJobStatus jobStatus = TerrainJobStatus.valueOf(status);
         job.setStatus(jobStatus);
         job.setErrorMessage(errorMessage);
@@ -100,13 +113,50 @@ public class TerrainServiceImpl implements TerrainService {
         jobRepository.save(job);
 
         if (jobStatus == TerrainJobStatus.READY) {
-            // Create or update TerrainLayer
-            TerrainLayer layer = new TerrainLayer();
-            layer.setJob(job);
-            layer.setTitle(job.getName());
-            layer.setTerrainUrl(terrainUrl);
-            layer.setStatus("READY");
-            layerRepository.save(layer);
+            // Check if layer already exists
+            boolean layerExists = layerRepository.findAll().stream()
+                    .anyMatch(l -> l.getJob() != null && l.getJob().getId().equals(jobId));
+            
+            if (!layerExists) {
+                // Create TerrainLayer
+                TerrainLayer layer = new TerrainLayer();
+                layer.setJob(job);
+                layer.setTitle(job.getName());
+                layer.setTerrainUrl(terrainUrl);
+                layer.setStatus("READY");
+                layerRepository.save(layer);
+            }
+
+            // Cleanup source TIFF after successful import
+            try {
+                log.info("Cleaning up source file {} for job {}", job.getSourceObjectKey(), jobId);
+                fileStoreService.delete(job.getSourceObjectKey());
+            } catch (Exception e) {
+                log.error("Failed to cleanup source file for job {}: {}", jobId, e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteLayer(UUID id) {
+        log.info("Deleting terrain layer {}", id);
+        TerrainLayer layer = layerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Layer not found: " + id));
+
+        TerrainJob job = layer.getJob();
+        if (job != null) {
+            // Delete generated terrain files
+            log.info("Deleting terrain files for job {} with prefix {}", job.getId(), job.getOutputPrefix());
+            fileStoreService.deleteByPrefix(job.getOutputPrefix());
+            
+            // Delete the layer
+            layerRepository.delete(layer);
+            
+            // Delete the job record
+            jobRepository.delete(job);
+        } else {
+            layerRepository.delete(layer);
         }
     }
 }

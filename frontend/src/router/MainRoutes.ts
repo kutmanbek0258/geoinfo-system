@@ -22,6 +22,11 @@ const MainRoutes = {
             component: () => import('@/views/components/ImageryLayers.vue')
         },
         {
+            name: 'Terrain layers',
+            path: '/ui/terrain',
+            component: () => import('@/views/components/TerrainLayers.vue')
+        },
+        {
             name: 'Icons',
             path: '/icons',
             component: () => import('@/views/pages/Icons.vue')

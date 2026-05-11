@@ -19,6 +19,16 @@ class TerrainService {
   getJob(id: string) {
     return api.get(`${API_URL}/jobs/${id}`);
   }
+
+  getLayers(page: number, size: number) {
+    return api.get(`${API_URL}/layers`, {
+      params: { page, size }
+    });
+  }
+
+  deleteLayer(id: string) {
+    return api.delete(`${API_URL}/layers/${id}`);
+  }
 }
 
 export default new TerrainService();

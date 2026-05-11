@@ -21,7 +21,8 @@
         :subtitle="project.description"
       >
         <template v-slot:append>
-          <v-btn icon="mdi-map" color="primary" variant="text" @click="navigateToMap(project.id)" title="Open Map"></v-btn>
+          <v-btn icon="mdi-map" color="primary" variant="text" @click="navigateTo2D(project.id)" title="Open 2D Map"></v-btn>
+          <v-btn icon="mdi-map-marker-radius" color="secondary" variant="text" @click="navigateTo3D(project.id)" title="Open 3D Map"></v-btn>
           <v-btn icon="mdi-pencil" variant="text" @click="openEditDialog(project)"></v-btn>
           <v-btn icon="mdi-share-variant" variant="text" color="primary" @click="openShareDialog(project)" title="Share Project"></v-btn>
           <v-btn icon="mdi-delete" variant="text" color="error" @click="deleteProject(project.id)"></v-btn>
@@ -179,8 +180,12 @@ watch(currentPage, () => {
 });
 
 // --- Методы ---
-const navigateToMap = (projectId: string) => {
-    router.push(`/projects/${projectId}`);
+const navigateTo2D = (projectId: string) => {
+    router.push(`/projects/${projectId}?mode=2D`);
+};
+
+const navigateTo3D = (projectId: string) => {
+    router.push(`/projects/${projectId}?mode=3D`);
 };
 
 const openCreateDialog = () => {

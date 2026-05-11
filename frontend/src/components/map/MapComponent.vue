@@ -35,6 +35,13 @@
           ></v-slider>
         </v-list-item>
       </v-list>
+
+      <v-divider></v-divider>
+      <v-card-title>Terrain Layers</v-card-title>
+      <v-radio-group v-model="selectedTerrainLayerId" hide-details class="px-4">
+        <v-radio label="None" :value="null"></v-radio>
+        <v-radio v-for="layer in terrainLayers" :key="layer.id" :label="layer.title" :value="layer.id"></v-radio>
+      </v-radio-group>
     </v-card>
 
 <!--    &lt;!&ndash; Оверлей 2: Список Гео-объектов &ndash;&gt;-->
@@ -168,7 +175,7 @@ import { GeoJSON } from 'ol/format';
 import { Draw, Modify } from 'ol/interaction';
 import { Collection } from 'ol';
 import { createEmpty, extend } from 'ol/extent';
-import type { ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
+import type { ImageryLayer, TerrainLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import {FullScreen} from "ol/control";
@@ -199,6 +206,7 @@ const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
 const isGeometryEditMode = ref(false);
 let modifyInteraction: Modify | null = null;
 const visibleLayerIds = ref<string[]>([]);
+const selectedTerrainLayerId = ref<string | null>(null);
 const activeImageLayers = ref<Record<string, TileLayer<TileWMS>>>({}); // Используем plain object
 const layerOpacities = ref<Record<string, number>>({}); // Для хранения прозрачности
 
@@ -244,6 +252,7 @@ const newObjectCameraDetails = ref({ // Для хранения специфич
 
 // --- Данные из Vuex ---
 const imageryLayers = computed<ImageryLayer[]>(() => store.state.geodata.imageryLayers?.content || []);
+const terrainLayers = computed<TerrainLayer[]>(() => store.state.geodata.terrainLayers?.content || []);
 const points = computed<ProjectPoint[]>(() => store.state.geodata.points);
 const multilines = computed<ProjectMultiline[]>(() => store.state.geodata.multilines);
 const polygons = computed<ProjectPolygon[]>(() => store.state.geodata.polygons);
@@ -353,6 +362,7 @@ watch(() => props.projectId, (newProjectId) => {
     store.commit('geodata/SET_SELECTED_PROJECT_ID', newProjectId);
     store.dispatch('geodata/fetchVectorDataForProject', newProjectId);
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 }); // Загружаем слои
+    store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 }); // Загружаем террейн
   }
 }, { immediate: true });
 

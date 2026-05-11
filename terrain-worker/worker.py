@@ -42,13 +42,13 @@ MINIO_ENDPOINT = os.getenv(
 )
 
 MINIO_ACCESS_KEY = os.getenv(
-    "MINIO_ROOT_USER",
-    "admin"
+    "MINIO_ACCESS_KEY",
+    "minio_access_key"
 )
 
 MINIO_SECRET_KEY = os.getenv(
-    "MINIO_ROOT_PASSWORD",
-    "password"
+    "MINIO_SECRET_KEY",
+    "minio_secret_key"
 )
 
 # -----------------------------------------------------------------------------

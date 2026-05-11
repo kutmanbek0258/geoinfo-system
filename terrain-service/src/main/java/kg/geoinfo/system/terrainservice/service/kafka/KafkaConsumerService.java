@@ -22,8 +22,8 @@ public class KafkaConsumerService {
             String terrainUrl = null;
             if (event.getEventType() == TerrainJobEvent.EventType.READY) {
                 // In a real system, this URL would be constructed based on output prefix
-                // For now, let's assume it's something like:
-                terrainUrl = "/terrain/" + event.getOutputPrefix() + "/layer.json";
+                // We point to the directory containing layer.json
+                terrainUrl = "/terrain/" + event.getOutputPrefix() + "/";
             }
 
             terrainService.updateJobStatus(

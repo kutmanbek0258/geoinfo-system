@@ -1,17 +1,23 @@
 package kg.geoinfo.system.terrainservice.service.filestore;
 
 import io.minio.*;
+import io.minio.messages.DeleteError;
+import io.minio.messages.DeleteObject;
 import kg.geoinfo.system.terrainservice.config.MinioProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MinioFileStoreServiceImpl implements FileStoreService {
@@ -22,10 +28,37 @@ public class MinioFileStoreServiceImpl implements FileStoreService {
     @PostConstruct
     @SneakyThrows
     public void init() {
-        boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(minioProperties.getBucket()).build());
+        String bucket = minioProperties.getBucket();
+        boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
         if (!found) {
-            minioClient.makeBucket(MakeBucketArgs.builder().bucket(minioProperties.getBucket()).build());
+            minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
         }
+
+        // Set public read policy for the bucket to allow CesiumJS to access tiles
+        String policy = "{\n" +
+                "  \"Version\": \"2012-10-17\",\n" +
+                "  \"Statement\": [\n" +
+                "    {\n" +
+                "      \"Action\": [\"s3:GetBucketLocation\", \"s3:ListBucket\"],\n" +
+                "      \"Effect\": \"Allow\",\n" +
+                "      \"Principal\": \"*\",\n" +
+                "      \"Resource\": \"arn:aws:s3:::" + bucket + "\"\n" +
+                "    },\n" +
+                "    {\n" +
+                "      \"Action\": \"s3:GetObject\",\n" +
+                "      \"Effect\": \"Allow\",\n" +
+                "      \"Principal\": \"*\",\n" +
+                "      \"Resource\": \"arn:aws:s3:::" + bucket + "/*\"\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+
+        minioClient.setBucketPolicy(
+                SetBucketPolicyArgs.builder()
+                        .bucket(bucket)
+                        .config(policy)
+                        .build()
+        );
     }
 
     @Override
@@ -66,6 +99,40 @@ public class MinioFileStoreServiceImpl implements FileStoreService {
                         .bucket(minioProperties.getBucket())
                         .object(key)
                         .build());
+    }
+
+    @Override
+    @SneakyThrows
+    public void deleteByPrefix(String prefix) {
+        if (prefix == null || prefix.isBlank()) {
+            return;
+        }
+
+        Iterable<Result<io.minio.messages.Item>> results = minioClient.listObjects(
+                ListObjectsArgs.builder()
+                        .bucket(minioProperties.getBucket())
+                        .prefix(prefix)
+                        .recursive(true)
+                        .build());
+
+        List<DeleteObject> objectsToDelete = new ArrayList<>();
+        for (Result<io.minio.messages.Item> result : results) {
+            objectsToDelete.add(new DeleteObject(result.get().objectName()));
+        }
+
+        if (!objectsToDelete.isEmpty()) {
+            Iterable<Result<DeleteError>> deleteResults = minioClient.removeObjects(
+                    RemoveObjectsArgs.builder()
+                            .bucket(minioProperties.getBucket())
+                            .objects(objectsToDelete)
+                            .build());
+
+            // Iterate to trigger the deletion
+            for (Result<DeleteError> result : deleteResults) {
+                DeleteError error = result.get();
+                log.error("Error deleting object {}: {}", error.objectName(), error.message());
+            }
+        }
     }
 
     @Override

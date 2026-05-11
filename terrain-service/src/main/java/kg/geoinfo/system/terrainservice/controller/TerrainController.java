@@ -24,10 +24,9 @@ public class TerrainController {
 
     @PostMapping("/jobs")
     public ResponseEntity<TerrainJobDto> createJob(
-            @RequestParam("projectId") UUID projectId,
             @RequestParam("name") String name,
             @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(terrainService.createJob(projectId, name, file));
+        return ResponseEntity.ok(terrainService.createJob(name, file));
     }
 
     @GetMapping("/jobs/{id}")
@@ -38,5 +37,11 @@ public class TerrainController {
     @GetMapping("/layers")
     public ResponseEntity<Page<TerrainLayerDto>> getAllLayers(@PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable){
         return ResponseEntity.ok(terrainService.getLayers(pageable));
+    }
+
+    @DeleteMapping("/layers/{id}")
+    public ResponseEntity<Void> deleteLayer(@PathVariable UUID id) {
+        terrainService.deleteLayer(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -81,3 +81,19 @@ export interface SearchResult {
     title: string;
     snippet: string;
 }
+
+export interface TerrainLayer {
+    id: string;
+    title: string;
+    description?: string;
+    terrainUrl: string;
+    status: string;
+    isVisible: boolean;
+}
+
+export interface TerrainJob {
+    id: string;
+    name: string;
+    status: string;
+    errorMessage?: string;
+}

@@ -8,5 +8,6 @@ public interface FileStoreService {
     String save(MultipartFile file);
     Optional<byte[]> find(String key);
     void delete(String key);
+    void deleteByPrefix(String prefix);
     void overwrite(String fileKey, InputStream in);
 }
