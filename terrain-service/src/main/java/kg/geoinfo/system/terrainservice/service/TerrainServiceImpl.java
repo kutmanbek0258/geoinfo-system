@@ -52,7 +52,7 @@ public class TerrainServiceImpl implements TerrainService {
         job.setSourceObjectKey(objectKey);
         job.setFileSize(file.getSize());
         job.setOutputBucket(minioProperties.getBucket());
-        job.setOutputPrefix("terrain/" + job.getName() + "-" + UUID.randomUUID().toString().substring(0, 8));
+        job.setOutputPrefix(job.getName() + "-" + UUID.randomUUID().toString().substring(0, 8));
 
         job = jobRepository.save(job);
 

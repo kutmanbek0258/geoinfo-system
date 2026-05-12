@@ -5,7 +5,7 @@ import logging
 import subprocess
 import shutil
 import tempfile
-import socket
+from typing import Any, Dict, Optional, List
 
 from kafka import KafkaConsumer, KafkaProducer
 from kafka.errors import NoBrokersAvailable
@@ -26,30 +26,21 @@ logger = logging.getLogger("terrain-worker")
 # Environment Variables
 # -----------------------------------------------------------------------------
 
-KAFKA_BOOTSTRAP_SERVERS = os.getenv(
-    "KAFKA_BOOTSTRAP_SERVERS",
-    "kafka:9092"
-)
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "terrain.data.events")
+KAFKA_GROUP_ID = os.getenv("KAFKA_GROUP_ID", "terrain-worker-group")
 
-KAFKA_TOPIC = os.getenv(
-    "KAFKA_TOPIC",
-    "terrain.data.events"
-)
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minio_access_key")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minio_secret_key")
+MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 
-MINIO_ENDPOINT = os.getenv(
-    "MINIO_ENDPOINT",
-    "minio:9000"
-)
+CTB_FORMAT = os.getenv("CTB_FORMAT", "Mesh")
+CTB_ZOOM = os.getenv("CTB_ZOOM", "0-22")
+GDAL_CACHEMAX = os.getenv("GDAL_CACHEMAX", "2048")  # MB
+GDAL_WARP_SRS = os.getenv("GDAL_WARP_SRS", "EPSG:4326")
 
-MINIO_ACCESS_KEY = os.getenv(
-    "MINIO_ACCESS_KEY",
-    "minio_access_key"
-)
-
-MINIO_SECRET_KEY = os.getenv(
-    "MINIO_SECRET_KEY",
-    "minio_secret_key"
-)
+BASE_DIR = os.getenv("TERRAIN_STORE", "/data/terrain-store")
 
 # -----------------------------------------------------------------------------
 # MinIO Client
@@ -59,283 +50,247 @@ minio_client = Minio(
     MINIO_ENDPOINT.replace("http://", "").replace("https://", ""),
     access_key=MINIO_ACCESS_KEY,
     secret_key=MINIO_SECRET_KEY,
-    secure=False
+    secure=MINIO_SECURE
 )
 
-def log_config():
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+
+def log_config() -> None:
     logger.info("===== TERRAIN WORKER CONFIG =====")
-    logger.info(f"KAFKA_BOOTSTRAP_SERVERS = {KAFKA_BOOTSTRAP_SERVERS}")
-    logger.info(f"KAFKA_TOPIC = {KAFKA_TOPIC}")
-    logger.info(f"MINIO_ENDPOINT = {MINIO_ENDPOINT}")
-    logger.info(f"MINIO_ACCESS_KEY = {MINIO_ACCESS_KEY}")
-    logger.info(f"MINIO_SECRET_KEY = {'***' if MINIO_SECRET_KEY else None}")
+    logger.info("KAFKA_BOOTSTRAP_SERVERS = %s", KAFKA_BOOTSTRAP_SERVERS)
+    logger.info("KAFKA_TOPIC = %s", KAFKA_TOPIC)
+    logger.info("KAFKA_GROUP_ID = %s", KAFKA_GROUP_ID)
+    logger.info("MINIO_ENDPOINT = %s", MINIO_ENDPOINT)
+    logger.info("MINIO_ACCESS_KEY = %s", MINIO_ACCESS_KEY)
+    logger.info("MINIO_SECRET_KEY = %s", "***" if MINIO_SECRET_KEY else None)
+    logger.info("MINIO_SECURE = %s", MINIO_SECURE)
+    logger.info("CTB_FORMAT = %s", CTB_FORMAT)
+    logger.info("CTB_ZOOM = %s", CTB_ZOOM)
+    logger.info("GDAL_CACHEMAX = %s", GDAL_CACHEMAX)
+    logger.info("GDAL_WARP_SRS = %s", GDAL_WARP_SRS)
+    logger.info("TERRAIN_STORE = %s", BASE_DIR)
     logger.info("==================================")
 
-# -----------------------------------------------------------------------------
-# Kafka
-# -----------------------------------------------------------------------------
+def ensure_bucket_exists(bucket: str) -> None:
+    try:
+        if not minio_client.bucket_exists(bucket):
+            minio_client.make_bucket(bucket)
+            logger.info("Created bucket %s", bucket)
+    except Exception:
+        logger.exception("Failed to ensure bucket exists: %s", bucket)
+        raise
 
-producer = None
-consumer = None
-
-
-def create_producer():
+def create_producer() -> KafkaProducer:
     while True:
         try:
             producer_instance = KafkaProducer(
                 bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
                 value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+                key_serializer=lambda v: v.encode("utf-8") if isinstance(v, str) else v,
                 retries=10,
                 retry_backoff_ms=3000,
-                acks="all"
+                acks="all",
+                linger_ms=5,
             )
-
             logger.info("Connected Kafka producer")
-
             return producer_instance
-
         except NoBrokersAvailable:
-            logger.warning(
-                "Kafka producer unavailable, retrying in 5 seconds..."
-            )
+            logger.warning("Kafka producer unavailable, retrying in 5 seconds...")
             time.sleep(5)
-
         except Exception as e:
-            logger.error(f"Producer connection failed: {e}")
+            logger.exception("Producer connection failed: %s", e)
             time.sleep(5)
 
-
-def create_consumer():
+def create_consumer() -> KafkaConsumer:
     while True:
         try:
             consumer_instance = KafkaConsumer(
                 KAFKA_TOPIC,
                 bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-                value_deserializer=lambda m: json.loads(
-                    m.decode("utf-8")
-                ),
-                group_id="terrain-worker-group",
+                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+                group_id=KAFKA_GROUP_ID,
                 auto_offset_reset="earliest",
-                enable_auto_commit=True,
-                consumer_timeout_ms=1000
+                enable_auto_commit=False,
+                consumer_timeout_ms=1000,
+                max_poll_records=1,
             )
-
             logger.info("Connected Kafka consumer")
-
             return consumer_instance
-
         except NoBrokersAvailable:
-            logger.warning(
-                "Kafka consumer unavailable, retrying in 5 seconds..."
-            )
+            logger.warning("Kafka consumer unavailable, retrying in 5 seconds...")
             time.sleep(5)
-
         except Exception as e:
-            logger.error(f"Consumer connection failed: {e}")
+            logger.exception("Consumer connection failed: %s", e)
             time.sleep(5)
-
-
-# -----------------------------------------------------------------------------
-# Kafka Event Sender
-# -----------------------------------------------------------------------------
 
 def send_status(
-    job_id,
-    event_type,
-    error_message=None,
-    output_prefix=None
-):
-    global producer
-
-    event = {
+    producer: KafkaProducer,
+    job_id: str,
+    event_type: str,
+    error_message: Optional[str] = None,
+    output_prefix: Optional[str] = None
+) -> None:
+    event: Dict[str, Any] = {
         "jobId": job_id,
         "eventType": event_type,
         "errorMessage": error_message,
-        "outputPrefix": output_prefix
+        "outputPrefix": output_prefix,
+        "timestamp": int(time.time() * 1000),
+        "source": "terrain-worker"
     }
 
     try:
-        producer.send(
+        future = producer.send(
             KAFKA_TOPIC,
-            key=job_id.encode("utf-8"),
+            key=job_id,
             value=event
         )
-
+        future.get(timeout=30)
         producer.flush()
-
-        logger.info(
-            f"Sent {event_type} event for job {job_id}"
-        )
-
+        logger.info("Sent %s event for job %s", event_type, job_id)
     except Exception as e:
-        logger.error(f"Kafka send failed: {e}")
+        logger.exception("Kafka send failed for job %s: %s", job_id, e)
+        raise
 
-        producer = create_producer()
+def run_command(cmd: List[str], cwd: Optional[str] = None) -> None:
+    logger.info("Running command: %s", " ".join(cmd))
+    env = os.environ.copy()
+    env["GDAL_CACHEMAX"] = GDAL_CACHEMAX
 
-        producer.send(
-            KAFKA_TOPIC,
-            key=job_id.encode("utf-8"),
-            value=event
+    result = subprocess.run(
+        cmd,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        env=env
+    )
+
+    if result.stdout:
+        logger.info("stdout:\n%s", result.stdout.strip())
+
+    if result.stderr:
+        logger.info("stderr:\n%s", result.stderr.strip())
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Command failed ({result.returncode}): {' '.join(cmd)}\n{result.stderr}"
         )
 
-        producer.flush()
+def save_tree(src_dir, dst_dir):
+    """Очищает целевую папку и копирует туда новые данные."""
+    if os.path.exists(dst_dir):
+        logger.info("Cleaning up existing destination directory: %s", dst_dir)
+        shutil.rmtree(dst_dir)
 
+    # Создаем родительские папки, если их нет
+    os.makedirs(os.path.dirname(dst_dir), exist_ok=True)
+    shutil.copytree(src_dir, dst_dir)
+    logger.info("Successfully copied tiles to %s", dst_dir)
+
+def fix_layer_json(layer_json_path: str) -> None:
+    """Исправляет layer.json для полной совместимости с CesiumJS."""
+    if not os.path.exists(layer_json_path):
+        raise RuntimeError("layer.json was not generated")
+
+    with open(layer_json_path, "r", encoding="utf-8") as f:
+        layer_json = json.load(f)
+
+    # Исправляем опечатку в схеме, которую допускают некоторые версии CTB
+    if "schema" in layer_json and "scheme" not in layer_json:
+        layer_json["scheme"] = layer_json.pop("schema")
+
+    # Устанавливаем стандарты для quantized-mesh
+    layer_json["format"] = "quantized-mesh-1.0"
+    if "version" not in layer_json:
+        layer_json["version"] = "1.1.0"
+
+    # Важно: шаблон путей к тайлам.
+    # Убираем параметры запроса (?v=...), если Nginx настроен на простую раздачу.
+    layer_json["tiles"] = ["{z}/{x}/{y}.terrain"]
+
+    with open(layer_json_path, "w", encoding="utf-8") as f:
+        json.dump(layer_json, f, ensure_ascii=False, indent=2)
+
+def count_generated_tiles(output_dir: str) -> int:
+    total = 0
+    for root, _, files in os.walk(output_dir):
+        for file_name in files:
+            if file_name.endswith(".terrain"):
+                total += 1
+    return total
 
 # -----------------------------------------------------------------------------
 # Terrain Processing
 # -----------------------------------------------------------------------------
 
-def process_job(job_data):
-    job_id = job_data["jobId"]
+def process_job(job_data: Dict[str, Any], producer: KafkaProducer) -> None:
+    output_prefix = job_data["outputPrefix"]
+    job_id = str(job_data["jobId"])
+
+    # 1. Формируем финальный путь в хранилище (BASE_DIR = /data/terrain-store)
+    final_output_path = os.path.join(BASE_DIR, output_prefix)
+
     source_bucket = job_data["sourceBucket"]
     source_key = job_data["sourceObjectKey"]
-    output_bucket = job_data["outputBucket"]
-    output_prefix = job_data["outputPrefix"]
 
     logger.info(
-        f"Processing job {job_id}: "
-        f"{source_bucket}/{source_key}"
+        "Processing job %s: %s/%s -> Target: %s",
+        job_id, source_bucket, source_key, final_output_path
     )
 
+    # Создаем временную рабочую директорию в /tmp
     work_dir = tempfile.mkdtemp(prefix=f"terrain-{job_id}-")
-
+    temp_tiles_dir = os.path.join(work_dir, "terrain_out")
     input_file = os.path.join(work_dir, "input.tif")
-    output_dir = os.path.join(work_dir, "terrain")
+    normalized_file = os.path.join(work_dir, "normalized.tif")
+    vrt_file = os.path.join(work_dir, "tiles.vrt")
+
+    # Временная папка для генерации тайлов (внутри work_dir)
+    temp_tiles_dir = os.path.join(work_dir, "terrain")
 
     try:
-        # ---------------------------------------------------------------------
-        # Send processing event
-        # ---------------------------------------------------------------------
+        send_status(producer, job_id, "PROCESSING", output_prefix=output_prefix)
 
-        send_status(job_id, "PROCESSING")
+        # --- Загрузка и подготовка (без изменений) ---
+        logger.info("Downloading %s/%s", source_bucket, source_key)
+        minio_client.fget_object(source_bucket, source_key, input_file)
 
-        # ---------------------------------------------------------------------
-        # Download source raster
-        # ---------------------------------------------------------------------
+        converted_file = os.path.join(work_dir, "converted.tif")
+        run_command(["gdal_translate", input_file, converted_file, "-co", "TILED=YES", "-co", "COMPRESS=DEFLATE", "-co", "BIGTIFF=YES"])
+        run_command(["gdalwarp", "-t_srs", GDAL_WARP_SRS, "-dstnodata", "-9999", "-multi", "-overwrite", converted_file, normalized_file])
+        run_command(["gdal_translate", "-of", "VRT", normalized_file, vrt_file])
 
-        logger.info(
-            f"Downloading {source_bucket}/{source_key}"
-        )
+        os.makedirs(temp_tiles_dir, exist_ok=True)
 
-        minio_client.fget_object(
-            source_bucket,
-            source_key,
-            input_file
-        )
+        # 2. Генерация тайлов (используем -C для Compact Mesh)
+        run_command(["ctb-tile", "-f", CTB_FORMAT, "-C", "-N", "-z", CTB_ZOOM, "-o", temp_tiles_dir, vrt_file])
 
-        logger.info(
-            f"Downloaded to {input_file}"
-        )
+        # 3. Генерация layer.json
+        run_command(["ctb-tile", "-f", CTB_FORMAT, "-C", "-N", "-l", "-z", CTB_ZOOM, "-o", temp_tiles_dir, vrt_file])
 
-        # ---------------------------------------------------------------------
-        # Create output directory
-        # ---------------------------------------------------------------------
+        # 4. Модификация метаданных
+        fix_layer_json(os.path.join(temp_tiles_dir, "layer.json"))
 
-        os.makedirs(output_dir, exist_ok=True)
+        tiles_count = count_generated_tiles(temp_tiles_dir)
+        if tiles_count == 0:
+            raise RuntimeError("No .terrain tiles were generated in temp directory")
 
-        # ---------------------------------------------------------------------
-        # Run Cesium Terrain Builder
-        # ---------------------------------------------------------------------
+        # 5. КЛЮЧЕВОЙ ШАГ: Перенос из временной папки в финальное хранилище /data/terrain-store
+        logger.info("Moving result for job %s to permanent store", job_id)
+        save_tree(temp_tiles_dir, final_output_path)
 
-        cmd = [
-            "ctb-tile",
-            "-f", "Mesh",
-            "-C",
-            "-N",
-            "-o", output_dir,
-            input_file
-        ]
-
-        logger.info(
-            f"Running command: {' '.join(cmd)}"
-        )
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True
-        )
-
-        logger.info(result.stdout)
-
-        if result.returncode != 0:
-            raise Exception(
-                f"ctb-tile failed: {result.stderr}"
-            )
-
-        # ---------------------------------------------------------------------
-        # Upload generated terrain tiles
-        # ---------------------------------------------------------------------
-
-        logger.info(
-            f"Uploading terrain to "
-            f"{output_bucket}/{output_prefix}"
-        )
-
-        for root, dirs, files in os.walk(output_dir):
-            for file in files:
-                local_path = os.path.join(root, file)
-
-                relative_path = os.path.relpath(
-                    local_path,
-                    output_dir
-                )
-
-                remote_path = (
-                    f"{output_prefix}/{relative_path}"
-                    .replace("\\", "/")
-                )
-
-                content_type = "application/octet-stream"
-
-                if file.endswith(".json"):
-                    content_type = "application/json"
-
-                elif file.endswith(".terrain"):
-                    content_type = (
-                        "application/vnd.quantized-mesh"
-                    )
-
-                logger.info(
-                    f"Uploading {remote_path}"
-                )
-
-                minio_client.fput_object(
-                    output_bucket,
-                    remote_path,
-                    local_path,
-                    content_type=content_type
-                )
-
-        logger.info(
-            f"Job {job_id} completed successfully"
-        )
-
-        send_status(
-            job_id,
-            "READY",
-            output_prefix=output_prefix
-        )
+        send_status(producer, job_id, "READY", output_prefix=output_prefix)
+        logger.info("Job %s completed. Tiles: %d", job_id, tiles_count)
 
     except Exception as e:
-        logger.exception(
-            f"Job {job_id} failed"
-        )
-
-        send_status(
-            job_id,
-            "FAILED",
-            error_message=str(e)
-        )
-
+        logger.exception("Job %s failed", job_id)
+        send_status(producer, job_id, "FAILED", error_message=str(e), output_prefix=output_prefix)
     finally:
         if os.path.exists(work_dir):
             shutil.rmtree(work_dir, ignore_errors=True)
-
-            logger.info(
-                f"Cleaned up {work_dir}"
-            )
-
+            logger.info("Cleaned up temporary work directory %s", work_dir)
 
 # -----------------------------------------------------------------------------
 # Main
@@ -343,10 +298,6 @@ def process_job(job_data):
 
 if __name__ == "__main__":
     logger.info("Terrain worker starting...")
-
-#     logger.info(f"HOSTNAME = {socket.gethostname()}")
-#     logger.info(f"RESOLVED kafka = {socket.gethostbyname_ex('kafka') if 'kafka' in KAFKA_BOOTSTRAP_SERVERS else 'N/A'}")
-
     log_config()
 
     producer = create_producer()
@@ -358,12 +309,22 @@ if __name__ == "__main__":
         try:
             for message in consumer:
                 event = message.value
-                logger.info(f"Received event: {event}")
+                logger.info("Received event: %s", event)
 
                 if event.get("eventType") == "QUEUED":
-                    process_job(event)
+                    process_job(event, producer)
+
+                consumer.commit()
+
+        except KeyboardInterrupt:
+            logger.info("Shutdown requested, exiting...")
+            break
 
         except Exception as e:
-            logger.exception(f"Consumer loop failed: {e}")
+            logger.exception("Consumer loop failed: %s", e)
             time.sleep(5)
+            try:
+                consumer.close(autocommit=False)
+            except Exception:
+                pass
             consumer = create_consumer()
