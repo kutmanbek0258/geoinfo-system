@@ -146,9 +146,15 @@ public class TerrainServiceImpl implements TerrainService {
 
         TerrainJob job = layer.getJob();
         if (job != null) {
-            // Delete generated terrain files
-            log.info("Deleting terrain files for job {} with prefix {}", job.getId(), job.getOutputPrefix());
-            fileStoreService.deleteByPrefix(job.getOutputPrefix());
+            // Send event to Kafka to delete generated terrain files from local store
+            log.info("Sending DELETED event for job {} with prefix {}", job.getId(), job.getOutputPrefix());
+            TerrainJobEvent event = TerrainJobEvent.builder()
+                    .jobId(job.getId())
+                    .eventType(TerrainJobEvent.EventType.DELETED)
+                    .outputPrefix(job.getOutputPrefix())
+                    .build();
+
+            kafkaProducerService.sendTerrainJobEvent(event);
             
             // Delete the layer
             layerRepository.delete(layer);

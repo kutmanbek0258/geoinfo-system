@@ -115,8 +115,11 @@ def create_consumer() -> KafkaConsumer:
                 enable_auto_commit=False,
                 consumer_timeout_ms=1000,
                 max_poll_records=1,
+                session_timeout_ms=600000,  # 10 minutes
+                request_timeout_ms=601000,   # Slightly more than session timeout
+                connections_max_idle_ms=660000, # Must be larger than request_timeout_ms
             )
-            logger.info("Connected Kafka consumer")
+            logger.info("Connected Kafka consumer (timeout: 10m)")
             return consumer_instance
         except NoBrokersAvailable:
             logger.warning("Kafka consumer unavailable, retrying in 5 seconds...")
@@ -154,7 +157,7 @@ def send_status(
         logger.exception("Kafka send failed for job %s: %s", job_id, e)
         raise
 
-def run_command(cmd: List[str], cwd: Optional[str] = None) -> None:
+def run_command(cmd: List[str], cwd: Optional[str] = None) -> str:
     logger.info("Running command: %s", " ".join(cmd))
     env = os.environ.copy()
     env["GDAL_CACHEMAX"] = GDAL_CACHEMAX
@@ -177,6 +180,44 @@ def run_command(cmd: List[str], cwd: Optional[str] = None) -> None:
         raise RuntimeError(
             f"Command failed ({result.returncode}): {' '.join(cmd)}\n{result.stderr}"
         )
+    
+    return result.stdout
+
+def get_elevation_band_index(file_path: str) -> Optional[int]:
+    """
+    Определяет номер канала (1-based index) с данными высот.
+    Возвращает индекс первого подходящего канала или None, если таковых нет.
+    """
+    try:
+        # Получаем информацию в JSON формате
+        info_output = run_command(["gdalinfo", "-json", file_path])
+        info = json.loads(info_output)
+        
+        bands = info.get("bands", [])
+        if not bands:
+            return None
+
+        band_interpretations = []
+
+        # Проверяем все каналы
+        for i, band in enumerate(bands):
+            band_idx = i + 1
+            color_interp = band.get("colorInterpretation", "Undefined")
+            band_interpretations.append(f"Band {band_idx}: {color_interp}")
+            
+            # Считаем канал 'высотным', если это не стандартный RGB/Alpha/Palette.
+            if color_interp not in ["Red", "Green", "Blue", "Alpha", "Palette"]:
+                logger.info("Detected bands: %s", ", ".join(band_interpretations))
+                logger.info("Selected Band %d (%s) as elevation source", band_idx, color_interp)
+                return band_idx
+        
+        logger.warning("Detected bands: %s", ", ".join(band_interpretations))
+        logger.warning("No elevation channel found (only RGB/Imagery).")
+        return None
+            
+    except Exception as e:
+        logger.error("Failed to analyze file with gdalinfo: %s", e)
+        return None
 
 def save_tree(src_dir, dst_dir):
     """Очищает целевую папку и копирует туда новые данные."""
@@ -253,12 +294,25 @@ def process_job(job_data: Dict[str, Any], producer: KafkaProducer) -> None:
     try:
         send_status(producer, job_id, "PROCESSING", output_prefix=output_prefix)
 
-        # --- Загрузка и подготовка (без изменений) ---
+        # --- Загрузка ---
         logger.info("Downloading %s/%s", source_bucket, source_key)
         minio_client.fget_object(source_bucket, source_key, input_file)
 
+        # --- 1 & 2: Определение наличия и номера канала высот ---
+        elevation_band_idx = get_elevation_band_index(input_file)
+        if elevation_band_idx is None:
+            logger.warning("Job %s skipped: no elevation band found", job_id)
+            raise RuntimeError("The provided file does not contain an elevation band (DEM)")
+
+        # --- 3: Извлечение ТОЛЬКО канала высот ---
+        logger.info("Extracting elevation band %d from source file", elevation_band_idx)
+        extracted_dem = os.path.join(work_dir, "extracted_dem.tif")
+        # Используем -b для выбора конкретного канала
+        run_command(["gdal_translate", "-b", str(elevation_band_idx), input_file, extracted_dem, "-co", "COMPRESS=DEFLATE"])
+
+        # --- Подготовка извлеченного канала ---
         converted_file = os.path.join(work_dir, "converted.tif")
-        run_command(["gdal_translate", input_file, converted_file, "-co", "TILED=YES", "-co", "COMPRESS=DEFLATE", "-co", "BIGTIFF=YES"])
+        run_command(["gdal_translate", extracted_dem, converted_file, "-co", "TILED=YES", "-co", "COMPRESS=DEFLATE", "-co", "BIGTIFF=YES"])
         run_command(["gdalwarp", "-t_srs", GDAL_WARP_SRS, "-dstnodata", "-9999", "-multi", "-overwrite", converted_file, normalized_file])
         run_command(["gdal_translate", "-of", "VRT", normalized_file, vrt_file])
 
@@ -292,6 +346,26 @@ def process_job(job_data: Dict[str, Any], producer: KafkaProducer) -> None:
             shutil.rmtree(work_dir, ignore_errors=True)
             logger.info("Cleaned up temporary work directory %s", work_dir)
 
+def delete_terrain_data(job_data: Dict[str, Any]) -> None:
+    output_prefix = job_data.get("outputPrefix")
+    job_id = job_data.get("jobId")
+
+    if not output_prefix:
+        logger.warning("No outputPrefix provided for deletion in job %s", job_id)
+        return
+
+    target_path = os.path.join(BASE_DIR, output_prefix)
+    logger.info("Deleting terrain data for job %s at %s", job_id, target_path)
+
+    try:
+        if os.path.exists(target_path):
+            shutil.rmtree(target_path)
+            logger.info("Successfully deleted directory %s", target_path)
+        else:
+            logger.warning("Directory %s does not exist, skipping deletion", target_path)
+    except Exception as e:
+        logger.exception("Failed to delete directory %s: %s", target_path, e)
+
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
@@ -311,8 +385,11 @@ if __name__ == "__main__":
                 event = message.value
                 logger.info("Received event: %s", event)
 
-                if event.get("eventType") == "QUEUED":
+                event_type = event.get("eventType")
+                if event_type == "QUEUED":
                     process_job(event, producer)
+                elif event_type == "DELETED":
+                    delete_terrain_data(event)
 
                 consumer.commit()
 

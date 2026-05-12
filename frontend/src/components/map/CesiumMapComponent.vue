@@ -84,7 +84,7 @@ watch(selectedTerrainId, async (newId) => {
 }
 
 .top-right {
-  top: 10px;
+  top: 100px;
   right: 10px;
   width: 250px;
 }

@@ -27,6 +27,7 @@ public class TerrainJobEvent {
         QUEUED,
         PROCESSING,
         READY,
-        FAILED
+        FAILED,
+        DELETED
     }
 }
