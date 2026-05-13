@@ -308,13 +308,18 @@ const updateVectorSource = () => {
 
     if (obj.geom.type === 'Point') {
       const coords = obj.geom.coordinates;
-      entityOptions.position = Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
+      if (coords.length >= 3) {
+        entityOptions.position = Cesium.Cartesian3.fromDegrees(coords[0], coords[1], coords[2]);
+      } else {
+        entityOptions.position = Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
+      }
       
       if (style.icon?.url) {
         entityOptions.billboard = {
           image: style.icon.url,
           scale: style.icon.scale || 1.0,
           heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY, // Always visible
         };
       } else {
         entityOptions.point = {
@@ -323,42 +328,49 @@ const updateVectorSource = () => {
           outlineColor: Cesium.Color.WHITE,
           outlineWidth: 2,
           heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY, // Always visible
         };
       }
     } else if (obj.geom.type === 'MultiLineString' || obj.geom.type === 'LineString') {
       const lineCoords = obj.geom.type === 'MultiLineString' ? obj.geom.coordinates[0] : obj.geom.coordinates;
       if (lineCoords && lineCoords.length >= 2) {
+        const is3D = lineCoords[0].length >= 3;
         const flattened = lineCoords.flat();
-        if (flattened.length >= 4 && flattened.length % 2 === 0) {
-          const positions = Cesium.Cartesian3.fromDegreesArray(flattened);
-          entityOptions.polyline = {
-            positions: positions,
-            width: style.line?.width || 2,
-            material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
-            clampToGround: true,
-          };
-        }
+        const positions = is3D 
+          ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
+          : Cesium.Cartesian3.fromDegreesArray(flattened);
+
+        entityOptions.polyline = {
+          positions: positions,
+          width: style.line?.width || 2,
+          material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
+          clampToGround: true, // Always clamp lines to ground for visibility
+        };
       }
     } else if (obj.geom.type === 'Polygon') {
       const outerRing = obj.geom.coordinates[0];
       if (outerRing && outerRing.length >= 3) {
+        const is3D = outerRing[0].length >= 3;
         const flattened = outerRing.flat();
-        if (flattened.length >= 6 && flattened.length % 2 === 0) {
-          const positions = Cesium.Cartesian3.fromDegreesArray(flattened);
-          entityOptions.polygon = {
-            hierarchy: new Cesium.PolygonHierarchy(positions),
-            material: Cesium.Color.fromCssColorString(style.poly?.fillColor || 'rgba(51, 153, 204, 0.4)'),
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-          };
-          v.entities.add({
-            polyline: {
-              positions: positions.concat(positions[0]),
-              width: style.line?.width || 2,
-              material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
-              clampToGround: true,
-            }
-          });
-        }
+        const positions = is3D
+          ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
+          : Cesium.Cartesian3.fromDegreesArray(flattened);
+
+        entityOptions.polygon = {
+          hierarchy: new Cesium.PolygonHierarchy(positions),
+          material: Cesium.Color.fromCssColorString(style.poly?.fillColor || 'rgba(51, 153, 204, 0.4)'),
+          heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND, // Better than NONE for terrain
+        };
+        
+        // Add outline as polyline
+        v.entities.add({
+          polyline: {
+            positions: [...positions, positions[0]],
+            width: (style.line?.width || 2) + 1,
+            material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
+            clampToGround: true,
+          }
+        });
       }
     }
 
