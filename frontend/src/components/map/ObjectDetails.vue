@@ -10,7 +10,50 @@
       <v-btn icon="mdi-close" variant="text" @click="$emit('close')" title="Close"></v-btn>
     </v-card-title>
     <v-card-subtitle>{{ featureDescription }}</v-card-subtitle>
+
     <v-divider></v-divider>
+
+    <!-- Geographic Information Section -->
+    <v-card-text class="pb-0">
+      <div class="d-flex align-center mb-1">
+        <v-icon size="small" class="mr-2">mdi-earth</v-icon>
+        <span class="text-subtitle-2 font-weight-bold">Geographic Info</span>
+      </div>
+      
+      <!-- Point Coordinates -->
+      <div v-if="featureType === 'Point' && fullFeatureData?.geom?.coordinates" class="text-body-2 pl-7">
+        <div class="d-flex flex-wrap">
+          <div class="mr-4"><strong>Lon:</strong> {{ fullFeatureData.geom.coordinates[0].toFixed(6) }}</div>
+          <div class="mr-4"><strong>Lat:</strong> {{ fullFeatureData.geom.coordinates[1].toFixed(6) }}</div>
+          <div v-if="fullFeatureData.geom.coordinates.length > 2">
+            <strong>Height:</strong> {{ fullFeatureData.geom.coordinates[2].toFixed(2) }} m
+          </div>
+        </div>
+      </div>
+
+      <!-- Line/Polygon Vertices -->
+      <div v-else-if="(featureType === 'MultiLineString' || featureType === 'Polygon') && fullFeatureData?.geom?.coordinates" class="text-body-2 pl-7">
+        <div class="mb-1 text-caption text-grey">
+          Vertices: {{ fullFeatureData.geom.coordinates[0].length }} points
+        </div>
+        <div style="max-height: 120px; overflow-y: auto;" class="coordinate-list border rounded pa-2 bg-grey-lighten-4">
+          <div v-for="(coord, index) in fullFeatureData.geom.coordinates[0]" :key="index" class="coordinate-item mb-1 pb-1 d-flex">
+            <span class="text-caption font-weight-bold mr-2" style="min-width: 25px;">#{{ index + 1 }}</span>
+            <div class="d-flex flex-wrap flex-grow-1">
+              <span class="mr-2"><strong>Lon:</strong> {{ coord[0].toFixed(6) }}</span>
+              <span class="mr-2"><strong>Lat:</strong> {{ coord[1].toFixed(6) }}</span>
+              <span v-if="coord.length > 2"><strong>H:</strong> {{ coord[2].toFixed(2) }}m</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="text-body-2 pl-7 text-grey">
+        No geometry data available
+      </div>
+    </v-card-text>
+
+    <v-divider class="mt-4"></v-divider>
 
     <v-img
         v-if="featureImageUrl"
