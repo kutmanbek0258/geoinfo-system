@@ -298,6 +298,31 @@ const updateVectorSource = () => {
 
   const allObjects = [...points.value, ...multilines.value, ...polygons.value];
 
+  const hasZHeight = (geom: any): boolean => {
+    if (!geom || !geom.coordinates) return false;
+    const coords = geom.coordinates;
+    
+    const checkArray = (arr: any[]): boolean => {
+      if (arr.length === 0) return false;
+      if (typeof arr[0] === 'number') {
+        return arr.length >= 3 && arr[2] !== 0;
+      }
+      return arr.some(item => Array.isArray(item) && checkArray(item));
+    };
+
+    return checkArray(coords);
+  };
+
+  const getFlattened = (coords: any[], includeZ: boolean) => {
+    const flat: number[] = [];
+    coords.forEach(p => {
+      flat.push(p[0]);
+      flat.push(p[1]);
+      if (includeZ) flat.push(p[2] || 0);
+    });
+    return flat;
+  };
+
   allObjects.forEach(obj => {
     const style = obj.characteristics?.style || {};
     let entityOptions: Cesium.Entity.ConstructorOptions = {
@@ -306,20 +331,25 @@ const updateVectorSource = () => {
       description: obj.description,
     };
 
+    const is3D = hasZHeight(obj.geom);
+
     if (obj.geom.type === 'Point') {
       const coords = obj.geom.coordinates;
-      if (coords.length >= 3) {
+      
+      if (is3D) {
         entityOptions.position = Cesium.Cartesian3.fromDegrees(coords[0], coords[1], coords[2]);
       } else {
         entityOptions.position = Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
       }
       
+      const heightReference = is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND;
+
       if (style.icon?.url) {
         entityOptions.billboard = {
           image: style.icon.url,
           scale: style.icon.scale || 1.0,
-          heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY, // Always visible
+          heightReference: heightReference,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         };
       } else {
         entityOptions.point = {
@@ -327,15 +357,14 @@ const updateVectorSource = () => {
           color: Cesium.Color.fromCssColorString(style.poly?.fillColor || '#3399CC'),
           outlineColor: Cesium.Color.WHITE,
           outlineWidth: 2,
-          heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY, // Always visible
+          heightReference: heightReference,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         };
       }
     } else if (obj.geom.type === 'MultiLineString' || obj.geom.type === 'LineString') {
       const lineCoords = obj.geom.type === 'MultiLineString' ? obj.geom.coordinates[0] : obj.geom.coordinates;
       if (lineCoords && lineCoords.length >= 2) {
-        const is3D = lineCoords[0].length >= 3;
-        const flattened = lineCoords.flat();
+        const flattened = getFlattened(lineCoords, is3D);
         const positions = is3D 
           ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
           : Cesium.Cartesian3.fromDegreesArray(flattened);
@@ -344,14 +373,13 @@ const updateVectorSource = () => {
           positions: positions,
           width: style.line?.width || 2,
           material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
-          clampToGround: true, // Always clamp lines to ground for visibility
+          clampToGround: !is3D,
         };
       }
     } else if (obj.geom.type === 'Polygon') {
       const outerRing = obj.geom.coordinates[0];
       if (outerRing && outerRing.length >= 3) {
-        const is3D = outerRing[0].length >= 3;
-        const flattened = outerRing.flat();
+        const flattened = getFlattened(outerRing, is3D);
         const positions = is3D
           ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
           : Cesium.Cartesian3.fromDegreesArray(flattened);
@@ -359,7 +387,8 @@ const updateVectorSource = () => {
         entityOptions.polygon = {
           hierarchy: new Cesium.PolygonHierarchy(positions),
           material: Cesium.Color.fromCssColorString(style.poly?.fillColor || 'rgba(51, 153, 204, 0.4)'),
-          heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND, // Better than NONE for terrain
+          heightReference: is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND,
+          perPositionHeight: is3D,
         };
         
         // Add outline as polyline
@@ -368,7 +397,7 @@ const updateVectorSource = () => {
             positions: [...positions, positions[0]],
             width: (style.line?.width || 2) + 1,
             material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
-            clampToGround: true,
+            clampToGround: !is3D,
           }
         });
       }
@@ -410,6 +439,36 @@ const editPoints = ref<Cesium.Cartesian3[]>([]);
 const draggerEntities = ref<Cesium.Entity[]>([]);
 let activeDragger: Cesium.Entity | null = null;
 let editHandler: Cesium.ScreenSpaceEventHandler | null = null;
+
+const sampleHeights = async (cartesianPoints: Cesium.Cartesian3[]) => {
+  const v = viewer;
+  if (!v) return cartesianPoints.map(p => {
+    const carto = Cesium.Cartographic.fromCartesian(p);
+    return [Cesium.Math.toDegrees(carto.longitude), Cesium.Math.toDegrees(carto.latitude), carto.height];
+  });
+
+  const cartographics = cartesianPoints.map(p => Cesium.Cartographic.fromCartesian(p));
+  
+  // If we have a terrain provider (not the default ellipsoid), sample the height accurately
+  if (v.terrainProvider && !(v.terrainProvider instanceof Cesium.EllipsoidTerrainProvider)) {
+    try {
+      const sampled = await Cesium.sampleTerrainMostDetailed(v.terrainProvider, cartographics);
+      return sampled.map(c => [
+        Cesium.Math.toDegrees(c.longitude),
+        Cesium.Math.toDegrees(c.latitude),
+        c.height
+      ]);
+    } catch (e) {
+      console.warn("Terrain sampling failed, using pickPosition height", e);
+    }
+  }
+
+  return cartographics.map(c => [
+    Cesium.Math.toDegrees(c.longitude),
+    Cesium.Math.toDegrees(c.latitude),
+    c.height
+  ]);
+};
 
 const enterGeometryEditMode = () => {
   const v = viewer;
@@ -491,10 +550,7 @@ const exitEditMode = () => {
 const confirmGeometryEdit = async () => {
   if (!selectedFeature.value) return;
 
-  const coords = editPoints.value.map(p => {
-    const carto = Cesium.Cartographic.fromCartesian(p);
-    return [Cesium.Math.toDegrees(carto.longitude), Cesium.Math.toDegrees(carto.latitude)];
-  });
+  const coords = await sampleHeights(editPoints.value);
 
   let newGeomAsGeoJSON;
   if (selectedFeature.value.type === 'Point') {
@@ -582,16 +638,13 @@ watch(drawMode, (newMode) => {
   drawingType.value = newMode;
 
   if (newMode === 'Point') {
-    drawingHandler.setInputAction((click: any) => {
+    drawingHandler.setInputAction(async (click: any) => {
       const position = v.scene.pickPosition(click.position);
       if (Cesium.defined(position)) {
-        const cartographic = Cesium.Cartographic.fromCartesian(position);
+        const coords = await sampleHeights([position]);
         newObjectGeometry.value = {
           type: 'Point',
-          coordinates: [
-            Cesium.Math.toDegrees(cartographic.longitude),
-            Cesium.Math.toDegrees(cartographic.latitude)
-          ]
+          coordinates: coords[0]
         };
         newObjectMetadata.value = { name: '', description: '', status: 'IN_PROCESS' as Status, type: 'other', characteristics: {} };
         metadataDialog.value = true;
@@ -632,13 +685,10 @@ watch(drawMode, (newMode) => {
       }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-    drawingHandler.setInputAction(() => {
+    drawingHandler.setInputAction(async () => {
       if (drawPoints.value.length < 2) return;
 
-      const coords = drawPoints.value.map(p => {
-        const carto = Cesium.Cartographic.fromCartesian(p);
-        return [Cesium.Math.toDegrees(carto.longitude), Cesium.Math.toDegrees(carto.latitude)];
-      });
+      const coords = await sampleHeights(drawPoints.value);
 
       if (newMode === 'MultiLineString') {
         newObjectGeometry.value = { type: 'MultiLineString', coordinates: [coords] };

@@ -34,6 +34,11 @@ public class TerrainController {
         return ResponseEntity.ok(terrainService.getJob(id));
     }
 
+    @GetMapping("/jobs")
+    public ResponseEntity<Page<TerrainJobDto>> getAllJobs(@PageableDefault(sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable){
+        return ResponseEntity.ok(terrainService.getJobs(pageable));
+    }
+
     @GetMapping("/layers")
     public ResponseEntity<Page<TerrainLayerDto>> getAllLayers(@PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable){
         return ResponseEntity.ok(terrainService.getLayers(pageable));

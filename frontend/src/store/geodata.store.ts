@@ -1,13 +1,14 @@
 import geodataService from "@/services/geodata.service";
 import streamService from "@/services/stream.service";
 import terrainService from "@/services/terrain.service";
-import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, Page } from "@/types/api";
+import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page } from "@/types/api";
 import type { ActionContext } from "vuex";
 
 interface GeodataState {
     projects: Page<Project> | null;
     imageryLayers: Page<ImageryLayer> | null;
     terrainLayers: Page<TerrainLayer> | null;
+    terrainJobs: Page<TerrainJob> | null;
     points: ProjectPoint[];
     multilines: ProjectMultiline[];
     polygons: ProjectPolygon[];
@@ -22,6 +23,7 @@ const state: GeodataState = {
     projects: null,
     imageryLayers: null,
     terrainLayers: null,
+    terrainJobs: null,
     points: [],
     multilines: [],
     polygons: [],
@@ -61,6 +63,10 @@ const mutations = {
 
     SET_TERRAIN_LAYERS(state: GeodataState, layers: Page<TerrainLayer> | null) {
         state.terrainLayers = layers;
+    },
+
+    SET_TERRAIN_JOBS(state: GeodataState, jobs: Page<TerrainJob> | null) {
+        state.terrainJobs = jobs;
     },
 
     UPDATE_FEATURE(state: GeodataState, { type, data }: { type: 'Point' | 'MultiLineString' | 'Polygon', data: any }) {
@@ -214,6 +220,19 @@ const actions = {
     async deleteTerrainLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
         await terrainService.deleteLayer(layerId);
         dispatch('fetchTerrainLayers', { page, size });
+    },
+
+    async fetchTerrainJobs({ commit }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            const response = await terrainService.getJobs(page, size);
+            commit('SET_TERRAIN_JOBS', response.data);
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to fetch terrain jobs.');
+        } finally {
+            commit('SET_LOADING', false);
+        }
     },
 
     // Feature Selection

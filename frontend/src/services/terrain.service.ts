@@ -20,6 +20,12 @@ class TerrainService {
     return api.get(`${API_URL}/jobs/${id}`);
   }
 
+  getJobs(page: number, size: number) {
+    return api.get(`${API_URL}/jobs`, {
+      params: { page, size }
+    });
+  }
+
   getLayers(page: number, size: number) {
     return api.get(`${API_URL}/layers`, {
       params: { page, size }

@@ -12,6 +12,7 @@ import java.util.UUID;
 public interface TerrainService {
     TerrainJobDto createJob(String name, MultipartFile file);
     TerrainJobDto getJob(UUID jobId);
+    Page<TerrainJobDto> getJobs(Pageable pageable);
     Page<TerrainLayerDto> getLayers(Pageable pageable);
     void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl);
     void deleteLayer(UUID id);

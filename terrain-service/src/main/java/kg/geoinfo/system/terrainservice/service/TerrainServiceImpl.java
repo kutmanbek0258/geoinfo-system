@@ -80,6 +80,12 @@ public class TerrainServiceImpl implements TerrainService {
     }
 
     @Override
+    public Page<TerrainJobDto> getJobs(Pageable pageable) {
+        return jobRepository.findAll(pageable)
+                .map(terrainMapper::toDto);
+    }
+
+    @Override
     public Page<TerrainLayerDto> getLayers(Pageable pageable) {
         return layerRepository.findAll(pageable)
                 .map(terrainLayerMapper::toDto);
