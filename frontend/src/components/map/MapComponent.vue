@@ -36,23 +36,7 @@
         </v-list-item>
       </v-list>
 
-      <v-divider></v-divider>
-      <v-card-title>Terrain Layers</v-card-title>
-      <v-radio-group v-model="selectedTerrainLayerId" hide-details class="px-4">
-        <v-radio label="None" :value="null"></v-radio>
-        <v-radio v-for="layer in terrainLayers" :key="layer.id" :label="layer.title" :value="layer.id"></v-radio>
-      </v-radio-group>
     </v-card>
-
-<!--    &lt;!&ndash; Оверлей 2: Список Гео-объектов &ndash;&gt;-->
-<!--    <v-card class="map-overlay top-right-objects">-->
-<!--        <v-card-title>Geo-Objects</v-card-title>-->
-<!--        <v-list dense>-->
-<!--            <v-list-item v-for="point in points" :key="point.id" :title="point.name || 'Point'"></v-list-item>-->
-<!--            <v-list-item v-for="line in multilines" :key="line.id" :title="line.name || 'Line'"></v-list-item>-->
-<!--            <v-list-item v-for="polygon in polygons" :key="polygon.id" :title="polygon.name || 'Polygon'"></v-list-item>-->
-<!--        </v-list>-->
-<!--    </v-card>-->
 
     <!-- Оверлей 3: Кнопки добавления -->
     <div class="map-overlay bottom-right d-flex flex-column align-end">
@@ -122,6 +106,53 @@
     <div class="map-overlay top-left-search">
       <!-- Search -->
       <SearchComponent/>
+
+      <!-- Список геообъектов -->
+      <v-card class="mt-2 feature-list-card" max-height="60vh">
+        <v-list density="compact" nav>
+          <v-list-group value="points">
+            <template v-slot:activator="{ props }">
+              <v-list-item v-bind="props" prepend-icon="mdi-map-marker" title="Points"></v-list-item>
+            </template>
+            <v-list-item
+              v-for="p in points"
+              :key="p.id"
+              :title="p.name"
+              :subtitle="p.status"
+              @click="selectAndZoomToFeature(p.id)"
+              :active="selectedFeatureId === p.id"
+            ></v-list-item>
+          </v-list-group>
+
+          <v-list-group value="lines">
+            <template v-slot:activator="{ props }">
+              <v-list-item v-bind="props" prepend-icon="mdi-vector-polyline" title="Lines"></v-list-item>
+            </template>
+            <v-list-item
+              v-for="l in multilines"
+              :key="l.id"
+              :title="l.name"
+              :subtitle="l.status"
+              @click="selectAndZoomToFeature(l.id)"
+              :active="selectedFeatureId === l.id"
+            ></v-list-item>
+          </v-list-group>
+
+          <v-list-group value="polygons">
+            <template v-slot:activator="{ props }">
+              <v-list-item v-bind="props" prepend-icon="mdi-vector-polygon" title="Polygons"></v-list-item>
+            </template>
+            <v-list-item
+              v-for="poly in polygons"
+              :key="poly.id"
+              :title="poly.name"
+              :subtitle="poly.status"
+              @click="selectAndZoomToFeature(poly.id)"
+              :active="selectedFeatureId === poly.id"
+            ></v-list-item>
+          </v-list-group>
+        </v-list>
+      </v-card>
     </div>
 
     <!-- Диалог для ввода метаданных нового объекта -->
@@ -381,6 +412,10 @@ watch(selectedFeatureId, (newId) => {
     }
   }
 });
+
+const selectAndZoomToFeature = (id: string) => {
+  store.dispatch('geodata/selectFeature', id);
+};
 
 // --- Логика переключения слоев ---
 const setLayerOpacity = (layerId: string, opacity: number) => {
@@ -644,6 +679,14 @@ const executeFileImport = async () => {
   top: 60px;
   left: 10px;
   width: 350px;
+  display: flex;
+  flex-direction: column;
+  background-color: transparent !important;
+}
+
+.feature-list-card {
+    overflow-y: auto;
+    background-color: rgba(255, 255, 255, 0.9);
 }
 
 .top-center-layers {
