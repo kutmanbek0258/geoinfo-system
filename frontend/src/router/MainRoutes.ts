@@ -39,6 +39,7 @@ const MainRoutes = {
         {
             name: 'ProjectMapView',
             path: '/projects/:id',
+            meta: { fullWidth: true },
             component: () => import('@/views/ProjectMapView.vue')
         },
         {

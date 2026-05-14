@@ -109,6 +109,53 @@
 
     <div class="map-overlay top-left-search">
       <SearchComponent/>
+      
+      <!-- Список геообъектов -->
+      <v-card class="mt-2 feature-list-card" max-height="60vh">
+        <v-list density="compact" nav>
+          <v-list-group value="points">
+            <template v-slot:activator="{ props }">
+              <v-list-item v-bind="props" prepend-icon="mdi-map-marker" title="Points"></v-list-item>
+            </template>
+            <v-list-item
+              v-for="p in points"
+              :key="p.id"
+              :title="p.name"
+              :subtitle="p.status"
+              @click="selectAndZoomToFeature(p.id)"
+              :active="selectedFeatureId === p.id"
+            ></v-list-item>
+          </v-list-group>
+
+          <v-list-group value="lines">
+            <template v-slot:activator="{ props }">
+              <v-list-item v-bind="props" prepend-icon="mdi-vector-polyline" title="Lines"></v-list-item>
+            </template>
+            <v-list-item
+              v-for="l in multilines"
+              :key="l.id"
+              :title="l.name"
+              :subtitle="l.status"
+              @click="selectAndZoomToFeature(l.id)"
+              :active="selectedFeatureId === l.id"
+            ></v-list-item>
+          </v-list-group>
+
+          <v-list-group value="polygons">
+            <template v-slot:activator="{ props }">
+              <v-list-item v-bind="props" prepend-icon="mdi-vector-polygon" title="Polygons"></v-list-item>
+            </template>
+            <v-list-item
+              v-for="poly in polygons"
+              :key="poly.id"
+              :title="poly.name"
+              :subtitle="poly.status"
+              @click="selectAndZoomToFeature(poly.id)"
+              :active="selectedFeatureId === poly.id"
+            ></v-list-item>
+          </v-list-group>
+        </v-list>
+      </v-card>
     </div>
 
     <!-- Диалог для ввода метаданных нового объекта -->
@@ -215,6 +262,16 @@ const selectedFeature = computed(() => {
   if (poly) return { ...poly, type: 'Polygon' };
   return null;
 });
+
+const selectAndZoomToFeature = (id: string) => {
+  store.dispatch('geodata/selectFeature', id);
+  const v = viewer;
+  if (!v) return;
+  const entity = v.entities.getById(id);
+  if (entity) {
+    v.zoomTo(entity);
+  }
+};
 
 // --- Вспомогательные функции ---
 
@@ -610,7 +667,7 @@ watch(selectedFeatureId, (newId) => {
   if (!newId || !v) return;
   const entity = v.entities.getById(newId);
   if (entity) {
-    v.zoomTo(entity);
+    // v.zoomTo(entity);
   }
 });
 
@@ -777,6 +834,14 @@ onUnmounted(() => {
   top: 60px;
   left: 10px;
   width: 350px;
+  display: flex;
+  flex-direction: column;
+  background-color: transparent !important;
+}
+
+.feature-list-card {
+    overflow-y: auto;
+    background-color: rgba(255, 255, 255, 0.9);
 }
 
 .top-right-details {

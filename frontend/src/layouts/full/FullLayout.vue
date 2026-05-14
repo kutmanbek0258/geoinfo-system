@@ -5,15 +5,26 @@ import MainView from './Main.vue';
 
 const route = useRoute();
 const isEditorPage = computed(() => route.name === 'OnlyOfficeEditor');
+const isFullWidth = computed(() => !!route.meta?.fullWidth);
+
+const containerClass = computed(() => {
+    if (isEditorPage.value || isFullWidth.value) return 'no-padding';
+    return 'page-wrapper';
+});
+
+const contentClass = computed(() => {
+    if (isEditorPage.value || isFullWidth.value) return 'fullWidth';
+    return 'maxWidth';
+});
 </script>
 
 <template>
     <v-locale-provider >
-        <v-app>
+        <v-app shadow>
             <MainView v-if="!isEditorPage" />
             <v-main>
-                <v-container fluid :class="isEditorPage ? 'editor-wrapper' : 'page-wrapper'">
-                    <div :class="isEditorPage ? 'editor-max-width' : 'maxWidth'">
+                <v-container fluid :class="containerClass">
+                    <div :class="contentClass">
                         <RouterView />
                     </div>
                 </v-container>
@@ -23,14 +34,14 @@ const isEditorPage = computed(() => route.name === 'OnlyOfficeEditor');
 </template>
 
 <style scoped>
-.editor-wrapper {
-    padding: 0;
+.no-padding {
+    padding: 0 !important;
+    max-width: 100% !important;
+    height: calc(100vh - 70px);
+}
+.fullWidth {
     height: 100%;
     max-width: 100% !important;
-}
-.editor-max-width {
-    height: 100%;
-    max-width: 100%;
 }
 </style>
 

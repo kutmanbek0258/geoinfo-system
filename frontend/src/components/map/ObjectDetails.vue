@@ -31,8 +31,21 @@
         </div>
       </div>
 
-      <!-- Line/Polygon Vertices -->
+      <!-- Line/Polygon Vertices and Measurements -->
       <div v-else-if="(featureType === 'MultiLineString' || featureType === 'Polygon') && fullFeatureData?.geom?.coordinates" class="text-body-2 pl-7">
+        <!-- New Measurements Section -->
+        <div class="mb-2 d-flex align-center" v-if="(fullFeatureData as any).lengthM || (fullFeatureData as any).areaM2">
+          <v-icon size="x-small" color="primary" class="mr-1">
+            {{ featureType === 'Polygon' ? 'mdi-texture-box' : 'mdi-ruler-square' }}
+          </v-icon>
+          <span v-if="featureType === 'MultiLineString' && (fullFeatureData as any).lengthM">
+            <strong>Length:</strong> {{ formatLength((fullFeatureData as any).lengthM) }}
+          </span>
+          <span v-else-if="featureType === 'Polygon' && (fullFeatureData as any).areaM2">
+            <strong>Area:</strong> {{ formatArea((fullFeatureData as any).areaM2) }}
+          </span>
+        </div>
+
         <div class="mb-1 text-caption text-grey">
           Vertices: {{ fullFeatureData.geom.coordinates[0].length }} points
         </div>
@@ -212,14 +225,14 @@
                 <!-- Line styling for Lines and Polygons -->
                 <div v-if="featureType !== 'Point' || !styleToEdit.icon?.url">
                   <p class="text-caption mb-1">Line Color</p>
-                  <v-color-picker v-model="styleToEdit.line.color" hide-inputs show-swatches height="100" class="mb-4"></v-color-picker>
+                  <v-color-picker v-model="styleToEdit.line.color" hide-inputs show-swatches height="250" class="mb-4"></v-color-picker>
                   <v-slider v-model="styleToEdit.line.width" min="1" max="20" step="1" label="Line Width" thumb-label></v-slider>
                 </div>
 
                 <!-- Fill styling for Polygons -->
                 <div v-if="featureType === 'Polygon'">
                   <p class="text-caption mb-1">Fill Color</p>
-                  <v-color-picker v-model="styleToEdit.poly.fillColor" hide-inputs show-swatches height="100"></v-color-picker>
+                  <v-color-picker v-model="styleToEdit.poly.fillColor" hide-inputs show-swatches height="250"></v-color-picker>
                 </div>
               </v-expansion-panel-text>
             </v-expansion-panel>
@@ -652,4 +665,19 @@ const getFileIcon = (mimeType: string) => {
     return 'mdi-file';
 }
 
+const formatLength = (meters: number) => {
+  if (meters < 1000) {
+    return `${meters.toFixed(2)} m`;
+  }
+  return `${(meters / 1000).toFixed(2)} km`;
+};
+
+const formatArea = (sqMeters: number) => {
+  if (sqMeters < 10000) {
+    return `${sqMeters.toFixed(2)} m²`;
+  } else if (sqMeters < 1000000) {
+    return `${(sqMeters / 10000).toFixed(2)} ha`;
+  }
+  return `${(sqMeters / 1000000).toFixed(2)} km²`;
+};
 </script>

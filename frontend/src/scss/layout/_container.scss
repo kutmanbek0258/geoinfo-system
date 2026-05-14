@@ -11,11 +11,11 @@ html {
 //     width: calc((100% - 270px) - 0px) !important;
 // }
 .v-main {
-    margin-right: 20px;
+    margin-right: 0px;
 }
 @media (max-width: 1279px) {
     .v-main {
-        margin: 0 10px;
+        margin: 0;
     }
 }
 .spacer {
@@ -38,9 +38,17 @@ html {
         padding: 10px;
     }
 }
+.no-padding {
+    padding: 0 !important;
+    min-height: calc(100vh - 70px); // Adjusted for header height
+}
 .maxWidth {
     max-width: 1200px;
     margin: 0 auto;
+}
+.fullWidth {
+    max-width: 100% !important;
+    width: 100%;
 }
 $sizes: (
     'display-1': 44px,
