@@ -184,6 +184,17 @@
           <v-text-field v-model="featureToEdit.name" label="Name" required></v-text-field>
           <v-textarea v-model="featureToEdit.description" label="Description"></v-textarea>
 
+          <!-- Altitude Offset Adjustment -->
+          <v-text-field
+            v-model.number="featureToEdit.altitudeOffset"
+            label="Altitude Offset (m)"
+            type="number"
+            hint="Adds or subtracts this value from existing height of each vertex"
+            persistent-hint
+            variant="outlined"
+            class="mt-4"
+          ></v-text-field>
+
           <!-- Display Point Type -->
           <v-text-field
             v-if="featureType === 'Point' && featureToEdit.characteristics?.type"
@@ -393,9 +404,10 @@ const editDialog = ref(false);
 const featureToEdit = ref<{
   name: string,
   description: string,
-  type: string, // Add type
-  characteristics: Record<string, any> // Add characteristics
-}>({ name: '', description: '', type: '', characteristics: {} });
+  type: string,
+  characteristics: Record<string, any>,
+  altitudeOffset: number
+}>({ name: '', description: '', type: '', characteristics: {}, altitudeOffset: 0 });
 
 const cameraEditDetails = ref({ // Для временного хранения данных камеры при редактировании
   ip_address: '',
@@ -431,6 +443,7 @@ const editFeature = () => {
     description: props.featureDescription,
     type: props.featureType, // Assume featureType is the main type (Point, MultiLineString, Polygon)
     characteristics: props.fullFeatureData?.characteristics || {},
+    altitudeOffset: 0,
   };
 
   // Initialize styleToEdit from characteristics
@@ -487,21 +500,40 @@ const confirmEdit = () => {
 
   if (isCamera.value) { // Use isCamera to ensure we only update camera fields for camera points
     updatedCharacteristics = { ...updatedCharacteristics, ...cameraEditDetails.value };
-  } else {
-      // If it was a camera and now being edited, ensure the 'type' in characteristics is maintained or reset
-      // For now, we assume the type is part of characteristics from backend
-      // and we just update camera details if it's a camera
   }
 
+  // Handle Geometry Height Update (Relative Offset)
+  let updatedGeom = null;
+  if (featureToEdit.value.altitudeOffset !== 0 && props.fullFeatureData?.geom) {
+    updatedGeom = JSON.parse(JSON.stringify(props.fullFeatureData.geom));
+    const offset = featureToEdit.value.altitudeOffset;
+
+    const applyAltOffset = (coords: any) => {
+      if (typeof coords[0] === 'number') {
+        // [lon, lat, ?alt]
+        const currentAlt = coords[2] || 0;
+        coords[2] = currentAlt + offset;
+        return;
+      }
+      coords.forEach((c: any) => applyAltOffset(c));
+    };
+    applyAltOffset(updatedGeom.coordinates);
+  }
+
+  const payload: any = {
+    name: featureToEdit.value.name,
+    description: featureToEdit.value.description,
+    characteristics: updatedCharacteristics,
+  };
+
+  if (updatedGeom) {
+    payload.geom = updatedGeom;
+  }
 
   store.dispatch('geodata/updateFeature', {
     id: props.featureId,
     type: props.featureType, // This is 'Point', 'MultiLineString', 'Polygon'
-    data: {
-      name: featureToEdit.value.name,
-      description: featureToEdit.value.description,
-      characteristics: updatedCharacteristics,
-    },
+    data: payload,
   });
   editDialog.value = false;
 };
