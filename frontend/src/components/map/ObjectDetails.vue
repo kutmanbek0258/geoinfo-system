@@ -624,9 +624,16 @@ const handleIconUpload = async (event: Event) => {
   const file = target.files?.[0];
   if (!file || !props.featureId) return;
 
+  const options = {
+    maxSizeMB: 0.1, // Small size for icons
+    maxWidthOrHeight: 32, // Target size 32x32
+    useWebWorker: true,
+  };
+
   try {
+    const compressedFile = await imageCompression(file, options);
     const uploadedDoc = await store.dispatch('document/uploadDocument', {
-      file,
+      file: compressedFile,
       geoObjectId: props.featureId,
       description: `Icon for ${props.featureName}`,
       tags: 'icon,kml-style',
