@@ -8,8 +8,6 @@
             <v-icon start class="ml-2">mdi-layers-triple</v-icon>
             <v-toolbar-title>Слои (Layers)</v-toolbar-title>
             <v-spacer></v-spacer>
-            <TerrainUploadDialog :project-id="selectedProjectId" @uploaded="onNewJobCreated" />
-            <SentinelUploadDialog @uploaded="onNewJobCreated" />
           </v-toolbar>
 
           <v-progress-linear :active="isLoadingLayers" indeterminate color="brown"></v-progress-linear>
@@ -59,6 +57,8 @@
             <v-icon start class="ml-2">mdi-cog-sync</v-icon>
             <v-toolbar-title>Задачи обработки (Processing Tasks)</v-toolbar-title>
             <v-spacer></v-spacer>
+            <TerrainUploadDialog :project-id="selectedProjectId" @uploaded="onNewJobCreated" />
+            <SentinelUploadDialog @uploaded="onNewJobCreated" />
             <v-btn icon="mdi-refresh" variant="text" @click="fetchJobs" :loading="isLoadingJobs"></v-btn>
           </v-toolbar>
 
