@@ -294,8 +294,11 @@ def process_sentinel_cog(job_data: Dict[str, Any], producer: KafkaProducer) -> N
         os.makedirs(os.path.dirname(final_output_file), exist_ok=True)
         
         run_command([
-            "gdal_translate", vrt_file, final_output_file,
-            "-of", "COG",
+            "gdal_translate",
+            vrt_file,
+            final_output_file,
+            "-of", "GTiff",
+            "-co", "TILED=YES",
             "-co", "COMPRESS=DEFLATE",
             "-co", "PREDICTOR=2",
             "-co", "NUM_THREADS=ALL_CPUS",
