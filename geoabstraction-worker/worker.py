@@ -135,12 +135,14 @@ def send_status(
     producer: KafkaProducer,
     job_id: str,
     event_type: str,
+    taskType: str,
     error_message: Optional[str] = None,
     output_prefix: Optional[str] = None
 ) -> None:
     event: Dict[str, Any] = {
         "jobId": job_id,
         "eventType": event_type,
+        "taskType": taskType,
         "errorMessage": error_message,
         "outputPrefix": output_prefix,
         "timestamp": int(time.time() * 1000),
@@ -239,7 +241,7 @@ def process_job_dispatcher(job_data: Dict[str, Any], producer: KafkaProducer) ->
         process_sentinel_cog(job_data, producer)
     else:
         logger.error("Unknown task type: %s", task_type)
-        send_status(producer, job_data["jobId"], "FAILED", error_message=f"Unknown task type: {task_type}")
+        send_status(producer, job_data["jobId"], "TYPE_UNDEFINED" "FAILED", error_message=f"Unknown task type: {task_type}")
 
 def process_sentinel_cog(job_data: Dict[str, Any], producer: KafkaProducer) -> None:
     job_id = str(job_data["jobId"])
@@ -249,7 +251,7 @@ def process_sentinel_cog(job_data: Dict[str, Any], producer: KafkaProducer) -> N
     
     if not channels:
         logger.error("No channels specified for Sentinel-2 COG job %s", job_id)
-        send_status(producer, job_id, "FAILED", error_message="No spectral channels specified")
+        send_status(producer, job_id, "FAILED", "SENTINEL_COG", error_message="No spectral channels specified")
         return
 
     source_bucket = job_data["sourceBucket"]
@@ -261,7 +263,7 @@ def process_sentinel_cog(job_data: Dict[str, Any], producer: KafkaProducer) -> N
     extract_dir = os.path.join(work_dir, "extracted")
     
     try:
-        send_status(producer, job_id, "PROCESSING", output_prefix=output_prefix)
+        send_status(producer, job_id, "PROCESSING", "SENTINEL_COG", output_prefix=output_prefix)
         logger.info("Downloading Sentinel archive: %s/%s", source_bucket, source_key)
         minio_client.fget_object(source_bucket, source_key, zip_file)
         
@@ -300,12 +302,12 @@ def process_sentinel_cog(job_data: Dict[str, Any], producer: KafkaProducer) -> N
             "-co", "BIGTIFF=YES"
         ])
         
-        send_status(producer, job_id, "READY", output_prefix=output_prefix)
+        send_status(producer, job_id, "READY", "SENTINEL_COG", output_prefix=output_prefix)
         logger.info("Sentinel COG job %s completed successfully", job_id)
 
     except Exception as e:
         logger.exception("Sentinel job %s failed", job_id)
-        send_status(producer, job_id, "FAILED", error_message=str(e), output_prefix=output_prefix)
+        send_status(producer, job_id, "FAILED", "SENTINEL_COG", error_message=str(e), output_prefix=output_prefix)
     finally:
         if os.path.exists(work_dir):
             shutil.rmtree(work_dir, ignore_errors=True)
@@ -324,7 +326,7 @@ def process_terrain_mesh(job_data: Dict[str, Any], producer: KafkaProducer) -> N
     temp_tiles_dir = os.path.join(work_dir, "terrain")
 
     try:
-        send_status(producer, job_id, "PROCESSING", output_prefix=output_prefix)
+        send_status(producer, job_id, "PROCESSING", "TERRAIN_MESH", output_prefix=output_prefix)
         minio_client.fget_object(source_bucket, source_key, input_file)
         elevation_band_idx = get_elevation_band_index(input_file)
         if elevation_band_idx is None:
@@ -346,10 +348,11 @@ def process_terrain_mesh(job_data: Dict[str, Any], producer: KafkaProducer) -> N
             raise RuntimeError("No .terrain tiles were generated")
 
         save_tree(temp_tiles_dir, final_output_path)
-        send_status(producer, job_id, "READY", output_prefix=output_prefix)
+        logger.info("Terrain job sending status", "READY", "READY", output_prefix)
+        send_status(producer, job_id, "READY", "TERRAIN_MESH", output_prefix=output_prefix)
     except Exception as e:
         logger.exception("Terrain job %s failed", job_id)
-        send_status(producer, job_id, "FAILED", error_message=str(e), output_prefix=output_prefix)
+        send_status(producer, job_id, "FAILED", "TERRAIN_MESH", error_message=str(e), output_prefix=output_prefix)
     finally:
         if os.path.exists(work_dir):
             shutil.rmtree(work_dir, ignore_errors=True)
