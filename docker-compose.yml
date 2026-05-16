@@ -57,15 +57,15 @@ services:
       retries: 5
       start_period: 20s
 
-  postgres-terrain:
+  postgres-geoabstraction:
     image: postgis/postgis:16-3.4
-    container_name: postgres-terrain
+    container_name: postgres-geoabstraction
     environment:
-      POSTGRES_DB: ${POSTGRES_DB_TERRAIN}
-      POSTGRES_USER: ${POSTGRES_USER_TERRAIN}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_TERRAIN}
+      POSTGRES_DB: ${POSTGRES_DB_GEOABSTRACTION}
+      POSTGRES_USER: ${POSTGRES_USER_GEOABSTRACTION}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_GEOABSTRACTION}
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d terrain_db -h localhost" ]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d geoabstraction_db -h localhost" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -305,18 +305,18 @@ services:
       discovery-server:
         condition: service_healthy
 
-  terrain-service:
+  geoabstraction-service:
     build:
-      context: ./terrain-service
-    container_name: terrain-service
+      context: ./geoabstraction-service
+    container_name: geoabstraction-service
     environment:
-      DB_URL: jdbc:postgresql://${POSTGRES_HOST_TERRAIN}:${POSTGRES_PORT_TERRAIN}/${POSTGRES_DB_TERRAIN}
-      DB_USER: ${POSTGRES_USER_TERRAIN}
-      DB_PASS: ${POSTGRES_PASSWORD_TERRAIN}
+      DB_URL: jdbc:postgresql://${POSTGRES_HOST_GEOABSTRACTION}:${POSTGRES_PORT_GEOABSTRACTION}/${POSTGRES_DB_GEOABSTRACTION}
+      DB_USER: ${POSTGRES_USER_GEOABSTRACTION}
+      DB_PASS: ${POSTGRES_PASSWORD_GEOABSTRACTION}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-1024}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-2048}
     depends_on:
-      postgres-terrain:
+      postgres-geoabstraction:
         condition: service_healthy
       kafka:
         condition: service_healthy
@@ -325,17 +325,19 @@ services:
       discovery-server:
         condition: service_healthy
 
-  terrain-worker:
+  geoabstraction-worker:
     build:
-      context: ./terrain-worker
-    container_name: terrain-worker
+      context: ./geoabstraction-worker
+    container_name: geoabstraction-worker
     volumes:
       - ./terrain_store:/data/terrain-store
+      - ./geoserver_uploads:/data/gdal-store
     environment:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      KAFKA_TOPIC: geoabstraction.data.events
     depends_on:
       kafka:
         condition: service_healthy
@@ -422,7 +424,7 @@ services:
       - geoserver
       - onlyoffice-doc-server
       - mediamtx
-      - terrain-service
+      - geoabstraction-service
     restart: unless-stopped
 
 volumes:

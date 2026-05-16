@@ -95,5 +95,7 @@ export interface TerrainJob {
     id: string;
     name: string;
     status: string;
+    taskType?: string;
+    characteristics?: Record<string, any>;
     errorMessage?: string;
 }

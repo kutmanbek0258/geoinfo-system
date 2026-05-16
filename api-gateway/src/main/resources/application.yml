@@ -45,10 +45,10 @@ spring:
           predicates:
             - Path=/api/streams/**
 
-        - id: terrain-service
-          uri: lb://terrain-service
+        - id: geoabstraction-service
+          uri: lb://geoabstraction-service
           predicates:
-            - Path=/api/terrain/**
+            - Path=/api/geo-abstraction/**
 
       httpserver:
         wiretap: true

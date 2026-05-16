@@ -1,0 +1,8 @@
+databaseChangeLog:
+  #  Objects
+  - include:
+      file: object/database.sql
+      relativeToChangelogFile: true
+  - include:
+      file: object/rename_and_update.sql
+      relativeToChangelogFile: true

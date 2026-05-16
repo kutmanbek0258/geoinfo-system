@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import terrainService from '@/services/terrain.service';
+import geoAbstractionService from '@/services/geo-abstraction.service';
 
 const props = defineProps<{
   projectId: string;
@@ -65,7 +65,7 @@ const upload = async () => {
   
   loading.value = true;
   try {
-    await terrainService.createJob(props.projectId, name.value, file.value);
+    await geoAbstractionService.createJob(props.projectId, name.value, file.value);
     dialog.value = false;
     name.value = '';
     file.value = null;

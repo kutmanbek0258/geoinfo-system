@@ -1,11 +1,7 @@
-<script setup lang="ts">
+<template>
+    <TerrainLayersManager/>
+</template>
+
+<script setup>
 import TerrainLayersManager from "@/components/terrain/TerrainLayersManager.vue";
 </script>
-
-<template>
-    <v-row>
-        <v-col cols="12">
-            <TerrainLayersManager/>
-        </v-col>
-    </v-row>
-</template>

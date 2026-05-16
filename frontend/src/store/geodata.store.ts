@@ -1,6 +1,6 @@
 import geodataService from "@/services/geodata.service";
 import streamService from "@/services/stream.service";
-import terrainService from "@/services/terrain.service";
+import geoAbstractionService from "@/services/geo-abstraction.service";
 import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page } from "@/types/api";
 import type { ActionContext } from "vuex";
 
@@ -209,7 +209,7 @@ const actions = {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const response = await terrainService.getLayers(page, size);
+            const response = await geoAbstractionService.getLayers(page, size);
             commit('SET_TERRAIN_LAYERS', response.data);
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch terrain layers.');
@@ -218,7 +218,7 @@ const actions = {
         }
     },
     async deleteTerrainLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
-        await terrainService.deleteLayer(layerId);
+        await geoAbstractionService.deleteLayer(layerId);
         dispatch('fetchTerrainLayers', { page, size });
     },
 
@@ -226,7 +226,7 @@ const actions = {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const response = await terrainService.getJobs(page, size);
+            const response = await geoAbstractionService.getJobs(page, size);
             commit('SET_TERRAIN_JOBS', response.data);
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch terrain jobs.');

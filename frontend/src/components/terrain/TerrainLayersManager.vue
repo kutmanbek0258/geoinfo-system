@@ -1,14 +1,15 @@
 <template>
   <v-container fluid>
     <v-row>
-      <!-- Секция слоев рельефа -->
+      <!-- Секция слоев данных -->
       <v-col cols="12" md="6">
         <v-card elevation="2">
           <v-toolbar color="brown" dark density="comfortable">
             <v-icon start class="ml-2">mdi-layers-triple</v-icon>
-            <v-toolbar-title>Terrain Layers</v-toolbar-title>
+            <v-toolbar-title>Слои (Layers)</v-toolbar-title>
             <v-spacer></v-spacer>
             <TerrainUploadDialog :project-id="selectedProjectId" @uploaded="onNewJobCreated" />
+            <SentinelUploadDialog @uploaded="onNewJobCreated" />
           </v-toolbar>
 
           <v-progress-linear :active="isLoadingLayers" indeterminate color="brown"></v-progress-linear>
@@ -16,9 +17,9 @@
           <v-table hover>
             <thead>
               <tr>
-                <th>Title</th>
-                <th>Status</th>
-                <th class="text-right">Actions</th>
+                <th>Название</th>
+                <th>Статус</th>
+                <th class="text-right">Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -34,7 +35,7 @@
                 </td>
               </tr>
               <tr v-if="terrainLayers.length === 0 && !isLoadingLayers">
-                <td colspan="3" class="text-center text-grey py-4">No layers found</td>
+                <td colspan="3" class="text-center text-grey py-4">Слои не найдены</td>
               </tr>
             </tbody>
           </v-table>
@@ -56,7 +57,7 @@
         <v-card elevation="2">
           <v-toolbar color="blue-grey-darken-3" dark density="comfortable">
             <v-icon start class="ml-2">mdi-cog-sync</v-icon>
-            <v-toolbar-title>Processing Tasks</v-toolbar-title>
+            <v-toolbar-title>Задачи обработки (Processing Tasks)</v-toolbar-title>
             <v-spacer></v-spacer>
             <v-btn icon="mdi-refresh" variant="text" @click="fetchJobs" :loading="isLoadingJobs"></v-btn>
           </v-toolbar>
@@ -66,12 +67,18 @@
           <v-table hover>
             <thead>
               <tr>
-                <th>Task Name</th>
-                <th>Status</th>
+                <th>Тип</th>
+                <th>Название задачи</th>
+                <th>Статус</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="job in terrainJobs" :key="job.id">
+                <td>
+                  <v-icon :color="getTaskIcon(job.taskType).color">
+                    {{ getTaskIcon(job.taskType).icon }}
+                  </v-icon>
+                </td>
                 <td>{{ job.name }}</td>
                 <td>
                   <div class="d-flex align-center">
@@ -87,14 +94,14 @@
                     ></v-progress-circular>
                     <v-tooltip v-if="job.errorMessage" :text="job.errorMessage" location="top">
                       <template v-slot:activator="{ props }">
-                        <v-icon v-bind="props" color="error" size="small">mdi-alert-circle</v-icon>
+                        <v-icon v-bind="props" color="error" size="small" class="ml-2">mdi-alert-circle</v-icon>
                       </template>
                     </v-tooltip>
                   </div>
                 </td>
               </tr>
               <tr v-if="terrainJobs.length === 0 && !isLoadingJobs">
-                <td colspan="2" class="text-center text-grey py-4">No active tasks</td>
+                <td colspan="3" class="text-center text-grey py-4">Активные задачи отсутствуют</td>
               </tr>
             </tbody>
           </v-table>
@@ -119,6 +126,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import type { TerrainLayer, TerrainJob } from '@/types/api';
 import TerrainUploadDialog from './TerrainUploadDialog.vue';
+import SentinelUploadDialog from '../geo-abstraction/SentinelUploadDialog.vue';
 
 const store = useStore();
 
@@ -180,8 +188,19 @@ const getJobStatusColor = (status: string) => {
   }
 };
 
+const getTaskIcon = (taskType: string | undefined) => {
+  switch (taskType) {
+    case 'SENTINEL_COG':
+      return { icon: 'mdi-satellite-variant', color: 'primary' };
+    case 'TERRAIN_MESH':
+      return { icon: 'mdi-terrain', color: 'brown' };
+    default:
+      return { icon: 'mdi-file-cog', color: 'grey' };
+  }
+};
+
 const deleteLayer = async (id: string) => {
-  if (confirm('Are you sure you want to delete this terrain layer?')) {
+  if (confirm('Вы уверены, что хотите удалить этот слой?')) {
     await store.dispatch('geodata/deleteTerrainLayer', { 
       layerId: id, 
       page: layerPage.value - 1, 

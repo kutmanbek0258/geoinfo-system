@@ -18,7 +18,7 @@ services:
     networks:
       - prod-net
 
-  postgres-terrain:
+  postgres-geoabstraction:
     networks:
       - prod-net
 
@@ -86,11 +86,11 @@ services:
     networks:
       - prod-net
 
-  terrain-service:
+  geoabstraction-service:
     networks:
       - prod-net
 
-  terrain-worker:
+  geoabstraction-worker:
     networks:
       - prod-net
 
