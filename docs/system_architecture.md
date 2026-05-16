@@ -33,6 +33,7 @@
 | Микросервис | Основные Функции | Хранилище (DB) | Kafka Topic (Источник) |
 | :---- | :---- | :---- | :---- |
 | **Geo Data Service** | CRUD векторных объектов (маркеры, линии, полигоны), управление метадантами слоев дронов. | **PostgreSQL/PostGIS** | geo.data.events |
+| **Geo Abstraction Service** | Генерация 3D рельефа, обработка снимков Sentinel-2 (COG). | **PostgreSQL/PostGIS** | geoabstraction.data.events |
 | **Document Service** | CRUD метаданных документов, управление файлами в MinIO, логика OnlyOffice Callback. | **PostgreSQL** | doc.data.events |
 | **Search Service** | Асинхронное потребление событий из Kafka, выполнение поисковых запросов. | **Elasticsearch** | (Потребитель) |
 

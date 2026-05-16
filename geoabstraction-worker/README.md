@@ -1,50 +1,47 @@
-# Terrain Worker
+# GeoAbstraction Worker
 
-Специализированный воркер на Python для конвертации растровых данных рельефа (GeoTIFF) в формат **Cesium Quantized-Mesh**.
+Специализированный воркер на Python для сложной обработки геопространственных данных (GDAL/CTB).
 
-## Принцип работы
+## Основные возможности
 
-Воркер работает в фоновом режиме, слушая задачи из Kafka. Процесс обработки включает:
-1. **Загрузка:** Получение исходного TIFF файла из MinIO.
-2. **Конвертация (GDAL):** Перепроецирование в EPSG:4326 и нормализация данных.
-3. **Генерация тайлов (CTB):** Разбиение рельефа на иерархическую структуру тайлов `.terrain`.
-4. **Метаданные:** Генерация и коррекция файла `layer.json` для совместимости с CesiumJS.
-5. **Публикация:** Перемещение готовых тайлов в общее хранилище (Shared Volume), доступное Nginx.
-
-- **Очистка:** Удаление директории с тайлами из хранилища при получении события `DELETED`.
+- **Terrain Processing (`TERRAIN_MESH`):** Конвертация DEM GeoTIFF в формат **Cesium Quantized-Mesh**.
+- **Sentinel-2 Processing (`SENTINEL_COG`):** 
+  - Извлечение спектральных каналов из `.SAFE` (ZIP) архивов.
+  - Слияние выбранных каналов в многоканальный файл.
+  - Конвертация в **Cloud Optimized GeoTIFF (COG)** для высокопроизводительного обслуживания тайлов.
 
 ## Технологический стек
 
-- **Python 3.7+**
-- **GDAL** (библиотека геоданных)
-- **Cesium Terrain Builder (CTB)** — утилита `ctb-tile` для генерации quantized-mesh.
-- **Kafka-python** — для получения задач и отправки статусов.
-- **MinIO Python SDK** — для работы с хранилищем файлов.
+- **Python 3.9+**
+- **GDAL** (библиотека геоданных для COG и базовых операций)
+- **Cesium Terrain Builder (CTB)** — для генерации сетки рельефа.
+- **Kafka-python** — для асинхронного взаимодействия.
+- **MinIO Python SDK** — для работы с объектным хранилищем.
 
 ## Настройка (Environment Variables)
 
 | Переменная | Описание | Значение по умолчанию |
 | :--- | :--- | :--- |
 | `KAFKA_BOOTSTRAP_SERVERS` | Адрес брокера Kafka | `kafka:9092` |
-| `KAFKA_TOPIC` | Топик для задач и статусов | `geoabstraction.data.events` |
-| `MINIO_ENDPOINT` | Эндпоинт MinIO | `minio:9000` |
-| `MINIO_ACCESS_KEY` | Access Key для MinIO | `minio_access_key` |
-| `MINIO_SECRET_KEY` | Secret Key для MinIO | `minio_secret_key` |
-| `TERRAIN_STORE` | Путь к папке для сохранения тайлов | `/data/terrain-store` |
-| `CTB_ZOOM` | Диапазон уровней зума для генерации | `0-22` |
+| `KAFKA_TOPIC` | Топик для событий | `geoabstraction.data.events` |
+| `TERRAIN_STORE` | Путь к хранилищу 3D тайлов | `/data/terrain-store` |
+| `GDAL_STORE` | Путь к хранилищу COG файлов | `/data/gdal-store` |
 
-## Взаимодействие с файловой системой
+## Взаимодействие с GeoServer
 
-Воркер ожидает, что директория, указанная в `TERRAIN_STORE`, является смонтированным Volume, который также подключен к **nginx-proxy**. Это позволяет CesiumJS запрашивать тайлы рельефа напрямую через веб-сервер по URL, который формирует `Terrain Service`.
+При выполнении задач `SENTINEL_COG` итоговые файлы сохраняются в `/data/gdal-store`. Этот путь смонтирован как общий том с контейнером GeoServer, что позволяет администратору выполнять ручную публикацию (Вариант А) через интерфейс GeoServer, выбирая файлы из внутренней директории `/data/gdal-store`.
 
-## Пример события в Kafka (QUEUED)
+## Пример события Sentinel-2
 
 ```json
 {
   "jobId": "uuid",
+  "taskType": "SENTINEL_COG",
   "eventType": "QUEUED",
-  "sourceBucket": "terrain",
-  "sourceObjectKey": "uploads/input.tif",
-  "outputPrefix": "my-layer-abc123"
+  "sourceBucket": "geo-abstraction-input",
+  "sourceObjectKey": "uploads/sentinel-pack.zip",
+  "characteristics": {
+    "channels": ["B04", "B03", "B02"]
+  }
 }
 ```
