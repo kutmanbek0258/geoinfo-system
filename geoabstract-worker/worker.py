@@ -6,6 +6,7 @@ import subprocess
 import shutil
 import tempfile
 import zipfile
+import glob
 from typing import Any, Dict, Optional, List
 
 from kafka import KafkaConsumer, KafkaProducer
@@ -21,28 +22,52 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s :: %(message)s"
 )
 
-logger = logging.getLogger("geoabstraction-worker")
+logger = logging.getLogger("geoabstract-worker")
 
 # -----------------------------------------------------------------------------
 # Environment Variables
 # -----------------------------------------------------------------------------
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "geoabstraction.data.events")
-KAFKA_GROUP_ID = os.getenv("KAFKA_GROUP_ID", "geoabstraction-worker-group")
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "geoabstraction.raster.events")
+KAFKA_GROUP_ID = os.getenv("KAFKA_GROUP_ID", "geoabstract-worker-group")
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minio_access_key")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minio_secret_key")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 
-CTB_FORMAT = os.getenv("CTB_FORMAT", "Mesh")
-CTB_ZOOM = os.getenv("CTB_ZOOM", "0-22")
 GDAL_CACHEMAX = os.getenv("GDAL_CACHEMAX", "2048")  # MB
-GDAL_WARP_SRS = os.getenv("GDAL_WARP_SRS", "EPSG:4326")
-
-BASE_DIR = os.getenv("TERRAIN_STORE", "/data/terrain-store")
 GDAL_STORE = os.getenv("GDAL_STORE", "/data/gdal-store")
+
+# -----------------------------------------------------------------------------
+# Spectral Constants
+# -----------------------------------------------------------------------------
+
+INDEX_FORMULAS = {
+    "NDVI": "(B8 - B4) / (B8 + B4)",
+    "EVI": "2.5 * (B8 - B4) / (B8 + 6 * B4 - 7.5 * B2 + 1)",
+    "SAVI": "1.5 * (B8 - B4) / (B8 + B4 + 0.5)",
+    "GNDVI": "(B8 - B3) / (B8 + B3)",
+    "NDMI": "(B8 - B11) / (B8 + B11)",
+    "NBR": "(B8 - B12) / (B8 + B12)",
+    "NDSI": "(B3 - B11) / (B3 + B11)",
+    "NDBI": "(B11 - B8) / (B11 + B8)",
+    "NDWI": "(B3 - B8) / (B3 + B8)"
+}
+
+# Mapping index to required bands
+INDEX_BANDS = {
+    "NDVI": ["B08", "B04"],
+    "EVI": ["B08", "B04", "B02"],
+    "SAVI": ["B08", "B04"],
+    "GNDVI": ["B08", "B03"],
+    "NDMI": ["B08", "B11"],
+    "NBR": ["B08", "B12"],
+    "NDSI": ["B03", "B11"],
+    "NDBI": ["B11", "B08"],
+    "NDWI": ["B03", "B08"]
+}
 
 # -----------------------------------------------------------------------------
 # MinIO Client
@@ -60,30 +85,14 @@ minio_client = Minio(
 # -----------------------------------------------------------------------------
 
 def log_config() -> None:
-    logger.info("===== GEOABSTRACTION WORKER CONFIG =====")
+    logger.info("===== GEOABSTRACT WORKER CONFIG =====")
     logger.info("KAFKA_BOOTSTRAP_SERVERS = %s", KAFKA_BOOTSTRAP_SERVERS)
     logger.info("KAFKA_TOPIC = %s", KAFKA_TOPIC)
     logger.info("KAFKA_GROUP_ID = %s", KAFKA_GROUP_ID)
     logger.info("MINIO_ENDPOINT = %s", MINIO_ENDPOINT)
-    logger.info("MINIO_ACCESS_KEY = %s", MINIO_ACCESS_KEY)
-    logger.info("MINIO_SECRET_KEY = %s", "***" if MINIO_SECRET_KEY else None)
-    logger.info("MINIO_SECURE = %s", MINIO_SECURE)
-    logger.info("CTB_FORMAT = %s", CTB_FORMAT)
-    logger.info("CTB_ZOOM = %s", CTB_ZOOM)
     logger.info("GDAL_CACHEMAX = %s", GDAL_CACHEMAX)
-    logger.info("GDAL_WARP_SRS = %s", GDAL_WARP_SRS)
-    logger.info("TERRAIN_STORE = %s", BASE_DIR)
     logger.info("GDAL_STORE = %s", GDAL_STORE)
     logger.info("=========================================")
-
-def ensure_bucket_exists(bucket: str) -> None:
-    try:
-        if not minio_client.bucket_exists(bucket):
-            minio_client.make_bucket(bucket)
-            logger.info("Created bucket %s", bucket)
-    except Exception:
-        logger.exception("Failed to ensure bucket exists: %s", bucket)
-        raise
 
 def create_producer() -> KafkaProducer:
     while True:
@@ -146,7 +155,7 @@ def send_status(
         "errorMessage": error_message,
         "outputPrefix": output_prefix,
         "timestamp": int(time.time() * 1000),
-        "source": "geoabstraction-worker"
+        "source": "geoabstract-worker"
     }
 
     try:
@@ -188,69 +197,39 @@ def run_command(cmd: List[str], cwd: Optional[str] = None) -> str:
     
     return result.stdout
 
-def get_elevation_band_index(file_path: str) -> Optional[int]:
-    try:
-        info_output = run_command(["gdalinfo", "-json", file_path])
-        info = json.loads(info_output)
-        bands = info.get("bands", [])
-        if not bands: return None
-        for i, band in enumerate(bands):
-            color_interp = band.get("colorInterpretation", "Undefined")
-            if color_interp not in ["Red", "Green", "Blue", "Alpha", "Palette"]:
-                return i + 1
-        return None
-    except Exception:
-        return None
-
-def save_tree(src_dir, dst_dir):
-    if os.path.exists(dst_dir):
-        shutil.rmtree(dst_dir)
-    os.makedirs(os.path.dirname(dst_dir), exist_ok=True)
-    shutil.copytree(src_dir, dst_dir)
-
-def fix_layer_json(layer_json_path: str) -> None:
-    if not os.path.exists(layer_json_path):
-        raise RuntimeError("layer.json was not generated")
-    with open(layer_json_path, "r", encoding="utf-8") as f:
-        layer_json = json.load(f)
-    if "schema" in layer_json and "scheme" not in layer_json:
-        layer_json["scheme"] = layer_json.pop("schema")
-    layer_json["format"] = "quantized-mesh-1.0"
-    layer_json["tiles"] = ["{z}/{x}/{y}.terrain"]
-    with open(layer_json_path, "w", encoding="utf-8") as f:
-        json.dump(layer_json, f, ensure_ascii=False, indent=2)
-
-def count_generated_tiles(output_dir: str) -> int:
-    total = 0
-    for root, _, files in os.walk(output_dir):
-        for f in files:
-            if f.endswith(".terrain"): total += 1
-    return total
-
 # -----------------------------------------------------------------------------
-# Dispatcher & Processors
+# Sentinel Processors
 # -----------------------------------------------------------------------------
 
-def process_job_dispatcher(job_data: Dict[str, Any], producer: KafkaProducer) -> None:
-    task_type = job_data.get("taskType", "TERRAIN_MESH")
-    logger.info("Dispatching job %s with task type %s", job_data["jobId"], task_type)
-    
-    if task_type == "TERRAIN_MESH":
-        process_terrain_mesh(job_data, producer)
-    elif task_type == "SENTINEL_COG":
-        process_sentinel_cog(job_data, producer)
-    else:
-        logger.error("Unknown task type: %s", task_type)
-        send_status(producer, job_data["jobId"], "TYPE_UNDEFINED" "FAILED", error_message=f"Unknown task type: {task_type}")
+def find_channel_path(extract_dir: str, channel: str) -> Optional[str]:
+    # Sentinel-2 files can have different resolution suffixes
+    patterns = [
+        f"**/*_{channel}.jp2",
+        f"**/*_{channel}_10m.jp2",
+        f"**/*_{channel}_20m.jp2",
+        f"**/*_{channel}_60m.jp2"
+    ]
+    for pattern in patterns:
+        matches = glob.glob(os.path.join(extract_dir, pattern), recursive=True)
+        if matches:
+            return matches[0]
+    return None
 
 def process_sentinel_cog(job_data: Dict[str, Any], producer: KafkaProducer) -> None:
     job_id = str(job_data["jobId"])
     output_prefix = job_data["outputPrefix"]
     characteristics = job_data.get("characteristics", {})
+    
+    # Check if we have an index calculation or a standard channel list
+    index_type = characteristics.get("indexType")
     channels = characteristics.get("channels", [])
     
+    if index_type and index_type in INDEX_BANDS:
+        logger.info("Job %s is an index calculation: %s", job_id, index_type)
+        channels = INDEX_BANDS[index_type]
+    
     if not channels:
-        logger.error("No channels specified for Sentinel-2 COG job %s", job_id)
+        logger.error("No channels or index specified for Sentinel-2 job %s", job_id)
         send_status(producer, job_id, "FAILED", "SENTINEL_COG", error_message="No spectral channels specified")
         return
 
@@ -270,35 +249,78 @@ def process_sentinel_cog(job_data: Dict[str, Any], producer: KafkaProducer) -> N
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
             zip_ref.extractall(extract_dir)
             
-        channel_paths = []
-        for channel in channels:
-            found = False
-            for root, _, files in os.walk(extract_dir):
-                for f in files:
-                    if f.endswith(f"_{channel}.jp2") or f.endswith(f"_{channel}_10m.jp2") or f.endswith(f"_{channel}_20m.jp2"):
-                        channel_paths.append(os.path.join(root, f))
-                        found = True
-                        break
-                if found: break
-            if not found:
-                logger.warning("Channel %s not found in SAFE archive", channel)
-
-        if not channel_paths:
-            raise RuntimeError("None of the specified channels were found in the archive")
-
-        logger.info("Found %d channels for merging: %s", len(channel_paths), channels)
-        vrt_file = os.path.join(work_dir, "merged.vrt")
-        run_command(["gdalbuildvrt", "-separate", vrt_file] + channel_paths)
+        # 1. Collect and Normalize Channels
+        # We need all channels to be at the same resolution (10m) for math/merging
+        normalized_paths = []
+        channel_to_var = {} # For gdal_calc mapping
         
+        for idx, channel in enumerate(channels):
+            src_path = find_channel_path(extract_dir, channel)
+            if not src_path:
+                raise RuntimeError(f"Channel {channel} not found in archive")
+            
+            norm_path = os.path.join(work_dir, f"{channel}_10m.tif")
+            logger.info("Normalizing channel %s to 10m", channel)
+            # Warp to 10m resolution using bilinear resampling
+            run_command([
+                "gdalwarp",
+                "-tr", "10", "10",
+                "-r", "bilinear",
+                "-overwrite",
+                src_path,
+                norm_path
+            ])
+            normalized_paths.append(norm_path)
+            # Map B02 -> A, B03 -> B, etc. for gdal_calc
+            var_name = chr(ord('A') + idx)
+            channel_to_var[channel.replace("0", "")] = var_name # B08 -> B8
+            channel_to_var[channel] = var_name # B08 -> B08
+
+        # 2. Process: Index Calculation or RGB Merge
+        processed_tif = os.path.join(work_dir, "processed.tif")
+        
+        if index_type:
+            # Index Calculation using gdal_calc
+            formula = INDEX_FORMULAS[index_type]
+            # Replace band names in formula with gdal_calc variables
+            # Order: B8, B4, B2, B3, B11, B12
+            calc_cmd = ["gdal_calc.py"]
+            for band_name, var in channel_to_var.items():
+                if band_name in formula:
+                    calc_cmd.extend([f"-{var}", os.path.join(work_dir, f"{band_name}_10m.tif") if "_" not in band_name else os.path.join(work_dir, f"{band_name}_10m.tif")])
+            
+            # Re-fetch normalized paths to ensure we use the right ones
+            calc_cmd = ["gdal_calc.py"]
+            for idx, channel in enumerate(channels):
+                var = chr(ord('A') + idx)
+                calc_cmd.extend([f"-{var}", normalized_paths[idx]])
+            
+            # Build formula with variables
+            # Note: This is a bit tricky, let's simplify by passing variables based on order in INDEX_BANDS
+            f_bands = INDEX_BANDS[index_type]
+            f_formula = INDEX_FORMULAS[index_type]
+            for idx, b in enumerate(f_bands):
+                var = chr(ord('A') + idx)
+                # Replace both B08 and B8
+                f_formula = f_formula.replace(b, var).replace(b.replace("0", ""), var)
+            
+            calc_cmd.extend(["--calc", f_formula, "--outfile", processed_tif, "--NoDataValue", "-9999"])
+            run_command(calc_cmd)
+        else:
+            # Standard Merge to Multi-band VRT then TIF
+            vrt_file = os.path.join(work_dir, "merged.vrt")
+            run_command(["gdalbuildvrt", "-separate", vrt_file] + normalized_paths)
+            processed_tif = vrt_file
+
+        # 3. Final Conversion to COG
         logger.info("Converting to Cloud Optimized GeoTIFF: %s", final_output_file)
         os.makedirs(os.path.dirname(final_output_file), exist_ok=True)
         
         run_command([
             "gdal_translate",
-            vrt_file,
+            processed_tif,
             final_output_file,
-            "-of", "GTiff",
-            "-co", "TILED=YES",
+            "-of", "COG",
             "-co", "COMPRESS=DEFLATE",
             "-co", "PREDICTOR=2",
             "-co", "NUM_THREADS=ALL_CPUS",
@@ -306,7 +328,7 @@ def process_sentinel_cog(job_data: Dict[str, Any], producer: KafkaProducer) -> N
         ])
         
         send_status(producer, job_id, "READY", "SENTINEL_COG", output_prefix=output_prefix)
-        logger.info("Sentinel COG job %s completed successfully", job_id)
+        logger.info("Sentinel job %s completed successfully", job_id)
 
     except Exception as e:
         logger.exception("Sentinel job %s failed", job_id)
@@ -315,74 +337,38 @@ def process_sentinel_cog(job_data: Dict[str, Any], producer: KafkaProducer) -> N
         if os.path.exists(work_dir):
             shutil.rmtree(work_dir, ignore_errors=True)
 
-def process_terrain_mesh(job_data: Dict[str, Any], producer: KafkaProducer) -> None:
-    output_prefix = job_data["outputPrefix"]
-    job_id = str(job_data["jobId"])
-    final_output_path = os.path.join(BASE_DIR, output_prefix)
-    source_bucket = job_data["sourceBucket"]
-    source_key = job_data["sourceObjectKey"]
-
-    work_dir = tempfile.mkdtemp(prefix=f"terrain-{job_id}-")
-    input_file = os.path.join(work_dir, "input.tif")
-    normalized_file = os.path.join(work_dir, "normalized.tif")
-    vrt_file = os.path.join(work_dir, "tiles.vrt")
-    temp_tiles_dir = os.path.join(work_dir, "terrain")
-
-    try:
-        send_status(producer, job_id, "PROCESSING", "TERRAIN_MESH", output_prefix=output_prefix)
-        minio_client.fget_object(source_bucket, source_key, input_file)
-        elevation_band_idx = get_elevation_band_index(input_file)
-        if elevation_band_idx is None:
-            raise RuntimeError("The provided file does not contain an elevation band (DEM)")
-
-        extracted_dem = os.path.join(work_dir, "extracted_dem.tif")
-        run_command(["gdal_translate", "-b", str(elevation_band_idx), input_file, extracted_dem, "-co", "COMPRESS=DEFLATE"])
-        converted_file = os.path.join(work_dir, "converted.tif")
-        run_command(["gdal_translate", extracted_dem, converted_file, "-co", "TILED=YES", "-co", "COMPRESS=DEFLATE", "-co", "BIGTIFF=YES"])
-        run_command(["gdalwarp", "-t_srs", GDAL_WARP_SRS, "-dstnodata", "-9999", "-multi", "-overwrite", converted_file, normalized_file])
-        run_command(["gdal_translate", "-of", "VRT", normalized_file, vrt_file])
-
-        os.makedirs(temp_tiles_dir, exist_ok=True)
-        run_command(["ctb-tile", "-f", CTB_FORMAT, "-C", "-N", "-z", CTB_ZOOM, "-o", temp_tiles_dir, vrt_file])
-        run_command(["ctb-tile", "-f", CTB_FORMAT, "-C", "-N", "-l", "-z", CTB_ZOOM, "-o", temp_tiles_dir, vrt_file])
-        fix_layer_json(os.path.join(temp_tiles_dir, "layer.json"))
-
-        if count_generated_tiles(temp_tiles_dir) == 0:
-            raise RuntimeError("No .terrain tiles were generated")
-
-        save_tree(temp_tiles_dir, final_output_path)
-        logger.info("Terrain job sending status", "READY", "READY", output_prefix)
-        send_status(producer, job_id, "READY", "TERRAIN_MESH", output_prefix=output_prefix)
-    except Exception as e:
-        logger.exception("Terrain job %s failed", job_id)
-        send_status(producer, job_id, "FAILED", "TERRAIN_MESH", error_message=str(e), output_prefix=output_prefix)
-    finally:
-        if os.path.exists(work_dir):
-            shutil.rmtree(work_dir, ignore_errors=True)
-
 def delete_data(job_data: Dict[str, Any]) -> None:
     output_prefix = job_data.get("outputPrefix")
-    task_type = job_data.get("taskType", "TERRAIN_MESH")
-    if not output_prefix: return
+    task_type = job_data.get("taskType", "SENTINEL_COG")
+    if not output_prefix or task_type != "SENTINEL_COG": return
 
-    if task_type == "TERRAIN_MESH":
-        target = os.path.join(BASE_DIR, output_prefix)
-    else:
-        target = os.path.join(GDAL_STORE, f"{output_prefix}.tif")
+    target = os.path.join(GDAL_STORE, f"{output_prefix}.tif")
         
     logger.info("Deleting data at %s", target)
     try:
-        if os.path.isdir(target): shutil.rmtree(target)
-        elif os.path.isfile(target): os.remove(target)
+        if os.path.isfile(target): os.remove(target)
     except Exception:
         logger.exception("Failed to delete %s", target)
 
+# -----------------------------------------------------------------------------
+# Dispatcher
+# -----------------------------------------------------------------------------
+
+def process_job_dispatcher(job_data: Dict[str, Any], producer: KafkaProducer) -> None:
+    task_type = job_data.get("taskType", "SENTINEL_COG")
+    logger.info("Dispatching job %s with task type %s", job_data["jobId"], task_type)
+    
+    if task_type == "SENTINEL_COG":
+        process_sentinel_cog(job_data, producer)
+    else:
+        logger.error("Unsupported task type for geoabstract-worker: %s", task_type)
+
 if __name__ == "__main__":
-    logger.info("GeoAbstraction worker starting...")
+    logger.info("GeoAbstract worker starting...")
     log_config()
     producer = create_producer()
     consumer = create_consumer()
-    logger.info("GeoAbstraction worker started, waiting for jobs...")
+    logger.info("GeoAbstract worker started, waiting for jobs...")
     while True:
         try:
             for message in consumer:

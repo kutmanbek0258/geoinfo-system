@@ -11,7 +11,7 @@ import java.util.UUID;
 
 public interface GeoAbstractionService {
     GeoAbstractJobDto createJob(String name, MultipartFile file);
-    GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels);
+    GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType);
     GeoAbstractJobDto getJob(UUID jobId);
     Page<GeoAbstractJobDto> getJobs(Pageable pageable);
     Page<TerrainLayerDto> getLayers(Pageable pageable);

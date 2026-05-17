@@ -16,11 +16,14 @@ class GeoAbstractionService {
     });
   }
 
-  createSentinelJob(name: string, file: File, channels: string[]) {
+  createSentinelJob(name: string, file: File, channels: string[], indexType?: string) {
     const formData = new FormData();
     formData.append("name", name);
     formData.append("file", file);
     channels.forEach(channel => formData.append("channels", channel));
+    if (indexType) {
+        formData.append("indexType", indexType);
+    }
 
     return api.post(`${API_URL}/sentinel/upload`, formData, {
       headers: {

@@ -11,15 +11,21 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class KafkaProducerServiceImpl implements KafkaProducerService {
 
-    private static final String TOPIC = "geoabstraction.data.events";
+    private static final String TERRAIN_TOPIC = "geoabstraction.terrain.events";
+    private static final String RASTER_TOPIC = "geoabstraction.raster.events";
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
     public void sendGeoAbstractJobEvent(GeoAbstractJobEvent event) {
         try {
-            kafkaTemplate.send(TOPIC, event.getJobId().toString(), event);
-            log.info("Sent {} event to topic {}: {}", event.getEventType(), TOPIC, event.getJobId());
+            String topic = TERRAIN_TOPIC;
+            if ("SENTINEL_COG".equals(event.getTaskType())) {
+                topic = RASTER_TOPIC;
+            }
+            
+            kafkaTemplate.send(topic, event.getJobId().toString(), event);
+            log.info("Sent {} event to topic {}: {}", event.getEventType(), topic, event.getJobId());
         } catch (Exception e) {
             log.error("Error sending event to Kafka: {}", e.getMessage());
         }

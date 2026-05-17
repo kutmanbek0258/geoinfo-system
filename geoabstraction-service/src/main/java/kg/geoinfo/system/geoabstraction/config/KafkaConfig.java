@@ -21,8 +21,16 @@ public class KafkaConfig {
     private String bootstrapServers;
 
     @Bean
-    public NewTopic geoabstractionEventsTopic() {
-        return TopicBuilder.name("geoabstraction.data.events")
+    public NewTopic terrainEventsTopic() {
+        return TopicBuilder.name("geoabstraction.terrain.events")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic rasterEventsTopic() {
+        return TopicBuilder.name("geoabstraction.raster.events")
                 .partitions(3)
                 .replicas(1)
                 .build();

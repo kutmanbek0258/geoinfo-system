@@ -90,7 +90,11 @@ services:
     networks:
       - prod-net
 
-  geoabstraction-worker:
+  terrain-worker:
+    networks:
+      - prod-net
+
+  geoabstract-worker:
     networks:
       - prod-net
 

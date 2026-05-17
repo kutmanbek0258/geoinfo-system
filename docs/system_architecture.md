@@ -33,7 +33,7 @@
 | Микросервис | Основные Функции | Хранилище (DB) | Kafka Topic (Источник) |
 | :---- | :---- | :---- | :---- |
 | **Geo Data Service** | CRUD векторных объектов (маркеры, линии, полигоны), управление метадантами слоев дронов. | **PostgreSQL/PostGIS** | geo.data.events |
-| **Geo Abstraction Service** | Генерация 3D рельефа, обработка снимков Sentinel-2 (COG). | **PostgreSQL/PostGIS** | geoabstraction.data.events |
+| **Geo Abstraction Service** | Управление задачами генерации рельефа и обработки спутниковых снимков. | **PostgreSQL/PostGIS** | geoabstraction.terrain.events, geoabstraction.raster.events |
 | **Document Service** | CRUD метаданных документов, управление файлами в MinIO, логика OnlyOffice Callback. | **PostgreSQL** | doc.data.events |
 | **Search Service** | Асинхронное потребление событий из Kafka, выполнение поисковых запросов. | **Elasticsearch** | (Потребитель) |
 
@@ -45,7 +45,16 @@
 * **API Gateway:** Валидирует JWT, извлекает данные пользователя и передает их в заголовках микросервисам.  
 * **Микросервисы:** Используют декларативную авторизацию (@PreAuthorize("hasAnyAuthority(...)")).
 
-#### **4.2. Асинхронная Индексация (Kafka)**
+#### **4.2. Обработка Геоданных (Воркеры)**
+
+Задачи по тяжелой обработке геоданных вынесены в специализированные Python-воркеры:
+
+1.  **Terrain Worker:** Генерация 3D-рельефа (Cesium Quantized-Mesh) из GeoTIFF DEM. Использует Cesium Terrain Builder.
+    *   **Topic:** `geoabstraction.terrain.events`
+2.  **GeoAbstract Worker:** Обработка спутниковых снимков Sentinel-2, создание Cloud Optimized GeoTIFF (COG), расчет спектральных индексов (NDVI, NDWI и др.).
+    *   **Topic:** `geoabstraction.raster.events`
+
+#### **4.3. Асинхронная Индексация (Kafka)**
 
 Для индексации данных в **Elasticsearch** используется асинхронный паттерн:
 

@@ -30,9 +30,19 @@
           ></v-file-input>
 
           <v-select
+            v-model="selectedPreset"
+            :items="allPresets"
+            label="Выберите пресет или индекс"
+            prepend-icon="mdi-tune-variant"
+            @update:modelValue="onPresetChange"
+            class="mt-4"
+          ></v-select>
+
+          <v-select
+            v-if="selectedPreset === 'Custom'"
             v-model="selectedChannels"
             :items="availableChannels"
-            label="Выберите спектральные каналы"
+            label="Выберите спектральные каналы вручную"
             multiple
             chips
             hint="Каналы будут объединены в один COG-файл"
@@ -40,6 +50,16 @@
             :rules="[v => v.length > 0 || 'Выберите хотя бы один канал']"
             class="mt-4"
           ></v-select>
+          
+          <v-alert
+            v-else-if="selectedPreset !== 'Custom'"
+            type="info"
+            variant="tonal"
+            class="mt-4"
+          >
+            Используемые каналы: {{ getPresetChannels(selectedPreset).join(', ') }}
+          </v-alert>
+
         </v-form>
       </v-card-text>
       <v-card-actions>
@@ -50,7 +70,7 @@
           variant="elevated"
           @click="upload"
           :loading="loading"
-          :disabled="!valid || !file || selectedChannels.length === 0"
+          :disabled="!valid || !file || (selectedPreset === 'Custom' && selectedChannels.length === 0)"
         >
           Запустить обработку
         </v-btn>
@@ -60,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import geoAbstractionService from '@/services/geo-abstraction.service';
 
 const emit = defineEmits(['uploaded']);
@@ -81,19 +101,85 @@ const availableChannels = [
   { title: 'B07 (Red Edge, 20m)', value: 'B07' },
   { title: 'B11 (SWIR, 20m)', value: 'B11' },
   { title: 'B12 (SWIR, 20m)', value: 'B12' },
+  { title: 'B8A (Narrow NIR, 20m)', value: 'B8A' },
 ];
 
-const selectedChannels = ref(['B04', 'B03', 'B02']); // Default to RGB
+const presets = {
+  'Natural Color (4-3-2)': ['B04', 'B03', 'B02'],
+  'False Color Vegetation (8-4-3)': ['B08', 'B04', 'B03'],
+  'Red Edge Agro (8A-6-4)': ['B8A', 'B06', 'B04'],
+  'Moisture / Burn (12-11-4)': ['B12', 'B11', 'B04'],
+  'Urban / Soil (12-11-8)': ['B12', 'B11', 'B08'],
+  'Water emphasis (8-3-2)': ['B08', 'B03', 'B02'],
+};
+
+const indices = {
+  'NDVI (Vegetation Index)': ['B08', 'B04'],
+  'NDWI (Water Index)': ['B03', 'B08'],
+  'NDMI (Moisture Index)': ['B08', 'B11'],
+  'NBR (Burn Index)': ['B08', 'B12'],
+  'NDSI (Snow Index)': ['B03', 'B11'],
+  'NDBI (Built-up Index)': ['B11', 'B08'],
+  'SAVI (Soil Adjusted Index)': ['B08', 'B04'],
+  'EVI (Enhanced Vegetation)': ['B08', 'B04', 'B02'],
+  'GNDVI (Chlorophyll Index)': ['B08', 'B03'],
+};
+
+const allPresets = [
+  { type: 'subheader', title: 'Комбинации каналов (RGB)' },
+  ...Object.keys(presets).map(k => ({ title: k, value: k })),
+  { type: 'divider' },
+  { type: 'subheader', title: 'Спектральные индексы (Math)' },
+  ...Object.keys(indices).map(k => ({ title: k, value: k })),
+  { type: 'divider' },
+  { title: 'Пользовательский выбор', value: 'Custom' }
+];
+
+const selectedPreset = ref('Natural Color (4-3-2)');
+const selectedChannels = ref(['B04', 'B03', 'B02']);
+
+const onPresetChange = (preset: string) => {
+  if (preset === 'Custom') {
+    return;
+  }
+  selectedChannels.value = getPresetChannels(preset);
+};
+
+const getPresetChannels = (preset: string): string[] => {
+  if (presets[preset as keyof typeof presets]) return presets[preset as keyof typeof presets];
+  if (indices[preset as keyof typeof indices]) return indices[preset as keyof typeof indices];
+  return [];
+};
+
+const getIndexType = (preset: string): string | undefined => {
+  if (preset.startsWith('NDVI')) return 'NDVI';
+  if (preset.startsWith('NDWI')) return 'NDWI';
+  if (preset.startsWith('NDMI')) return 'NDMI';
+  if (preset.startsWith('NBR')) return 'NBR';
+  if (preset.startsWith('NDSI')) return 'NDSI';
+  if (preset.startsWith('NDBI')) return 'NDBI';
+  if (preset.startsWith('SAVI')) return 'SAVI';
+  if (preset.startsWith('EVI')) return 'EVI';
+  if (preset.startsWith('GNDVI')) return 'GNDVI';
+  return undefined;
+};
 
 const upload = async () => {
   if (!file.value) return;
   
   loading.value = true;
   try {
-    await geoAbstractionService.createSentinelJob(name.value, file.value, selectedChannels.value);
+    const indexType = getIndexType(selectedPreset.value);
+    await geoAbstractionService.createSentinelJob(
+        name.value, 
+        file.value, 
+        selectedChannels.value,
+        indexType
+    );
     dialog.value = false;
     name.value = '';
     file.value = null;
+    selectedPreset.value = 'Natural Color (4-3-2)';
     selectedChannels.value = ['B04', 'B03', 'B02'];
     emit('uploaded');
   } catch (error) {

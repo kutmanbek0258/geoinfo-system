@@ -79,8 +79,8 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
     @Override
     @Transactional
-    public GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels) {
-        log.info("Creating sentinel job with name {} and channels {}", name, channels);
+    public GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType) {
+        log.info("Creating sentinel job with name {}, channels {} and indexType {}", name, channels, indexType);
 
         // 1. Save file to MinIO
         String objectKey = fileStoreService.save(file);
@@ -93,6 +93,9 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
         Map<String, Object> characteristics = new HashMap<>();
         characteristics.put("channels", channels);
+        if (indexType != null) {
+            characteristics.put("indexType", indexType);
+        }
         job.setCharacteristics(characteristics);
 
         job.setSourceBucket(minioProperties.getBucket());
@@ -208,6 +211,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
                     .jobId(job.getId())
                     .eventType(GeoAbstractJobEvent.EventType.DELETED)
+                    .taskType(job.getTaskType())
                     .outputPrefix(job.getOutputPrefix())
                     .build();
 

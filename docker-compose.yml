@@ -325,19 +325,36 @@ services:
       discovery-server:
         condition: service_healthy
 
-  geoabstraction-worker:
+  terrain-worker:
     build:
-      context: ./geoabstraction-worker
-    container_name: geoabstraction-worker
+      context: terrain-worker
+    container_name: terrain-worker
     volumes:
       - ./terrain_store:/data/terrain-store
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      KAFKA_TOPIC: geoabstraction.terrain.events
+    depends_on:
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  geoabstract-worker:
+    build:
+      context: geoabstract-worker
+    container_name: geoabstract-worker
+    volumes:
       - ./geoserver_uploads:/data/gdal-store
     environment:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-      KAFKA_TOPIC: geoabstraction.data.events
+      KAFKA_TOPIC: geoabstraction.raster.events
     depends_on:
       kafka:
         condition: service_healthy

@@ -82,7 +82,10 @@
 - **[<code>discovery-server/</code>](./discovery-server/README.md):** Сервер обнаружения (Eureka).
 - **[<code>document-service/</code>](./document-service/README.md):** Сервис управления документами.
 - **[<code>frontend/</code>](./frontend/README.md):** Клиентское приложение на Vue.js.
-- **[<code>geodata-service/</code>](./geodata-service/README.md):** Сервис управления геоданными.
+- **[<code>geoabstraction-service/</code>](./geoabstraction-service/README.md):** Сервис управления задачами обработки геоданных.
+- **[<code>terrain-worker/</code>](./terrain-worker/README.md):** Python-воркер для генерации 3D-рельефа.
+- **[<code>geoabstract-worker/</code>](./geoabstract-worker/README.md):** Python-воркер для обработки растров и Sentinel-2.
+- **[<code>geodata-service/</code>](./geodata-service/README.md):** Сервис управления векторными геоданными.
 - **[<code>search-service/</code>](./search-service/README.md):** Сервис поиска.
 - **[<code>nginx-proxy/</code>](./nginx-proxy/README.md):** Обратный прокси, балансировщик нагрузки и кэширующий слой.
 - **`docs/`:** Техническая и архитектурная документация.

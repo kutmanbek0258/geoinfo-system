@@ -14,7 +14,8 @@ public class KafkaConsumerService {
 
     private final GeoAbstractionService geoAbstractionService;
 
-    @KafkaListener(topics = "geoabstraction.data.events", groupId = "${spring.kafka.consumer.group-id:geoabstraction-service-group}")
+    @KafkaListener(topics = {"geoabstraction.terrain.events", "geoabstraction.raster.events"}, 
+                   groupId = "${spring.kafka.consumer.group-id:geoabstraction-service-group}")
     public void listen(GeoAbstractJobEvent event) {
         log.info("Received geo-abstraction job event: {} for job {} (Type: {})", 
                 event.getEventType(), event.getJobId(), event.getTaskType());

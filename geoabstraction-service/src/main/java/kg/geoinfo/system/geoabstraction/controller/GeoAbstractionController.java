@@ -33,8 +33,9 @@ public class GeoAbstractionController {
     public ResponseEntity<GeoAbstractJobDto> createSentinelJob(
             @RequestParam("name") String name,
             @RequestParam("file") MultipartFile file,
-            @RequestParam("channels") List<String> channels) {
-        return ResponseEntity.ok(geoAbstractionService.createSentinelJob(name, file, channels));
+            @RequestParam("channels") List<String> channels,
+            @RequestParam(value = "indexType", required = false) String indexType) {
+        return ResponseEntity.ok(geoAbstractionService.createSentinelJob(name, file, channels, indexType));
     }
 
     @GetMapping("/jobs/{id}")
