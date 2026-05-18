@@ -32,6 +32,22 @@ class GeoAbstractionService {
     });
   }
 
+  createLandsatJob(name: string, file: File, channels: string[], indexType?: string) {
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("file", file);
+    channels.forEach(channel => formData.append("channels", channel));
+    if (indexType) {
+        formData.append("indexType", indexType);
+    }
+
+    return api.post(`${API_URL}/landsat/upload`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  }
+
   getJob(id: string) {
     return api.get(`${API_URL}/jobs/${id}`);
   }

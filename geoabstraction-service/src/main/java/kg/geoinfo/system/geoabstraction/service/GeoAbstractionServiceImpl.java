@@ -80,7 +80,17 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     @Override
     @Transactional
     public GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType) {
-        log.info("Creating sentinel job with name {}, channels {} and indexType {}", name, channels, indexType);
+        return createSatelliteJob(name, file, channels, indexType, "SENTINEL_COG");
+    }
+
+    @Override
+    @Transactional
+    public GeoAbstractJobDto createLandsatJob(String name, MultipartFile file, List<String> channels, String indexType) {
+        return createSatelliteJob(name, file, channels, indexType, "LANDSAT_COG");
+    }
+
+    private GeoAbstractJobDto createSatelliteJob(String name, MultipartFile file, List<String> channels, String indexType, String taskType) {
+        log.info("Creating {} job with name {}, channels {} and indexType {}", taskType, name, channels, indexType);
 
         // 1. Save file to MinIO
         String objectKey = fileStoreService.save(file);
@@ -89,7 +99,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         GeoAbstractJob job = new GeoAbstractJob();
         job.setName(name);
         job.setStatus(GeoAbstractJobStatus.QUEUED);
-        job.setTaskType("SENTINEL_COG");
+        job.setTaskType(taskType);
 
         Map<String, Object> characteristics = new HashMap<>();
         characteristics.put("channels", channels);

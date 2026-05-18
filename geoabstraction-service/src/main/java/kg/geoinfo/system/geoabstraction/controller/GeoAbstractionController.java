@@ -38,6 +38,15 @@ public class GeoAbstractionController {
         return ResponseEntity.ok(geoAbstractionService.createSentinelJob(name, file, channels, indexType));
     }
 
+    @PostMapping("/landsat/upload")
+    public ResponseEntity<GeoAbstractJobDto> createLandsatJob(
+            @RequestParam("name") String name,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("channels") List<String> channels,
+            @RequestParam(value = "indexType", required = false) String indexType) {
+        return ResponseEntity.ok(geoAbstractionService.createLandsatJob(name, file, channels, indexType));
+    }
+
     @GetMapping("/jobs/{id}")
     public ResponseEntity<GeoAbstractJobDto> getJob(@PathVariable UUID id) {
         return ResponseEntity.ok(geoAbstractionService.getJob(id));

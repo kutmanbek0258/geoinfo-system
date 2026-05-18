@@ -1,10 +1,5 @@
 <template>
-  <v-dialog v-model="dialog" max-width="500px">
-    <template v-slot:activator="{ props }">
-      <v-btn color="primary" v-bind="props" prepend-icon="mdi-upload">
-        Загрузить Рельеф
-      </v-btn>
-    </template>
+  <v-dialog v-model="internalValue" max-width="500px">
     <v-card>
       <v-card-title>
         <span class="text-h5">Загрузка GeoTIFF рельефа</span>
@@ -29,7 +24,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="blue-darken-1" variant="text" @click="dialog = false">Отмена</v-btn>
+        <v-btn color="blue-darken-1" variant="text" @click="internalValue = false">Отмена</v-btn>
         <v-btn
           color="blue-darken-1"
           variant="text"
@@ -45,16 +40,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import geoAbstractionService from '@/services/geo-abstraction.service';
 
 const props = defineProps<{
   projectId: string;
+  modelValue: boolean;
 }>();
 
-const emit = defineEmits(['uploaded']);
+const emit = defineEmits(['uploaded', 'update:modelValue']);
 
-const dialog = ref(false);
+const internalValue = computed({
+  get: () => props.modelValue,
+  set: (val) => emit('update:modelValue', val)
+});
+
 const valid = ref(false);
 const loading = ref(false);
 const name = ref('');
@@ -66,7 +66,7 @@ const upload = async () => {
   loading.value = true;
   try {
     await geoAbstractionService.createJob(props.projectId, name.value, file.value);
-    dialog.value = false;
+    internalValue.value = false;
     name.value = '';
     file.value = null;
     emit('uploaded');

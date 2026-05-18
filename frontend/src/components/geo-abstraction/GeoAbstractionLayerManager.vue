@@ -55,10 +55,42 @@
         <v-card elevation="2">
           <v-toolbar color="blue-grey-darken-3" dark density="comfortable">
             <v-icon start class="ml-2">mdi-cog-sync</v-icon>
-            <v-toolbar-title>Задачи обработки (Processing Tasks)</v-toolbar-title>
+            <v-toolbar-title>Задачи обработки</v-toolbar-title>
             <v-spacer></v-spacer>
-            <TerrainUploadDialog :project-id="selectedProjectId" @uploaded="onNewJobCreated" />
-            <SentinelUploadDialog @uploaded="onNewJobCreated" />
+            
+            <v-menu>
+              <template v-slot:activator="{ props }">
+                <v-btn color="success" v-bind="props" prepend-icon="mdi-plus" class="mr-2">
+                  Создать задачу
+                </v-btn>
+              </template>
+              <v-list>
+                <v-list-item @click="showTerrainDialog = true">
+                  <template v-slot:prepend>
+                    <v-icon color="brown">mdi-terrain</v-icon>
+                  </template>
+                  <v-list-item-title>3D Рельеф (Terrain)</v-list-item-title>
+                </v-list-item>
+                <v-list-item @click="showSatelliteDialog = true">
+                  <template v-slot:prepend>
+                    <v-icon color="primary">mdi-satellite-variant</v-icon>
+                  </template>
+                  <v-list-item-title>Спутниковые снимки (Sentinel/Landsat)</v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-menu>
+
+            <TerrainUploadDialog 
+              v-model="showTerrainDialog"
+              :project-id="selectedProjectId" 
+              @uploaded="onNewJobCreated" 
+            />
+            
+            <SatelliteImageryUploadDialog 
+              v-model="showSatelliteDialog"
+              @uploaded="onNewJobCreated" 
+            />
+
             <v-btn icon="mdi-refresh" variant="text" @click="fetchJobs" :loading="isLoadingJobs"></v-btn>
           </v-toolbar>
 
@@ -75,9 +107,13 @@
             <tbody>
               <tr v-for="job in terrainJobs" :key="job.id">
                 <td>
-                  <v-icon :color="getTaskIcon(job.taskType).color">
-                    {{ getTaskIcon(job.taskType).icon }}
-                  </v-icon>
+                  <v-tooltip :text="getTaskIcon(job.taskType).label" location="top">
+                    <template v-slot:activator="{ props }">
+                      <v-icon v-bind="props" :color="getTaskIcon(job.taskType).color">
+                        {{ getTaskIcon(job.taskType).icon }}
+                      </v-icon>
+                    </template>
+                  </v-tooltip>
                 </td>
                 <td>{{ job.name }}</td>
                 <td>
@@ -125,14 +161,17 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import type { TerrainLayer, TerrainJob } from '@/types/api';
-import TerrainUploadDialog from './TerrainUploadDialog.vue';
-import SentinelUploadDialog from '../geo-abstraction/SentinelUploadDialog.vue';
+import TerrainUploadDialog from '../terrain/TerrainUploadDialog.vue';
+import SatelliteImageryUploadDialog from './SatelliteImageryUploadDialog.vue';
 
 const store = useStore();
 
 const layerPage = ref(1);
 const jobPage = ref(1);
 const pageSize = ref(10);
+
+const showTerrainDialog = ref(false);
+const showSatelliteDialog = ref(false);
 
 const isLoadingLayers = computed(() => store.state.geodata.isLoading);
 const isLoadingJobs = ref(false);
@@ -191,11 +230,13 @@ const getJobStatusColor = (status: string) => {
 const getTaskIcon = (taskType: string | undefined) => {
   switch (taskType) {
     case 'SENTINEL_COG':
-      return { icon: 'mdi-satellite-variant', color: 'primary' };
+      return { icon: 'mdi-satellite-variant', color: 'primary', label: 'Sentinel-2' };
+    case 'LANDSAT_COG':
+      return { icon: 'mdi-satellite-variant', color: 'indigo', label: 'Landsat 8' };
     case 'TERRAIN_MESH':
-      return { icon: 'mdi-terrain', color: 'brown' };
+      return { icon: 'mdi-terrain', color: 'brown', label: 'Terrain' };
     default:
-      return { icon: 'mdi-file-cog', color: 'grey' };
+      return { icon: 'mdi-file-cog', color: 'grey', label: 'Task' };
   }
 };
 

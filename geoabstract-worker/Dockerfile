@@ -19,14 +19,12 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip first
 RUN pip3 install --upgrade pip setuptools wheel
 
-# Install versions compatible with Python 3.7
-RUN pip3 install --no-cache-dir \
-    kafka-python==2.0.2 \
-    minio==7.1.15 \
-    importlib-metadata==6.7.0
-
 WORKDIR /app
 
-COPY worker.py .
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-CMD ["python3", "worker.py"]
+COPY app/ ./app/
+COPY main.py .
+
+CMD ["python3", "main.py"]
