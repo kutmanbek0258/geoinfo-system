@@ -121,8 +121,7 @@ class Sentinel2Processor(BaseProcessor):
                     scale_ranges.append(safe_scale_range(band_min, band_max))
                 build_final_cog(processed_tif, final_output_file, render_mode="web_rgb", scale_ranges=scale_ranges)
             elif index_type:
-                # Optimized for WMS viewing
-                build_final_cog(processed_tif, final_output_file, render_mode="analytic", force_byte_index=True)
+                build_final_cog(processed_tif, final_output_file, render_mode="analytic", is_float_index=True)
             else:
                 build_final_cog(processed_tif, final_output_file, render_mode="analytic")
 

@@ -86,7 +86,6 @@ def build_final_cog(
     render_mode: str,
     scale_ranges: Optional[List[Tuple[float, float]]] = None,
     is_float_index: bool = False,
-    force_byte_index: bool = False,
 ) -> None:
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     cmd = ["gdal_translate", source_path, output_path, "-of", "COG"]
@@ -111,11 +110,6 @@ def build_final_cog(
                     "0",
                     "255",
                 ])
-    elif force_byte_index:
-        cmd.extend([
-            "-ot", "Byte",
-            "-scale", "-1", "1", "0", "255"
-        ])
     elif is_float_index:
         cmd.extend(["-ot", "Float32"])
 
