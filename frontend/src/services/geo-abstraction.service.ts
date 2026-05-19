@@ -1,8 +1,10 @@
 import api from "./api";
+import type { Page, ImageryLayer } from '@/types/api';
 
 const API_URL = "/geo-abstraction";
 
 class GeoAbstractionService {
+  // --- Jobs ---
   createJob(projectId: string, name: string, file: File) {
     const formData = new FormData();
     formData.append("projectId", projectId);
@@ -48,6 +50,30 @@ class GeoAbstractionService {
     });
   }
 
+  uploadRawGeoTiff(name: string, file: File) {
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("file", file);
+
+    return api.post(`${API_URL}/imagery-layer/upload`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  }
+
+  uploadTerrain(name: string, file: File) {
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("file", file);
+
+    return api.post(`${API_URL}/terrain/upload`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  }
+
   getJob(id: string) {
     return api.get(`${API_URL}/jobs/${id}`);
   }
@@ -58,6 +84,7 @@ class GeoAbstractionService {
     });
   }
 
+  // --- Layers ---
   getLayers(page: number, size: number) {
     return api.get(`${API_URL}/layers`, {
       params: { page, size }
@@ -66,6 +93,27 @@ class GeoAbstractionService {
 
   deleteLayer(id: string) {
     return api.delete(`${API_URL}/layers/${id}`);
+  }
+
+  // --- Imagery Layers ---
+  getImageryLayers(page = 0, size = 10) {
+    return api.get<Page<ImageryLayer>>(`${API_URL}/imagery-layer/page-query`, { params: { page, size } });
+  }
+
+  getImageryLayerById(id: string) {
+    return api.get<ImageryLayer>(`${API_URL}/imagery-layer/${id}`);
+  }
+
+  createImageryLayer(layer: Omit<ImageryLayer, 'id'>) {
+    return api.post<ImageryLayer>(`${API_URL}/imagery-layer`, layer);
+  }
+
+  updateImageryLayer(id: string, layer: Partial<Omit<ImageryLayer, 'id'>>) {
+    return api.put<ImageryLayer>(`${API_URL}/imagery-layer/${id}`, layer);
+  }
+
+  deleteImageryLayer(id: string) {
+    return api.delete(`${API_URL}/imagery-layer/${id}`);
   }
 }
 

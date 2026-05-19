@@ -47,6 +47,20 @@ public class GeoAbstractionController {
         return ResponseEntity.ok(geoAbstractionService.createLandsatJob(name, file, channels, indexType));
     }
 
+    @PostMapping("/imagery-layer/upload")
+    public ResponseEntity<GeoAbstractJobDto> uploadRawGeoTiff(
+            @RequestParam("name") String name,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(geoAbstractionService.createRawGeoTiffJob(name, file));
+    }
+
+    @PostMapping("/terrain/upload")
+    public ResponseEntity<GeoAbstractJobDto> uploadTerrain(
+            @RequestParam("name") String name,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(geoAbstractionService.createTerrainJob(name, file));
+    }
+
     @GetMapping("/jobs/{id}")
     public ResponseEntity<GeoAbstractJobDto> getJob(@PathVariable UUID id) {
         return ResponseEntity.ok(geoAbstractionService.getJob(id));

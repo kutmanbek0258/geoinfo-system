@@ -1,17 +1,20 @@
-package kg.geoinfo.system.geodataservice.models;
+package kg.geoinfo.system.geoabstraction.models;
 
 import jakarta.persistence.*;
-import kg.geoinfo.system.geodataservice.config.audit.AuditableCustom;
-import kg.geoinfo.system.geodataservice.models.enums.Status;
+import kg.geoinfo.system.geoabstraction.config.audit.AuditableCustom;
+import kg.geoinfo.system.geoabstraction.models.enums.Status;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
-@Table(name = "imagery_layers", schema = "geodata", indexes = {
+@Table(name = "imagery_layers", schema = "geoabstraction", indexes = {
         @Index(name = "ix_imagery_date", columnList = "date_captured"),
         @Index(name = "ux_imagery_ws_name", columnList = "workspace, layer_name", unique = true)
 })
@@ -22,7 +25,7 @@ import java.util.UUID;
 @Setter
 public class ImageryLayer extends AuditableCustom<String> {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", nullable = false)
     private UUID id;
 
@@ -53,4 +56,8 @@ public class ImageryLayer extends AuditableCustom<String> {
 
     @Column(name = "crs", nullable = false, length = 32)
     private String crs;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "characteristics", columnDefinition = "jsonb")
+    private Map<String, Object> characteristics;
 }

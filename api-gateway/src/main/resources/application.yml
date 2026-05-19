@@ -25,6 +25,13 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: geo-abstraction-imagery-legacy
+          uri: lb://geoabstraction-service
+          predicates:
+            - Path=/api/geodata/imagery-layer/**
+          filters:
+            - RewritePath=/api/geodata/imagery-layer/(?<segment>.*), /api/geo-abstraction/imagery-layer/${segment}
+
         - id: geodata-service
           uri: lb://geodata-service
           predicates:

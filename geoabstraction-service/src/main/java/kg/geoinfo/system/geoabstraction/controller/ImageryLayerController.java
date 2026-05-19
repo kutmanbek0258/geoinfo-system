@@ -1,9 +1,8 @@
-package kg.geoinfo.system.geodataservice.controller;
+package kg.geoinfo.system.geoabstraction.controller;
 
-import kg.geoinfo.system.geodataservice.dto.ImageryLayerDto;
-import kg.geoinfo.system.geodataservice.service.ImageryLayerService;
+import kg.geoinfo.system.geoabstraction.dto.ImageryLayerDto;
+import kg.geoinfo.system.geoabstraction.service.ImageryLayerService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -13,10 +12,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
 import java.util.UUID;
 
-@RequestMapping("/api/geodata/imagery-layer")
+@RequestMapping("/api/geo-abstraction/imagery-layer")
 @RestController
 @Slf4j
 public class ImageryLayerController {
@@ -28,9 +26,8 @@ public class ImageryLayerController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('IMAGERY_LAYER_CREATE')")
-    public ResponseEntity<Void> save(@RequestBody @Validated ImageryLayerDto imageryLayerDto) {
-        imageryLayerService.save(imageryLayerDto);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<ImageryLayerDto> save(@RequestBody @Validated ImageryLayerDto imageryLayerDto) {
+        return ResponseEntity.ok(imageryLayerService.save(imageryLayerDto));
     }
 
     @GetMapping("/{id}")
@@ -56,8 +53,7 @@ public class ImageryLayerController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('IMAGERY_LAYER_UPDATE')")
-    public ResponseEntity<Void> update(@RequestBody @Validated ImageryLayerDto imageryLayerDto, @PathVariable("id") UUID id) {
-        imageryLayerService.update(imageryLayerDto, id);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<ImageryLayerDto> update(@RequestBody @Validated ImageryLayerDto imageryLayerDto, @PathVariable("id") UUID id) {
+        return ResponseEntity.ok(imageryLayerService.update(imageryLayerDto, id));
     }
 }

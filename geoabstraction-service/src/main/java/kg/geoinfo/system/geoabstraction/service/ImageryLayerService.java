@@ -1,13 +1,12 @@
-
-package kg.geoinfo.system.geodataservice.service;
+package kg.geoinfo.system.geoabstraction.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kg.geoinfo.system.geodataservice.dto.ImageryLayerDto;
 import kg.geoinfo.system.common.GeoObjectEvent;
-import kg.geoinfo.system.geodataservice.mapper.ImageryLayerMapper;
-import kg.geoinfo.system.geodataservice.models.ImageryLayer;
-import kg.geoinfo.system.geodataservice.repository.ImageryLayerRepository;
-import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
+import kg.geoinfo.system.geoabstraction.dto.ImageryLayerDto;
+import kg.geoinfo.system.geoabstraction.mapper.ImageryLayerMapper;
+import kg.geoinfo.system.geoabstraction.models.ImageryLayer;
+import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
+import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

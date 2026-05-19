@@ -42,6 +42,12 @@ spring:
           client-secret: ${J_SERVICE_CLIENT_SECRET:j-service-client}
           introspection-uri: ${SSO_URL:http://auth-service:9001}/oauth2/token-info
 
+geoserver:
+  url: ${GEOSERVER_URL:http://geoserver:8080/geoserver}
+  username: ${GEOSERVER_USER:admin}
+  password: ${GEOSERVER_PASSWORD:geoserver}
+  workspace: ${GEOSERVER_WORKSPACE:gis}
+
 resilience4j:
   circuitbreaker:
     instances:

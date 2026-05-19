@@ -13,6 +13,8 @@ public interface GeoAbstractionService {
     GeoAbstractJobDto createJob(String name, MultipartFile file);
     GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType);
     GeoAbstractJobDto createLandsatJob(String name, MultipartFile file, List<String> channels, String indexType);
+    GeoAbstractJobDto createRawGeoTiffJob(String name, MultipartFile file);
+    GeoAbstractJobDto createTerrainJob(String name, MultipartFile file);
     GeoAbstractJobDto getJob(UUID jobId);
     Page<GeoAbstractJobDto> getJobs(Pageable pageable);
     Page<TerrainLayerDto> getLayers(Pageable pageable);

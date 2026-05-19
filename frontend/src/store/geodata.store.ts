@@ -183,7 +183,7 @@ const actions = {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const response = await geodataService.getImageryLayers(page, size);
+            const response = await geoAbstractionService.getImageryLayers(page, size);
             commit('SET_IMAGERY_LAYERS', response.data);
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch imagery layers.');
@@ -192,15 +192,15 @@ const actions = {
         }
     },
     async createImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: Omit<ImageryLayer, 'id'>, page: number, size: number }) {
-        await geodataService.createImageryLayer(layerData);
+        await geoAbstractionService.createImageryLayer(layerData);
         dispatch('fetchImageryLayers', { page, size });
     },
     async updateImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: ImageryLayer, page: number, size: number }) {
-        await geodataService.updateImageryLayer(layerData.id, layerData);
+        await geoAbstractionService.updateImageryLayer(layerData.id, layerData);
         dispatch('fetchImageryLayers', { page, size });
     },
     async deleteImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
-        await geodataService.deleteImageryLayer(layerId);
+        await geoAbstractionService.deleteImageryLayer(layerId);
         dispatch('fetchImageryLayers', { page, size });
     },
 

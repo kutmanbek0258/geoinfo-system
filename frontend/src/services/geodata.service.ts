@@ -49,23 +49,6 @@ class GeodataService {
         });
     }
 
-    // --- Imagery Layers ---
-    getImageryLayers(page = 0, size = 10) {
-        return api.get<Page<ImageryLayer>>('/geodata/imagery-layer/page-query', { params: { page, size } });
-    }
-    createImageryLayer(layer: Omit<ImageryLayer, 'id'>) {
-        return api.post<void>('/geodata/imagery-layer', layer);
-    }
-    updateImageryLayer(id: string, layer: Partial<Omit<ImageryLayer, 'id'>>) {
-        return api.put<void>(`/geodata/imagery-layer/${id}`, layer);
-    }
-    deleteImageryLayer(id: string) {
-        return api.delete(`/geodata/imagery-layer/${id}`);
-    }
-    getImageryLayerById(id: string) {
-        return api.get<ImageryLayer>(`/geodata/imagery-layer/${id}`);
-    }
-
     // --- Points ---
     getPointsByProjectId(projectId: string, page = 0, size = 10) {
         return api.get<Page<ProjectPoint>>(`/geodata/points/by-project-id/${projectId}`, { params: { page, size } });

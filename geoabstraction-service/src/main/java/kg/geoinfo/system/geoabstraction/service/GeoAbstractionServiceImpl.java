@@ -38,6 +38,9 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     private final GeoAbstractMapper geoAbstractMapper;
     private final TerrainLayerMapper terrainLayerMapper;
     private final MinioProperties minioProperties;
+    private final kg.geoinfo.system.geoabstraction.service.geoserver.GeoServerClient geoServerClient;
+    private final kg.geoinfo.system.geoabstraction.config.GeoServerProperties geoServerProperties;
+    private final kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository imageryLayerRepository;
 
     @Override
     @Transactional
@@ -79,14 +82,14 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
     @Override
     @Transactional
-    public GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType) {
-        return createSatelliteJob(name, file, channels, indexType, "SENTINEL_COG");
+    public GeoAbstractJobDto createRawGeoTiffJob(String name, MultipartFile file) {
+        return createSatelliteJob(name, file, null, null, "RAW_GEOTIFF_OPTIMIZE");
     }
 
     @Override
     @Transactional
-    public GeoAbstractJobDto createLandsatJob(String name, MultipartFile file, List<String> channels, String indexType) {
-        return createSatelliteJob(name, file, channels, indexType, "LANDSAT_COG");
+    public GeoAbstractJobDto createTerrainJob(String name, MultipartFile file) {
+        return createJob(name, file);
     }
 
     private GeoAbstractJobDto createSatelliteJob(String name, MultipartFile file, List<String> channels, String indexType, String taskType) {
@@ -102,7 +105,9 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         job.setTaskType(taskType);
 
         Map<String, Object> characteristics = new HashMap<>();
-        characteristics.put("channels", channels);
+        if (channels != null) {
+            characteristics.put("channels", channels);
+        }
         if (indexType != null) {
             characteristics.put("indexType", indexType);
         }
@@ -194,6 +199,53 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
                 layer.setStatus("READY");
                 layerRepository.save(layer);
             }
+        }
+
+        if (jobStatus == GeoAbstractJobStatus.READY && 
+           ("SENTINEL_COG".equals(job.getTaskType()) || "LANDSAT_COG".equals(job.getTaskType()) || "RAW_GEOTIFF_OPTIMIZE".equals(job.getTaskType()))) {
+            
+            String workspace = geoServerProperties.getWorkspace();
+            String storeName = job.getOutputPrefix();
+            String layerName = job.getOutputPrefix();
+            String filePath = "/data/gdal-store/" + job.getOutputPrefix() + ".tif";
+            
+            // Determine style
+            String styleName = "raster"; // default
+            if (job.getCharacteristics() != null) {
+                String indexType = (String) job.getCharacteristics().get("indexType");
+                if (indexType != null) {
+                    switch (indexType.toUpperCase()) {
+                        case "NDVI", "SAVI", "EVI" -> styleName = "vegetation_index";
+                        case "GNDVI" -> styleName = "gndvi";
+                        case "NDWI" -> styleName = "ndwi_water";
+                        case "NDMI" -> styleName = "ndmi_moisture";
+                        case "NBR" -> styleName = "nbr_burn";
+                        case "NDSI" -> styleName = "ndsi_snow";
+                        case "NDBI" -> styleName = "ndbi_urban";
+                    }
+                }
+            }
+
+            // 1. Create CoverageStore in GeoServer
+            geoServerClient.createCoverageStore(workspace, storeName, filePath);
+            
+            // 2. Publish Layer
+            geoServerClient.publishLayer(workspace, storeName, layerName, styleName);
+            
+            // 3. Create ImageryLayer in DB
+            kg.geoinfo.system.geoabstraction.models.ImageryLayer imageryLayer = new kg.geoinfo.system.geoabstraction.models.ImageryLayer();
+            imageryLayer.setName(job.getName());
+            imageryLayer.setDescription("Automatically published layer from job " + job.getId());
+            imageryLayer.setWorkspace(workspace);
+            imageryLayer.setLayerName(layerName);
+            imageryLayer.setServiceUrl(geoServerProperties.getUrl() + "/" + workspace + "/wms");
+            imageryLayer.setStatus(kg.geoinfo.system.geoabstraction.models.enums.Status.ACTIVE);
+            imageryLayer.setStyle(styleName);
+            imageryLayer.setDateCaptured(new java.util.Date());
+            imageryLayer.setCrs(job.getCrs() != null ? job.getCrs() : "EPSG:4326");
+            imageryLayer.setCharacteristics(job.getCharacteristics());
+            
+            imageryLayerRepository.save(imageryLayer);
         }
 
         if (jobStatus == GeoAbstractJobStatus.READY) {
