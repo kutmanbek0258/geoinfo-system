@@ -7,6 +7,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -16,21 +18,33 @@ public class GeoServerClient {
     private final GeoServerProperties properties;
 
     public void createWorkspace(String name) {
-        String url = String.format("%s/rest/workspaces", properties.getUrl());
-        String xml = String.format("<workspace><name>%s</name></workspace>", name);
-        
+        String url = properties.getUrl() + "/rest/workspaces";
+
+        String xml = """
+        <workspace>
+            <name>%s</name>
+        </workspace>
+        """.formatted(name);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_XML);
-        
-        HttpEntity<String> entity = new HttpEntity<>(xml, headers);
-        
+        headers.setAccept(List.of(MediaType.APPLICATION_XML));
+
+        HttpEntity<String> request = new HttpEntity<>(xml, headers);
+
         try {
-            ResponseEntity<String> response = geoServerRestTemplate.postForEntity(url, entity, String.class);
-            if (response.getStatusCode() == HttpStatus.CREATED) {
-                log.info("Workspace {} created successfully", name);
-            }
+
+            ResponseEntity<String> response = geoServerRestTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    request,
+                    String.class
+            );
+
+            log.info("Workspace {} response: {}", name, response.getStatusCode());
+
         } catch (Exception e) {
-            log.error("Failed to create workspace {}: {}", name, e.getMessage());
+            log.error("Failed to create workspace {}", name, e); // ❗ ВАЖНО
         }
     }
 

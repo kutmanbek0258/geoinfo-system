@@ -1,10 +1,13 @@
 package kg.geoinfo.system.geoabstraction.service.kafka;
 
 import kg.geoinfo.system.common.GeoAbstractJobEvent;
+import kg.geoinfo.system.common.GeoObjectEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -13,6 +16,7 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
 
     private static final String TERRAIN_TOPIC = "geoabstraction.terrain.events";
     private static final String RASTER_TOPIC = "geoabstraction.raster.events";
+    private static final String GEO_DATA_TOPIC = "geo.data.events";
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
@@ -28,6 +32,24 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
             log.info("Sent {} event to topic {}: {}", event.getEventType(), topic, event.getJobId());
         } catch (Exception e) {
             log.error("Error sending event to Kafka: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendGeoObjectEvent(Map<String, Object> payload, kg.geoinfo.system.common.GeoObjectEvent.EventType eventType) {
+        try {
+            kg.geoinfo.system.common.GeoObjectEvent event = kg.geoinfo.system.common.GeoObjectEvent.builder()
+                    .eventType(eventType)
+                    .payload(payload)
+                    .build();
+            
+            Object id = payload.get("id");
+            String key = id != null ? id.toString() : null;
+            
+            kafkaTemplate.send(GEO_DATA_TOPIC, key, event);
+            log.info("Sent {} event to topic {}: {}", eventType, GEO_DATA_TOPIC, key);
+        } catch (Exception e) {
+            log.error("Error sending geo object event to Kafka: {}", e.getMessage());
         }
     }
 }

@@ -1,6 +1,7 @@
 package kg.geoinfo.system.geoabstraction.service;
 
 import kg.geoinfo.system.common.GeoAbstractJobEvent;
+import kg.geoinfo.system.geoabstraction.config.GeoServerProperties;
 import kg.geoinfo.system.geoabstraction.config.MinioProperties;
 import kg.geoinfo.system.geoabstraction.dto.GeoAbstractJobDto;
 import kg.geoinfo.system.geoabstraction.dto.TerrainLayerDto;
@@ -10,8 +11,10 @@ import kg.geoinfo.system.geoabstraction.models.GeoAbstractJob;
 import kg.geoinfo.system.geoabstraction.models.TerrainLayer;
 import kg.geoinfo.system.geoabstraction.models.enums.GeoAbstractJobStatus;
 import kg.geoinfo.system.geoabstraction.repository.GeoAbstractJobRepository;
+import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
 import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
 import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
+import kg.geoinfo.system.geoabstraction.service.geoserver.GeoServerClient;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,9 +41,9 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     private final GeoAbstractMapper geoAbstractMapper;
     private final TerrainLayerMapper terrainLayerMapper;
     private final MinioProperties minioProperties;
-    private final kg.geoinfo.system.geoabstraction.service.geoserver.GeoServerClient geoServerClient;
-    private final kg.geoinfo.system.geoabstraction.config.GeoServerProperties geoServerProperties;
-    private final kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository imageryLayerRepository;
+    private final GeoServerClient geoServerClient;
+    private final GeoServerProperties geoServerProperties;
+    private final ImageryLayerService imageryLayerService;
 
     @Override
     @Transactional
@@ -78,6 +81,16 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         kafkaProducerService.sendGeoAbstractJobEvent(event);
 
         return geoAbstractMapper.toDto(job);
+    }
+
+    @Override
+    public GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType) {
+        return this.createSatelliteJob(name, file, channels, indexType, "SENTINEL_COG");
+    }
+
+    @Override
+    public GeoAbstractJobDto createLandsatJob(String name, MultipartFile file, List<String> channels, String indexType) {
+        return this.createSatelliteJob(name, file, channels, indexType, "LANDSAT_COG");
     }
 
     @Override
@@ -187,10 +200,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
         if (jobStatus == GeoAbstractJobStatus.READY && "TERRAIN_MESH".equals(job.getTaskType())) {
             // Check if layer already exists
-            boolean layerExists = layerRepository.findAll().stream()
-                    .anyMatch(l -> l.getJob() != null && l.getJob().getId().equals(jobId));
-            
-            if (!layerExists) {
+            if (!layerRepository.existsByJobId(jobId)) {
                 // Create TerrainLayer
                 TerrainLayer layer = new TerrainLayer();
                 layer.setJob(job);
@@ -232,7 +242,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             // 2. Publish Layer
             geoServerClient.publishLayer(workspace, storeName, layerName, styleName);
             
-            // 3. Create ImageryLayer in DB
+            // 3. Create ImageryLayer in DB via Service (to trigger Kafka event)
             kg.geoinfo.system.geoabstraction.models.ImageryLayer imageryLayer = new kg.geoinfo.system.geoabstraction.models.ImageryLayer();
             imageryLayer.setName(job.getName());
             imageryLayer.setDescription("Automatically published layer from job " + job.getId());
@@ -245,7 +255,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             imageryLayer.setCrs(job.getCrs() != null ? job.getCrs() : "EPSG:4326");
             imageryLayer.setCharacteristics(job.getCharacteristics());
             
-            imageryLayerRepository.save(imageryLayer);
+            imageryLayerService.save(imageryLayer);
         }
 
         if (jobStatus == GeoAbstractJobStatus.READY) {
@@ -288,4 +298,5 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             layerRepository.delete(layer);
         }
     }
+
 }

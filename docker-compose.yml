@@ -136,6 +136,12 @@ services:
     environment:
       - GEOSERVER_ADMIN_USER=${GEOSERVER_ADMIN_USER}
       - GEOSERVER_ADMIN_PASSWORD=${GEOSERVER_ADMIN_PASSWORD}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/geoserver/web/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
 
   # ======= MINIO STORAGE ======
   minio:
@@ -376,6 +382,8 @@ services:
       config-server:
         condition: service_healthy
       discovery-server:
+        condition: service_healthy
+      geoserver:
         condition: service_healthy
 
   stream-service:

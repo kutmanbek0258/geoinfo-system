@@ -31,10 +31,12 @@ public class ImageryLayerService {
 
     public ImageryLayerDto save(ImageryLayerDto imageryLayerDto) {
         ImageryLayer entity = imageryLayerMapper.toEntity(imageryLayerDto);
+        return save(entity);
+    }
+
+    public ImageryLayerDto save(ImageryLayer entity) {
         entity = repository.save(entity);
-        Map<String, Object> payload = objectMapper.convertValue(entity, Map.class);
-        payload.put("type", "imagery");
-        kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
+        sendKafkaEvent(entity, GeoObjectEvent.EventType.CREATED);
         return imageryLayerMapper.toDto(entity);
     }
 
@@ -49,7 +51,14 @@ public class ImageryLayerService {
     }
 
     public Page<ImageryLayerDto> findByCondition(ImageryLayerDto imageryLayerDto, Pageable pageable) {
-        Page<ImageryLayer> entityPage = repository.findAll(pageable);
+        // Simple implementation: if name is provided, filter by name. Otherwise return all.
+        // In a real app, this should use Specification or Querydsl.
+        Page<ImageryLayer> entityPage;
+        if (imageryLayerDto.getName() != null && !imageryLayerDto.getName().isEmpty()) {
+            entityPage = repository.findAllByNameContainingIgnoreCase(imageryLayerDto.getName(), pageable);
+        } else {
+            entityPage = repository.findAll(pageable);
+        }
         List<ImageryLayer> entities = entityPage.getContent();
         return new PageImpl<>(imageryLayerMapper.toDto(entities), pageable, entityPage.getTotalElements());
     }
@@ -58,9 +67,13 @@ public class ImageryLayerService {
         ImageryLayer entity = repository.findById(id).orElseThrow(() -> new RuntimeException("ImageryLayer not found"));
         imageryLayerMapper.update(entity, imageryLayerDto);
         entity = repository.save(entity);
+        sendKafkaEvent(entity, GeoObjectEvent.EventType.UPDATED);
+        return imageryLayerMapper.toDto(entity);
+    }
+
+    private void sendKafkaEvent(ImageryLayer entity, GeoObjectEvent.EventType eventType) {
         Map<String, Object> payload = objectMapper.convertValue(entity, Map.class);
         payload.put("type", "imagery");
-        kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
-        return imageryLayerMapper.toDto(entity);
+        kafkaProducerService.sendGeoObjectEvent(payload, eventType);
     }
 }
