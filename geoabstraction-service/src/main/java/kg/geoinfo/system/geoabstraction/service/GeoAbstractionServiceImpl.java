@@ -217,7 +217,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             String workspace = geoServerProperties.getWorkspace();
             String storeName = job.getOutputPrefix();
             String layerName = job.getOutputPrefix();
-            String filePath = "/data/gdal-store/" + job.getOutputPrefix() + ".tif";
+            String filePath = "uploads/" + job.getOutputPrefix() + ".tif";
             
             // Determine style
             String styleName = "raster"; // default
@@ -248,7 +248,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             imageryLayer.setDescription("Automatically published layer from job " + job.getId());
             imageryLayer.setWorkspace(workspace);
             imageryLayer.setLayerName(layerName);
-            imageryLayer.setServiceUrl(geoServerProperties.getUrl() + "/" + workspace + "/wms");
+            imageryLayer.setServiceUrl(geoServerProperties.getUrl() + "/wms/" + workspace);
             imageryLayer.setStatus(kg.geoinfo.system.geoabstraction.models.enums.Status.ACTIVE);
             imageryLayer.setStyle(styleName);
             imageryLayer.setDateCaptured(new java.util.Date());

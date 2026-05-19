@@ -44,8 +44,9 @@ spring:
 
 geoserver:
   url: ${GEOSERVER_URL:http://geoserver:8080/geoserver}
-  username: ${GEOSERVER_USER:admin}
-  password: ${GEOSERVER_PASSWORD:geoserver}
+  domain: http://geoserver:8080/geoserver
+  username: ${GEOSERVER_ADMIN_USER:admin}
+  password: ${GEOSERVER_ADMIN_PASSWORD:geoserver}
   workspace: ${GEOSERVER_WORKSPACE:gis}
 
 resilience4j:

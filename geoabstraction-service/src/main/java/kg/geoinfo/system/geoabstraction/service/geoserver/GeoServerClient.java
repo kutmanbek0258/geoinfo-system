@@ -18,7 +18,7 @@ public class GeoServerClient {
     private final GeoServerProperties properties;
 
     public void createWorkspace(String name) {
-        String url = properties.getUrl() + "/rest/workspaces";
+        String url = properties.getDomain() + "/rest/workspaces";
 
         String xml = """
         <workspace>
@@ -49,7 +49,7 @@ public class GeoServerClient {
     }
 
     public boolean workspaceExists(String name) {
-        String url = String.format("%s/rest/workspaces/%s", properties.getUrl(), name);
+        String url = String.format("%s/rest/workspaces/%s", properties.getDomain(), name);
         try {
             ResponseEntity<String> response = geoServerRestTemplate.getForEntity(url, String.class);
             return response.getStatusCode() == HttpStatus.OK;
@@ -59,7 +59,7 @@ public class GeoServerClient {
     }
 
     public void createStyle(String name, String sldContent) {
-        String url = String.format("%s/rest/styles?name=%s", properties.getUrl(), name);
+        String url = String.format("%s/rest/styles?name=%s", properties.getDomain(), name);
         
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(new MediaType("application", "vnd.ogc.sld+xml"));
@@ -77,7 +77,7 @@ public class GeoServerClient {
     }
 
     public boolean styleExists(String name) {
-        String url = String.format("%s/rest/styles/%s", properties.getUrl(), name);
+        String url = String.format("%s/rest/styles/%s", properties.getDomain(), name);
         try {
             ResponseEntity<String> response = geoServerRestTemplate.getForEntity(url, String.class);
             return response.getStatusCode() == HttpStatus.OK;
@@ -87,7 +87,7 @@ public class GeoServerClient {
     }
 
     public void createCoverageStore(String workspace, String storeName, String filePath) {
-        String url = String.format("%s/rest/workspaces/%s/coveragestores", properties.getUrl(), workspace);
+        String url = String.format("%s/rest/workspaces/%s/coveragestores", properties.getDomain(), workspace);
         String xml = String.format(
             "<coverageStore>" +
             "  <name>%s</name>" +
@@ -111,7 +111,7 @@ public class GeoServerClient {
     }
 
     public void publishLayer(String workspace, String storeName, String layerName, String styleName) {
-        String url = String.format("%s/rest/workspaces/%s/coveragestores/%s/coverages", properties.getUrl(), workspace, storeName);
+        String url = String.format("%s/rest/workspaces/%s/coveragestores/%s/coverages", properties.getDomain(), workspace, storeName);
         String xml = String.format(
             "<coverage>" +
             "  <name>%s</name>" +
