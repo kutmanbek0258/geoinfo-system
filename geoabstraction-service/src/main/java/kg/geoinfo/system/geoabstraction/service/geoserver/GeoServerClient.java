@@ -116,8 +116,9 @@ public class GeoServerClient {
             "<coverage>" +
             "  <name>%s</name>" +
             "  <title>%s</title>" +
+            "  <nativeCoverageName>%s</nativeCoverageName>" +
             "  <defaultStyle><name>%s</name></defaultStyle>" +
-            "</coverage>", layerName, layerName, styleName);
+            "</coverage>", layerName, layerName, layerName, styleName);
             
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_XML);
