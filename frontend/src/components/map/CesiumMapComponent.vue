@@ -16,7 +16,7 @@
             :label="layer.name"
             :value="layer.id"
             v-model="visibleLayerIds"
-            @change="toggleImageryLayer(layer, $event)"
+            @update:modelValue="toggleImageryLayer(layer)"
             hide-details
             class="w-100"
           ></v-checkbox>
@@ -194,7 +194,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch, computed, toRaw } from 'vue';
+import { onMounted, onUnmounted, ref, watch, computed, toRaw, shallowRef } from 'vue';
 import { useStore } from 'vuex';
 import * as Cesium from 'cesium';
 import type { ImageryLayer, TerrainLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
@@ -216,7 +216,7 @@ let viewer: Cesium.Viewer | null = null;
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
 const isGeometryEditMode = ref(false);
 const visibleLayerIds = ref<string[]>([]);
-const activeImageryLayers = ref<Record<string, Cesium.ImageryLayer>>({});
+const activeImageryLayers = shallowRef<Record<string, Cesium.ImageryLayer>>({});
 const layerOpacities = ref<Record<string, number>>({});
 
 // --- Состояние импорта ---
@@ -279,19 +279,22 @@ const clearImageryLayers = () => {
   const v = viewer;
   if (!v) return;
   for (const id in activeImageryLayers.value) {
-    v.imageryLayers.remove(activeImageryLayers.value[id]);
+    v.imageryLayers.remove(toRaw(activeImageryLayers.value[id]));
   }
   activeImageryLayers.value = {};
   visibleLayerIds.value = [];
   layerOpacities.value = {};
 };
 
-const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
+const toggleImageryLayer = (layerInfo: ImageryLayer) => {
   const v = viewer;
   if (!v) return;
-  const isVisible = event.target.checked;
+  const isVisible = visibleLayerIds.value.includes(layerInfo.id);
 
   if (isVisible) {
+    // Avoid duplicate adding
+    if (activeImageryLayers.value[layerInfo.id]) return;
+
     const provider = new Cesium.WebMapServiceImageryProvider({
       url: layerInfo.serviceUrl,
       layers: layerInfo.workspace + ":" + layerInfo.layerName,
@@ -302,15 +305,22 @@ const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
     });
     const layer = v.imageryLayers.addImageryProvider(provider);
     layer.alpha = (layerOpacities.value[layerInfo.id] || 100) / 100;
-    activeImageryLayers.value[layerInfo.id] = layer;
+    
+    activeImageryLayers.value = {
+      ...activeImageryLayers.value,
+      [layerInfo.id]: layer
+    };
+
     if (layerOpacities.value[layerInfo.id] === undefined) {
       layerOpacities.value[layerInfo.id] = 100;
     }
   } else {
     const layer = activeImageryLayers.value[layerInfo.id];
     if (layer) {
-      v.imageryLayers.remove(layer);
-      delete activeImageryLayers.value[layerInfo.id];
+      v.imageryLayers.remove(toRaw(layer));
+      const nextLayers = { ...activeImageryLayers.value };
+      delete nextLayers[layerInfo.id];
+      activeImageryLayers.value = nextLayers;
     }
   }
 };
