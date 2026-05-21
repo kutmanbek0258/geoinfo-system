@@ -15,6 +15,11 @@ public interface GeoAbstractionService {
     GeoAbstractJobDto createLandsatJob(String name, MultipartFile file, List<String> channels, String indexType);
     GeoAbstractJobDto createRawGeoTiffJob(String name, MultipartFile file);
     GeoAbstractJobDto createTerrainJob(String name, MultipartFile file);
+    
+    // Direct Upload support
+    String generateUploadUrl(String filename);
+    GeoAbstractJobDto createJobConfirm(String name, String objectKey, Long fileSize, String taskType, List<String> channels, String indexType);
+
     GeoAbstractJobDto getJob(UUID jobId);
     Page<GeoAbstractJobDto> getJobs(Pageable pageable);
     Page<TerrainLayerDto> getLayers(Pageable pageable);

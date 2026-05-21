@@ -12,7 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -59,6 +61,27 @@ public class GeoAbstractionController {
             @RequestParam("name") String name,
             @RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(geoAbstractionService.createTerrainJob(name, file));
+    }
+
+    @GetMapping("/upload/presigned-url")
+    public ResponseEntity<Map<String, String>> getPresignedUrl(@RequestParam("filename") String filename) {
+        String result = geoAbstractionService.generateUploadUrl(filename);
+        String[] parts = result.split("###");
+        Map<String, String> response = new HashMap<>();
+        response.put("url", parts[0]);
+        response.put("objectKey", parts[1]);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/jobs/confirm")
+    public ResponseEntity<GeoAbstractJobDto> confirmJob(
+            @RequestParam("name") String name,
+            @RequestParam("objectKey") String objectKey,
+            @RequestParam("fileSize") Long fileSize,
+            @RequestParam("taskType") String taskType,
+            @RequestParam(value = "channels", required = false) List<String> channels,
+            @RequestParam(value = "indexType", required = false) String indexType) {
+        return ResponseEntity.ok(geoAbstractionService.createJobConfirm(name, objectKey, fileSize, taskType, channels, indexType));
     }
 
     @GetMapping("/jobs/{id}")

@@ -10,6 +10,16 @@ spring:
       max-request-size: ${MAX_UPLOAD_SIZE_MB:1024}MB
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    consumer:
+      properties:
+        request.timeout.ms: 60000
+        session.timeout.ms: 45000
+        heartbeat.interval.ms: 3000
+        max.poll.interval.ms: 600000
+    producer:
+      properties:
+        request.timeout.ms: 60000
+        delivery.timeout.ms: 120000
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://postgres-geoabstraction:5432/geoabstraction_db}

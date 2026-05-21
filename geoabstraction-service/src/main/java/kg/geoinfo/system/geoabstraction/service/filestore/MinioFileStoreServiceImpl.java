@@ -1,6 +1,7 @@
 package kg.geoinfo.system.geoabstraction.service.filestore;
 
 import io.minio.*;
+import io.minio.http.Method;
 import io.minio.messages.DeleteError;
 import io.minio.messages.DeleteObject;
 import kg.geoinfo.system.geoabstraction.config.MinioProperties;
@@ -75,6 +76,35 @@ public class MinioFileStoreServiceImpl implements FileStoreService {
                         .build());
 
         return objectKey;
+    }
+
+    @Override
+    @SneakyThrows
+    public String generateUploadUrl(String objectKey) {
+        return minioClient.getPresignedObjectUrl(
+                GetPresignedObjectUrlArgs.builder()
+                        .method(Method.PUT)
+                        .bucket(minioProperties.getBucket())
+                        .object(objectKey)
+                        .expiry(60 * 60) // 1 hour
+                        .build()
+        );
+    }
+
+    @Override
+    @SneakyThrows
+    public boolean exists(String objectKey) {
+        try {
+            minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(minioProperties.getBucket())
+                            .object(objectKey)
+                            .build()
+            );
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override

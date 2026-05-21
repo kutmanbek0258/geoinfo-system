@@ -6,6 +6,8 @@ import java.util.Optional;
 
 public interface FileStoreService {
     String save(MultipartFile file);
+    String generateUploadUrl(String objectKey);
+    boolean exists(String objectKey);
     Optional<byte[]> find(String key);
     void delete(String key);
     void deleteByPrefix(String prefix);

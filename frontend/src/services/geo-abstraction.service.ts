@@ -1,10 +1,54 @@
 import api from "./api";
 import type { Page, ImageryLayer } from '@/types/api';
+import axios from 'axios';
 
 const API_URL = "/geo-abstraction";
 
 class GeoAbstractionService {
-  // --- Jobs ---
+  // --- Direct Upload ---
+  async getPresignedUrl(filename: string) {
+    const response = await api.get<{ url: string, objectKey: string }>(`${API_URL}/upload/presigned-url`, {
+      params: { filename }
+    });
+    return response.data;
+  }
+
+  async uploadFileDirectly(url: string, file: File, onProgress?: (percent: number) => void) {
+    return axios.put(url, file, {
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percentCompleted);
+        }
+      },
+    });
+  }
+
+  confirmJob(name: string, objectKey: string, fileSize: number, taskType: string, channels?: string[], indexType?: string) {
+    const params = new URLSearchParams();
+    params.append("name", name);
+    params.append("objectKey", objectKey);
+    params.append("fileSize", fileSize.toString());
+    params.append("taskType", taskType);
+    
+    if (channels) {
+      channels.forEach(c => params.append("channels", c));
+    }
+    if (indexType) {
+      params.append("indexType", indexType);
+    }
+
+    return api.post(`${API_URL}/jobs/confirm`, params, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      }
+    });
+  }
+
+  // --- Jobs (Multipart methods - preserved for compatibility if needed) ---
   createJob(projectId: string, name: string, file: File) {
     const formData = new FormData();
     formData.append("projectId", projectId);

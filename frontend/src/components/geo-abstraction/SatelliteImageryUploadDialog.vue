@@ -77,6 +77,30 @@
             </div>
           </v-expand-transition>
 
+          <v-expand-transition>
+            <div v-if="loading" class="mt-4">
+              <div class="d-flex justify-space-between mb-1">
+                <span class="text-caption">{{ uploadStatusText }}</span>
+                <span class="text-caption">{{ uploadProgress }}%</span>
+              </div>
+              <v-progress-linear
+                v-model="uploadProgress"
+                color="primary"
+                height="8"
+                rounded
+                indeterminate
+                v-if="uploadProgress === 0"
+              ></v-progress-linear>
+              <v-progress-linear
+                v-model="uploadProgress"
+                color="primary"
+                height="8"
+                rounded
+                v-else
+              ></v-progress-linear>
+            </div>
+          </v-expand-transition>
+
         </v-form>
       </v-card-text>
       
@@ -84,7 +108,7 @@
       
       <v-card-actions class="pa-4">
         <v-spacer></v-spacer>
-        <v-btn color="grey-darken-1" variant="text" @click="internalValue = false">Отмена</v-btn>
+        <v-btn color="grey-darken-1" variant="text" @click="internalValue = false" :disabled="loading">Отмена</v-btn>
         <v-btn
           color="success"
           variant="elevated"
@@ -116,6 +140,8 @@ const internalValue = computed({
 
 const valid = ref(false);
 const loading = ref(false);
+const uploadProgress = ref(0);
+const uploadStatusText = ref('');
 const name = ref('');
 const file = ref<File | null>(null);
 const satelliteType = ref<'sentinel' | 'landsat' | 'geotiff'>('sentinel');
@@ -256,27 +282,34 @@ const upload = async () => {
   if (!file.value) return;
   
   loading.value = true;
+  uploadProgress.value = 0;
+  
   try {
-    if (satelliteType.value === 'geotiff') {
-      await geoAbstractionService.uploadRawGeoTiff(name.value, file.value);
-    } else {
-      const indexType = getIndexType(selectedPreset.value);
-      if (satelliteType.value === 'sentinel') {
-        await geoAbstractionService.createSentinelJob(
-            name.value, 
-            file.value, 
-            selectedChannels.value,
-            indexType
-        );
-      } else {
-        await geoAbstractionService.createLandsatJob(
-            name.value, 
-            file.value, 
-            selectedChannels.value,
-            indexType
-        );
-      }
-    }
+    // 1. Get Presigned URL
+    uploadStatusText.value = 'Подготовка к загрузке...';
+    const { url, objectKey } = await geoAbstractionService.getPresignedUrl(file.value.name);
+    
+    // 2. Upload directly to MinIO
+    uploadStatusText.value = 'Загрузка файла...';
+    await geoAbstractionService.uploadFileDirectly(url, file.value, (percent) => {
+      uploadProgress.value = percent;
+    });
+    
+    // 3. Confirm job creation
+    uploadStatusText.value = 'Запуск задачи...';
+    const taskType = satelliteType.value === 'geotiff' ? 'RAW_GEOTIFF_OPTIMIZE' : 
+                     (satelliteType.value === 'sentinel' ? 'SENTINEL_COG' : 'LANDSAT_COG');
+    
+    const indexType = satelliteType.value !== 'geotiff' ? getIndexType(selectedPreset.value) : undefined;
+    
+    await geoAbstractionService.confirmJob(
+      name.value,
+      objectKey,
+      file.value.size,
+      taskType,
+      satelliteType.value !== 'geotiff' ? selectedChannels.value : undefined,
+      indexType
+    );
     
     internalValue.value = false;
     resetForm();
@@ -285,6 +318,7 @@ const upload = async () => {
     console.error('Upload failed', error);
   } finally {
     loading.value = false;
+    uploadProgress.value = 0;
   }
 };
 

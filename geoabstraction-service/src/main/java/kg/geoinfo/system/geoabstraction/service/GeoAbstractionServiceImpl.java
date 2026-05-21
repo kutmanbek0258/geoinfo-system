@@ -153,6 +153,75 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     }
 
     @Override
+    public String generateUploadUrl(String filename) {
+        String extension = "";
+        int i = filename.lastIndexOf('.');
+        if (i > 0) {
+            extension = filename.substring(i);
+        }
+        String objectKey = UUID.randomUUID().toString() + extension;
+        String url = fileStoreService.generateUploadUrl(objectKey);
+        
+        // Rewrite internal MinIO URL to public /minio/ prefix
+        // From: http://minio:9000/bucket/object...
+        // To:   /minio/bucket/object...
+        if (url.contains("/" + minioProperties.getBucket() + "/")) {
+            url = "/minio" + url.substring(url.indexOf("/" + minioProperties.getBucket() + "/"));
+        }
+        
+        return url + "###" + objectKey;
+    }
+
+    @Override
+    @Transactional
+    public GeoAbstractJobDto createJobConfirm(String name, String objectKey, Long fileSize, String taskType, List<String> channels, String indexType) {
+        log.info("Confirming job creation for {} with objectKey {} and taskType {}", name, objectKey, taskType);
+        
+        // Validate object existence in MinIO
+        if (!fileStoreService.exists(objectKey)) {
+            throw new RuntimeException("File does not exist in store: " + objectKey);
+        }
+
+        GeoAbstractJob job = new GeoAbstractJob();
+        job.setName(name);
+        job.setStatus(GeoAbstractJobStatus.QUEUED);
+        job.setTaskType(taskType);
+        job.setSourceBucket(minioProperties.getBucket());
+        job.setSourceObjectKey(objectKey);
+        job.setFileSize(fileSize);
+        job.setOutputBucket(minioProperties.getBucket());
+        job.setOutputPrefix(job.getName() + "-" + UUID.randomUUID().toString().substring(0, 8));
+
+        Map<String, Object> characteristics = new HashMap<>();
+        if (channels != null) {
+            characteristics.put("channels", channels);
+        }
+        if (indexType != null) {
+            characteristics.put("indexType", indexType);
+        }
+        job.setCharacteristics(characteristics);
+
+        job = jobRepository.save(job);
+
+        // Send event to Kafka
+        GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
+                .jobId(job.getId())
+                .name(job.getName())
+                .eventType(GeoAbstractJobEvent.EventType.QUEUED)
+                .taskType(job.getTaskType())
+                .characteristics(job.getCharacteristics())
+                .sourceBucket(job.getSourceBucket())
+                .sourceObjectKey(job.getSourceObjectKey())
+                .outputBucket(job.getOutputBucket())
+                .outputPrefix(job.getOutputPrefix())
+                .build();
+
+        kafkaProducerService.sendGeoAbstractJobEvent(event);
+
+        return geoAbstractMapper.toDto(job);
+    }
+
+    @Override
     public GeoAbstractJobDto getJob(UUID jobId) {
         GeoAbstractJob job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobId));
