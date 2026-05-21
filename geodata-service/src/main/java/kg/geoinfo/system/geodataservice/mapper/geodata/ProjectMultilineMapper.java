@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface ProjectMultilineMapper {
 
     @Mapping(source = "project.id", target = "projectId")
+    @Mapping(source = "folder.id", target = "folderId")
     ProjectMultilineDto toDto(ProjectMultiline projectMultiline);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")

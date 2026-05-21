@@ -48,6 +48,7 @@ public class KmlImportServiceImpl implements KmlImportService {
     private final ProjectPointRepository projectPointRepository;
     private final ProjectMultilineRepository projectMultilineRepository;
     private final ProjectPolygonRepository projectPolygonRepository;
+    private final GeoFolderRepository geoFolderRepository;
     private final KafkaProducerService kafkaProducerService;
     private final DocumentServiceClient documentServiceClient;
     private final ObjectMapper objectMapper;
@@ -81,7 +82,7 @@ public class KmlImportServiceImpl implements KmlImportService {
             project.setCreatedBy(currentUserEmail);
             project = projectRepository.save(project);
 
-            processKmlPlacemarks(doc, project, styles, kmzContent.getResources());
+            processKmlContainer(doc.getDocumentElement(), project, null, styles, kmzContent.getResources());
             
             return projectMapper.toDto(project);
 
@@ -103,7 +104,7 @@ public class KmlImportServiceImpl implements KmlImportService {
             KmzContent kmzContent = getKmzContent(file);
             Document doc = parseKmlFromStream(kmzContent.getKmlStream());
             Map<String, Map<String, Object>> styles = parseStyles(doc, kmzContent.getResources());
-            processKmlPlacemarks(doc, project, styles, kmzContent.getResources());
+            processKmlContainer(doc.getDocumentElement(), project, null, styles, kmzContent.getResources());
             
             return projectMapper.toDto(project);
 
@@ -186,50 +187,96 @@ public class KmlImportServiceImpl implements KmlImportService {
         return parseKmlFromStream(file.getInputStream());
     }
 
-    private void processKmlPlacemarks(Document doc, Project project, Map<String, Map<String, Object>> styles, Map<String, byte[]> resources) throws Exception {
-        NodeList placemarks = doc.getElementsByTagNameNS("*", "Placemark");
-        log.info("Found {} placemarks in KML", placemarks.getLength());
+    private void processKmlContainer(Element container, Project project, GeoFolder parentFolder, Map<String, Map<String, Object>> styles, Map<String, byte[]> resources) throws Exception {
         KMLReader kmlReader = new KMLReader(geometryFactory);
 
-        for (int i = 0; i < placemarks.getLength(); i++) {
-            Element placemark = (Element) placemarks.item(i);
-            String name = getElementValue(placemark, "name");
-            String description = getElementValue(placemark, "description");
-            String styleUrl = getElementValue(placemark, "styleUrl");
-            
-            Map<String, Object> characteristics = null;
-            if (styleUrl != null) {
-                // Убираем '#' из начала styleUrl
-                String styleId = styleUrl.startsWith("#") ? styleUrl.substring(1) : styleUrl;
-                Map<String, Object> styleData = styles.get(styleId);
-                if (styleData != null) {
-                    characteristics = new java.util.HashMap<>();
-                    characteristics.put("style", styleData);
+        // Process immediate children of the container
+        NodeList children = container.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i) instanceof Element) {
+                Element child = (Element) children.item(i);
+                String tagName = child.getLocalName();
+                if (tagName == null) tagName = child.getTagName();
+
+                if ("Folder".equals(tagName) || "Document".equals(tagName)) {
+                    // Create a new folder in DB
+                    String folderName = getElementValue(child, "name");
+                    if (folderName == null) folderName = "Unnamed Folder";
+                    String folderDesc = getElementValue(child, "description");
+                    
+                    GeoFolder folder = new GeoFolder();
+                    folder.setProject(project);
+                    folder.setParent(parentFolder);
+                    folder.setName(folderName);
+                    folder.setDescription(folderDesc);
+                    
+                    // Handle visibility
+                    String visibility = getElementValue(child, "visibility");
+                    Map<String, Object> folderChars = new HashMap<>();
+                    if (visibility != null) {
+                        folderChars.put("visible", "1".equals(visibility));
+                    } else if (parentFolder != null && parentFolder.getCharacteristics() != null && Boolean.FALSE.equals(parentFolder.getCharacteristics().get("visible"))) {
+                        // Inherit hidden state from parent
+                        folderChars.put("visible", false);
+                    }
+                    folder.setCharacteristics(folderChars);
+                    
+                    folder = geoFolderRepository.save(folder);
+                    
+                    // Recurse
+                    processKmlContainer(child, project, folder, styles, resources);
+                } else if ("Placemark".equals(tagName)) {
+                    processPlacemark(child, project, parentFolder, styles, resources, kmlReader);
+                } else if ("Document".equals(container.getTagName()) && !"Document".equals(tagName)) {
+                   // Continue searching for Placemarks and Folders even if not direct children
+                   // (but processKmlContainer already covers recursive structure)
                 }
             }
+        }
+    }
 
-            // Ищем геометрический элемент внутри Placemark (Point, LineString, Polygon, MultiGeometry)
-            Element geometryElement = findGeometryElement(placemark);
-            if (geometryElement != null) {
-                // Очистка координат от лишних пробелов и переносов строк перед парсингом
-                cleanCoordinates(geometryElement);
+    private void processPlacemark(Element placemark, Project project, GeoFolder folder, Map<String, Map<String, Object>> styles, Map<String, byte[]> resources, KMLReader kmlReader) throws Exception {
+        String name = getElementValue(placemark, "name");
+        String description = getElementValue(placemark, "description");
+        String styleUrl = getElementValue(placemark, "styleUrl");
+        
+        Map<String, Object> characteristics = new HashMap<>();
+        
+        // If parent folder is hidden, inherit visibility
+        if (folder != null && folder.getCharacteristics() != null && Boolean.FALSE.equals(folder.getCharacteristics().get("visible"))) {
+            characteristics.put("visible", false);
+        } else {
+            String visibility = getElementValue(placemark, "visibility");
+            if (visibility != null) {
+                characteristics.put("visible", "1".equals(visibility));
+            }
+        }
 
-                String geometryXml = elementToString(geometryElement);
-                try {
-                    Geometry geometry = kmlReader.read(geometryXml);
+        if (styleUrl != null) {
+            String styleId = styleUrl.startsWith("#") ? styleUrl.substring(1) : styleUrl;
+            Map<String, Object> styleData = styles.get(styleId);
+            if (styleData != null) {
+                characteristics.put("style", styleData);
+            }
+        }
 
-                    if (geometry instanceof Point) {
-                        savePoint(project, name, description, (Point) geometry, characteristics);
-                    } else if (geometry instanceof LineString || geometry instanceof MultiLineString) {
-                        saveMultiline(project, name, description, geometry, characteristics);
-                    } else if (geometry instanceof Polygon || geometry instanceof MultiPolygon) {
-                        savePolygon(project, name, description, geometry, characteristics);
-                    } else if (geometry instanceof GeometryCollection) {
-                        processGeometryCollection(project, name, description, (GeometryCollection) geometry, characteristics);
-                    }
-                } catch (Exception e) {
-                    log.error("Failed to parse or save geometry for placemark: {}. Error: {}", name, e.getMessage(), e);
+        Element geometryElement = findGeometryElement(placemark);
+        if (geometryElement != null) {
+            cleanCoordinates(geometryElement);
+            String geometryXml = elementToString(geometryElement);
+            try {
+                Geometry geometry = kmlReader.read(geometryXml);
+                if (geometry instanceof Point) {
+                    savePoint(project, folder, name, description, (Point) geometry, characteristics);
+                } else if (geometry instanceof LineString || geometry instanceof MultiLineString) {
+                    saveMultiline(project, folder, name, description, geometry, characteristics);
+                } else if (geometry instanceof Polygon || geometry instanceof MultiPolygon) {
+                    savePolygon(project, folder, name, description, geometry, characteristics);
+                } else if (geometry instanceof GeometryCollection) {
+                    processGeometryCollection(project, folder, name, description, (GeometryCollection) geometry, characteristics);
                 }
+            } catch (Exception e) {
+                log.error("Failed to parse or save geometry for placemark: {}. Error: {}", name, e.getMessage(), e);
             }
         }
     }
@@ -251,26 +298,27 @@ public class KmlImportServiceImpl implements KmlImportService {
         }
     }
 
-    private void processGeometryCollection(Project project, String name, String description, GeometryCollection collection, Map<String, Object> characteristics) {
+    private void processGeometryCollection(Project project, GeoFolder folder, String name, String description, GeometryCollection collection, Map<String, Object> characteristics) {
         for (int i = 0; i < collection.getNumGeometries(); i++) {
             Geometry geom = collection.getGeometryN(i);
             if (geom instanceof Point) {
-                savePoint(project, name, description, (Point) geom, characteristics);
+                savePoint(project, folder, name, description, (Point) geom, characteristics);
             } else if (geom instanceof LineString || geom instanceof MultiLineString) {
-                saveMultiline(project, name, description, geom, characteristics);
+                saveMultiline(project, folder, name, description, geom, characteristics);
             } else if (geom instanceof Polygon || geom instanceof MultiPolygon) {
-                savePolygon(project, name, description, geom, characteristics);
+                savePolygon(project, folder, name, description, geom, characteristics);
             }
         }
     }
 
-    private void savePoint(Project project, String name, String description, Point geom, Map<String, Object> characteristics) {
+    private void savePoint(Project project, GeoFolder folder, String name, String description, Point geom, Map<String, Object> characteristics) {
         if (characteristics == null) {
             characteristics = new HashMap<>();
         }
         characteristics.put("type", "other");
         ProjectPoint point = new ProjectPoint();
         point.setProject(project);
+        point.setFolder(folder);
         point.setName(name);
         point.setDescription(description);
         point.setStatus(Status.COMPLETED);
@@ -283,9 +331,10 @@ public class KmlImportServiceImpl implements KmlImportService {
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
     }
 
-    private void saveMultiline(Project project, String name, String description, Geometry geom, Map<String, Object> characteristics) {
+    private void saveMultiline(Project project, GeoFolder folder, String name, String description, Geometry geom, Map<String, Object> characteristics) {
         ProjectMultiline line = new ProjectMultiline();
         line.setProject(project);
+        line.setFolder(folder);
         line.setName(name);
         line.setDescription(description);
         line.setStatus(Status.COMPLETED);
@@ -304,9 +353,10 @@ public class KmlImportServiceImpl implements KmlImportService {
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.CREATED);
     }
 
-    private void savePolygon(Project project, String name, String description, Geometry geom, Map<String, Object> characteristics) {
+    private void savePolygon(Project project, GeoFolder folder, String name, String description, Geometry geom, Map<String, Object> characteristics) {
         ProjectPolygon polygon = new ProjectPolygon();
         polygon.setProject(project);
+        polygon.setFolder(folder);
         polygon.setName(name);
         polygon.setDescription(description);
         polygon.setStatus(Status.COMPLETED);

@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface ProjectPointMapper {
 
     @Mapping(source = "project.id", target = "projectId")
+    @Mapping(source = "folder.id", target = "folderId")
     ProjectPointDto toDto(ProjectPoint projectPoint);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")

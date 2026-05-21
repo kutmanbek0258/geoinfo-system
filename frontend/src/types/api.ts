@@ -14,6 +14,15 @@ export interface Project {
     description?: string;
 }
 
+export interface GeoFolder {
+    id: string;
+    projectId: string;
+    parentId?: string;
+    name: string;
+    description?: string;
+    characteristics?: Record<string, any>;
+}
+
 export interface ImageryLayer {
     id: string; // UUID
     name: string;
@@ -30,6 +39,7 @@ export interface ImageryLayer {
 export interface ProjectPoint {
     id: string;
     projectId: string;
+    folderId?: string;
     name: string;
     description?: string;
     status: Status;
@@ -41,6 +51,7 @@ export interface ProjectPoint {
 export interface ProjectMultiline {
     id: string;
     projectId: string;
+    folderId?: string;
     name: string;
     description?: string;
     status: Status;
@@ -53,6 +64,7 @@ export interface ProjectMultiline {
 export interface ProjectPolygon {
     id: string;
     projectId: string;
+    folderId?: string;
     name: string;
     description?: string;
     status: Status;

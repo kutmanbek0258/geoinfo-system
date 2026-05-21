@@ -12,4 +12,5 @@ import java.util.UUID;
 @Repository
 public interface ProjectPointRepository extends JpaRepository<ProjectPoint, UUID> {
     Page<ProjectPoint> findAllByProjectId(Pageable pageable, UUID projectId);
+    List<ProjectPoint> findAllByFolderId(UUID folderId);
 }

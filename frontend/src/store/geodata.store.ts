@@ -1,11 +1,12 @@
 import geodataService from "@/services/geodata.service";
 import streamService from "@/services/stream.service";
 import geoAbstractionService from "@/services/geo-abstraction.service";
-import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page } from "@/types/api";
+import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page, GeoFolder } from "@/types/api";
 import type { ActionContext } from "vuex";
 
 interface GeodataState {
     projects: Page<Project> | null;
+    folders: GeoFolder[];
     imageryLayers: Page<ImageryLayer> | null;
     terrainLayers: Page<TerrainLayer> | null;
     terrainJobs: Page<TerrainJob> | null;
@@ -21,6 +22,7 @@ interface GeodataState {
 
 const state: GeodataState = {
     projects: null,
+    folders: [],
     imageryLayers: null,
     terrainLayers: null,
     terrainJobs: null,
@@ -38,8 +40,9 @@ const mutations = {
     SET_PROJECTS(state: GeodataState, projects: Page<Project> | null) {
         state.projects = projects;
     },
-    // Мутации для ADD/UPDATE/REMOVE теперь не нужны, т.к. мы перезапрашиваем список
-
+    SET_FOLDERS(state: GeodataState, folders: GeoFolder[]) {
+        state.folders = folders;
+    },
     SET_VECTOR_DATA(state: GeodataState, { type, data }: { type: 'points' | 'multilines' | 'polygons', data: any[] }) {
         state[type] = data;
     },
@@ -171,7 +174,6 @@ const actions = {
             await geodataService.shareProject(projectId, email, permissionLevel);
         } catch (err) {
             commit('SET_ERROR', 'Failed to share project.');
-            // Re-throw the error if you want the component to know about it
             throw err;
         } finally {
             commit('SET_LOADING', false);
@@ -241,10 +243,11 @@ const actions = {
     },
 
     // Vector Data Actions
-    async fetchVectorDataForProject({ commit }: ActionContext<GeodataState, any>, projectId: string) {
+    async fetchVectorDataForProject({ commit, dispatch }: ActionContext<GeodataState, any>, projectId: string) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
+            await dispatch('fetchFolders', projectId);
             const [pointsRes, multilinesRes, polygonsRes] = await Promise.all([
                 geodataService.getPointsByProjectId(projectId),
                 geodataService.getMultilinesByProjectId(projectId),
@@ -257,6 +260,31 @@ const actions = {
             commit('SET_ERROR', 'Failed to fetch vector data.');
         } finally {
             commit('SET_LOADING', false);
+        }
+    },
+
+    // Folder Actions
+    async fetchFolders({ commit }: ActionContext<GeodataState, any>, projectId: string) {
+        const response = await geodataService.getFoldersByProjectId(projectId);
+        commit('SET_FOLDERS', response.data);
+    },
+    async createFolder({ dispatch, state }: ActionContext<GeodataState, any>, folderData: Omit<GeoFolder, 'id'>) {
+        await geodataService.createFolder(folderData);
+        if (state.selectedProjectId) {
+            dispatch('fetchFolders', state.selectedProjectId);
+        }
+    },
+    async updateFolder({ dispatch, state }: ActionContext<GeodataState, any>, folderData: GeoFolder) {
+        await geodataService.updateFolder(folderData.id, folderData);
+        if (state.selectedProjectId) {
+            dispatch('fetchFolders', state.selectedProjectId);
+        }
+    },
+    async deleteFolder({ dispatch, state }: ActionContext<GeodataState, any>, folderId: string) {
+        await geodataService.deleteFolder(folderId);
+        if (state.selectedProjectId) {
+            dispatch('fetchFolders', state.selectedProjectId);
+            dispatch('fetchVectorDataForProject', state.selectedProjectId);
         }
     },
 
@@ -425,7 +453,6 @@ const actions = {
             commit('SET_ACTIVE_CAMERA_STREAM', null);
         } catch (err) {
             console.error('Failed to stop camera stream:', err);
-            // Optionally dispatch an alert, but usually stopping is less critical than starting
         }
     },
 };

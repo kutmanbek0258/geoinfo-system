@@ -18,7 +18,7 @@
             :label="layer.name"
             :value="layer.id"
             v-model="visibleLayerIds"
-            @change="toggleImageryLayer(layer, $event)"
+            @update:modelValue="toggleImageryLayer(layer)"
             hide-details
             class="w-100"
           ></v-checkbox>
@@ -107,51 +107,9 @@
       <!-- Search -->
       <SearchComponent/>
 
-      <!-- Список геообъектов -->
+      <!-- Список геообъектов (Hierarchy) -->
       <v-card class="mt-2 feature-list-card" max-height="60vh">
-        <v-list density="compact" nav>
-          <v-list-group value="points">
-            <template v-slot:activator="{ props }">
-              <v-list-item v-bind="props" prepend-icon="mdi-map-marker" title="Points"></v-list-item>
-            </template>
-            <v-list-item
-              v-for="p in points"
-              :key="p.id"
-              :title="p.name"
-              :subtitle="p.status"
-              @click="selectAndZoomToFeature(p.id)"
-              :active="selectedFeatureId === p.id"
-            ></v-list-item>
-          </v-list-group>
-
-          <v-list-group value="lines">
-            <template v-slot:activator="{ props }">
-              <v-list-item v-bind="props" prepend-icon="mdi-vector-polyline" title="Lines"></v-list-item>
-            </template>
-            <v-list-item
-              v-for="l in multilines"
-              :key="l.id"
-              :title="l.name"
-              :subtitle="l.status"
-              @click="selectAndZoomToFeature(l.id)"
-              :active="selectedFeatureId === l.id"
-            ></v-list-item>
-          </v-list-group>
-
-          <v-list-group value="polygons">
-            <template v-slot:activator="{ props }">
-              <v-list-item v-bind="props" prepend-icon="mdi-vector-polygon" title="Polygons"></v-list-item>
-            </template>
-            <v-list-item
-              v-for="poly in polygons"
-              :key="poly.id"
-              :title="poly.name"
-              :subtitle="poly.status"
-              @click="selectAndZoomToFeature(poly.id)"
-              :active="selectedFeatureId === poly.id"
-            ></v-list-item>
-          </v-list-group>
-        </v-list>
+        <GeoObjectTree />
       </v-card>
     </div>
 
@@ -193,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed, toRaw } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed, toRaw, shallowRef } from 'vue';
 import { useStore } from 'vuex';
 import 'ol/ol.css';
 import { Map, View, Feature } from 'ol';
@@ -211,6 +169,7 @@ import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import {FullScreen} from "ol/control";
 import GeodataService from '@/services/geodata.service';
+import GeoObjectTree from './GeoObjectTree.vue';
 import { parseStyle } from '@/util/style.util';
 
 // --- Props & Store ---
@@ -238,7 +197,7 @@ const isGeometryEditMode = ref(false);
 let modifyInteraction: Modify | null = null;
 const visibleLayerIds = ref<string[]>([]);
 const selectedTerrainLayerId = ref<string | null>(null);
-const activeImageLayers = ref<Record<string, TileLayer<TileWMS>>>({}); // Используем plain object
+const activeImageLayers = shallowRef<Record<string, TileLayer<TileWMS>>>({}); // Используем shallowRef
 const layerOpacities = ref<Record<string, number>>({}); // Для хранения прозрачности
 
 // --- Состояние импорта ---
@@ -363,6 +322,11 @@ const updateVectorSource = () => {
     const allObjects = [...points.value, ...multilines.value, ...polygons.value];
     
     const features = allObjects.flatMap(obj => {
+        // Respect visibility
+        if (obj.characteristics?.visible === false) {
+            return [];
+        }
+
         // Читаем геометрию с трансформацией из 4326 (БД) в 3857 (Карта)
         const readFeatures = geoJsonFormat.readFeatures(obj.geom, {
             dataProjection: 'EPSG:4326',
@@ -426,11 +390,13 @@ const setLayerOpacity = (layerId: string, opacity: number) => {
     }
 };
 
-const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
+const toggleImageryLayer = (layerInfo: ImageryLayer) => {
     if (!map) return;
-    const isVisible = event.target.checked;
+    const isVisible = visibleLayerIds.value.includes(layerInfo.id);
 
     if (isVisible) {
+        if (activeImageLayers.value[layerInfo.id]) return;
+
         const wmsSource = new TileWMS({
           url: layerInfo.serviceUrl,
           params: {
@@ -445,7 +411,12 @@ const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
             opacity: (layerOpacities.value[layerInfo.id] || 100) / 100, // Устанавливаем начальную прозрачность
         });
         map.addLayer(imageLayer);
-        activeImageLayers.value[layerInfo.id] = imageLayer;
+        
+        activeImageLayers.value = {
+            ...activeImageLayers.value,
+            [layerInfo.id]: imageLayer
+        };
+
         if (layerOpacities.value[layerInfo.id] === undefined) {
             layerOpacities.value[layerInfo.id] = 100;
         }
@@ -453,7 +424,10 @@ const toggleImageryLayer = (layerInfo: ImageryLayer, event: any) => {
         const layerToRemove = activeImageLayers.value[layerInfo.id];
         if (layerToRemove) {
             map.removeLayer(toRaw(layerToRemove));
-            delete activeImageLayers.value[layerInfo.id];
+            
+            const nextLayers = { ...activeImageLayers.value };
+            delete nextLayers[layerInfo.id];
+            activeImageLayers.value = nextLayers;
         }
     }
 };

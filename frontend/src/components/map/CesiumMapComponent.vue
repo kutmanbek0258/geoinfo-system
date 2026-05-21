@@ -110,51 +110,9 @@
     <div class="map-overlay top-left-search">
       <SearchComponent/>
       
-      <!-- Список геообъектов -->
+      <!-- Список геообъектов (Hierarchy) -->
       <v-card class="mt-2 feature-list-card" max-height="60vh">
-        <v-list density="compact" nav>
-          <v-list-group value="points">
-            <template v-slot:activator="{ props }">
-              <v-list-item v-bind="props" prepend-icon="mdi-map-marker" title="Points"></v-list-item>
-            </template>
-            <v-list-item
-              v-for="p in points"
-              :key="p.id"
-              :title="p.name"
-              :subtitle="p.status"
-              @click="selectAndZoomToFeature(p.id)"
-              :active="selectedFeatureId === p.id"
-            ></v-list-item>
-          </v-list-group>
-
-          <v-list-group value="lines">
-            <template v-slot:activator="{ props }">
-              <v-list-item v-bind="props" prepend-icon="mdi-vector-polyline" title="Lines"></v-list-item>
-            </template>
-            <v-list-item
-              v-for="l in multilines"
-              :key="l.id"
-              :title="l.name"
-              :subtitle="l.status"
-              @click="selectAndZoomToFeature(l.id)"
-              :active="selectedFeatureId === l.id"
-            ></v-list-item>
-          </v-list-group>
-
-          <v-list-group value="polygons">
-            <template v-slot:activator="{ props }">
-              <v-list-item v-bind="props" prepend-icon="mdi-vector-polygon" title="Polygons"></v-list-item>
-            </template>
-            <v-list-item
-              v-for="poly in polygons"
-              :key="poly.id"
-              :title="poly.name"
-              :subtitle="poly.status"
-              @click="selectAndZoomToFeature(poly.id)"
-              :active="selectedFeatureId === poly.id"
-            ></v-list-item>
-          </v-list-group>
-        </v-list>
+        <GeoObjectTree />
       </v-card>
     </div>
 
@@ -201,6 +159,7 @@ import type { ImageryLayer, TerrainLayer, ProjectPoint, ProjectMultiline, Projec
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeodataService from '@/services/geodata.service';
+import GeoObjectTree from './GeoObjectTree.vue';
 import { parseStyle } from '@/util/style.util';
 
 const props = defineProps<{
@@ -391,11 +350,13 @@ const updateVectorSource = () => {
   };
 
   allObjects.forEach(obj => {
+    const isVisible = obj.characteristics?.visible !== false;
     const style = obj.characteristics?.style || {};
     let entityOptions: Cesium.Entity.ConstructorOptions = {
       id: obj.id,
       name: obj.name,
       description: obj.description,
+      show: isVisible,
     };
 
     const is3D = hasZHeight(obj.geom);
@@ -460,6 +421,7 @@ const updateVectorSource = () => {
         
         // Add outline as polyline
         v.entities.add({
+          show: isVisible,
           polyline: {
             positions: [...positions, positions[0]],
             width: (style.line?.width || 2) + 1,

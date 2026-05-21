@@ -2,27 +2,24 @@ package kg.geoinfo.system.geodataservice.models;
 
 import jakarta.persistence.*;
 import kg.geoinfo.system.geodataservice.config.audit.AuditableCustom;
-import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import org.locationtech.jts.geom.Point;
 
 import java.util.Map;
 import java.util.UUID;
 
-@Table(name = "project_points", schema = "geodata", indexes = {
-        @Index(name = "ix_pp_status", columnList = "status"),
-        @Index(name = "ix_pp_project", columnList = "project_id"),
-        @Index(name = "ix_pp_geom", columnList = "geom")
+@Table(name = "folders", schema = "geodata", indexes = {
+        @Index(name = "ix_folders_project", columnList = "project_id"),
+        @Index(name = "ix_folders_parent", columnList = "parent_id")
 })
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@ToString
-public class ProjectPoint extends AuditableCustom<String> {
+@Builder
+public class GeoFolder extends AuditableCustom<String> {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -33,24 +30,14 @@ public class ProjectPoint extends AuditableCustom<String> {
     private Project project;
 
     @ManyToOne
-    @JoinColumn(name = "folder_id")
-    private GeoFolder folder;
+    @JoinColumn(name = "parent_id")
+    private GeoFolder parent;
 
-    @Column(name = "name", length = 256)
+    @Column(name = "name", nullable = false, length = 256)
     private String name;
 
     @Column(name = "description")
     private String description;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
-    private Status status;
-
-    @Column(columnDefinition = "geometry(PointZ,4326)", nullable = false)
-    private Point geom;
-
-    @Column(name = "image_url", length = 1000)
-    private String imageUrl;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")

@@ -1,5 +1,5 @@
 import api from './api';
-import type { Page, Project, ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon } from '@/types/api';
+import type { Page, Project, ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, GeoFolder } from '@/types/api';
 
 class GeodataService {
     // --- Projects ---
@@ -50,7 +50,7 @@ class GeodataService {
     }
 
     // --- Points ---
-    getPointsByProjectId(projectId: string, page = 0, size = 10) {
+    getPointsByProjectId(projectId: string, page = 0, size = 1000) {
         return api.get<Page<ProjectPoint>>(`/geodata/points/by-project-id/${projectId}`, { params: { page, size } });
     }
     createPoint(point: Omit<ProjectPoint, 'id'>) {
@@ -67,7 +67,7 @@ class GeodataService {
     }
 
     // --- Multilines ---
-    getMultilinesByProjectId(projectId: string, page = 0, size = 10) {
+    getMultilinesByProjectId(projectId: string, page = 0, size = 1000) {
         return api.get<Page<ProjectMultiline>>(`/geodata/multilines/by-project-id/${projectId}`, { params: { page, size } });
     }
     createMultiline(multiline: Omit<ProjectMultiline, 'id'>) {
@@ -84,7 +84,7 @@ class GeodataService {
     }
 
     // --- Polygons ---
-    getPolygonsByProjectId(projectId: string, page = 0, size = 10) {
+    getPolygonsByProjectId(projectId: string, page = 0, size = 1000) {
         return api.get<Page<ProjectPolygon>>(`/geodata/polygons/by-project-id/${projectId}`, { params: { page, size } });
     }
     createPolygon(polygon: Omit<ProjectPolygon, 'id'>) {
@@ -109,6 +109,20 @@ class GeodataService {
                 'Content-Type': 'multipart/form-data',
             },
         });
+    }
+
+    // --- Folders ---
+    getFoldersByProjectId(projectId: string) {
+        return api.get<GeoFolder[]>(`/geodata/folders/project/${projectId}`);
+    }
+    createFolder(folder: Omit<GeoFolder, 'id'>) {
+        return api.post<GeoFolder>('/geodata/folders', folder);
+    }
+    updateFolder(id: string, folder: Partial<Omit<GeoFolder, 'id'>>) {
+        return api.put<GeoFolder>(`/geodata/folders/${id}`, folder);
+    }
+    deleteFolder(id: string) {
+        return api.delete(`/geodata/folders/${id}`);
     }
 }
 

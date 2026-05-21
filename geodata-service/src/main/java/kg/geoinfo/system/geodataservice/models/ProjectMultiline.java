@@ -34,6 +34,10 @@ public class ProjectMultiline extends AuditableCustom<String> {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne
+    @JoinColumn(name = "folder_id")
+    private GeoFolder folder;
+
     @Column(name = "name", length = 256)
     private String name;
 

@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface ProjectPolygonMapper {
 
     @Mapping(source = "project.id", target = "projectId")
+    @Mapping(source = "folder.id", target = "folderId")
     ProjectPolygonDto toDto(ProjectPolygon projectPolygon);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")
