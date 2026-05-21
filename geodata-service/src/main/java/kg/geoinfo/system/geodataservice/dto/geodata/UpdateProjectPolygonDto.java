@@ -6,12 +6,14 @@ import lombok.NoArgsConstructor;
 import org.locationtech.jts.geom.Polygon;
 
 import java.util.Map;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
 public class UpdateProjectPolygonDto {
     private String name;
     private String description;
+    private UUID folderId;
     private Status status;
 
     private Polygon geom;

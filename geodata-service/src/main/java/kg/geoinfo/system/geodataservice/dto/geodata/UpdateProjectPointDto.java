@@ -6,12 +6,14 @@ import lombok.NoArgsConstructor;
 import org.locationtech.jts.geom.Point;
 
 import java.util.Map;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
 public class UpdateProjectPointDto {
     private String name;
     private String description;
+    private UUID folderId;
     private Status status;
     private Point geom;
     private Map<String, Object> characteristics;

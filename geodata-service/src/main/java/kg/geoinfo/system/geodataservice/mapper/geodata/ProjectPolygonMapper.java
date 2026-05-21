@@ -5,6 +5,7 @@ import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.models.ProjectPolygon;
+import kg.geoinfo.system.geodataservice.models.GeoFolder;
 import org.mapstruct.*;
 
 import java.util.UUID;
@@ -20,7 +21,18 @@ public interface ProjectPolygonMapper {
     ProjectPolygon toEntity(CreateProjectPolygonDto createProjectPolygonDto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "folder", source = "folderId", qualifiedByName = "mapFolder")
     void update(@MappingTarget ProjectPolygon projectPolygon, UpdateProjectPolygonDto updateProjectPolygonDto);
+
+    @Named("mapFolder")
+    default GeoFolder mapFolder(UUID id) {
+        if (id == null) {
+            return null;
+        }
+        GeoFolder folder = new GeoFolder();
+        folder.setId(id);
+        return folder;
+    }
 
     @Named("mapProject")
     default Project mapProject(UUID id) {

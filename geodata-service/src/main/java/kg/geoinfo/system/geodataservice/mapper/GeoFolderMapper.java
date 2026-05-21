@@ -13,8 +13,8 @@ public interface GeoFolderMapper extends EntityMapper<GeoFolderDto, GeoFolder> {
     GeoFolderDto toDto(GeoFolder entity);
 
     @Override
-    @Mapping(source = "projectId", target = "project.id")
-    @Mapping(source = "parentId", target = "parent.id")
+    @Mapping(target = "project", ignore = true)
+    @Mapping(target = "parent", ignore = true)
     GeoFolder toEntity(GeoFolderDto dto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

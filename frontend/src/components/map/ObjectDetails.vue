@@ -184,6 +184,19 @@
           <v-text-field v-model="featureToEdit.name" label="Name" required></v-text-field>
           <v-textarea v-model="featureToEdit.description" label="Description"></v-textarea>
 
+          <!-- Folder Selection -->
+          <v-select
+            v-model="featureToEdit.folderId"
+            :items="availableFolders"
+            label="Папка"
+            item-title="name"
+            item-value="id"
+            clearable
+            placeholder="Корень проекта"
+            variant="outlined"
+            class="mt-4"
+          ></v-select>
+
           <!-- Altitude Offset Adjustment -->
           <v-text-field
             v-model.number="featureToEdit.altitudeOffset"
@@ -405,9 +418,10 @@ const featureToEdit = ref<{
   name: string,
   description: string,
   type: string,
+  folderId: string | null,
   characteristics: Record<string, any>,
   altitudeOffset: number
-}>({ name: '', description: '', type: '', characteristics: {}, altitudeOffset: 0 });
+}>({ name: '', description: '', type: '', folderId: null, characteristics: {}, altitudeOffset: 0 });
 
 const cameraEditDetails = ref({ // Для временного хранения данных камеры при редактировании
   ip_address: '',
@@ -429,6 +443,8 @@ const displayFeatureName = computed<string>(() => {
 const isLoading = computed(() => store.state.document?.isLoading || false);
 const isUploading = computed(() => store.state.document?.isUploading || false);
 const documents = computed<Document[]>(() => store.state.document?.documents || []);
+const folders = computed(() => store.state.geodata.folders);
+const availableFolders = computed(() => folders.value);
 
 // --- Наблюдатель за изменением ID ---
 watch(() => props.featureId, (newId) => {
@@ -442,6 +458,7 @@ const editFeature = () => {
     name: props.featureName,
     description: props.featureDescription,
     type: props.featureType, // Assume featureType is the main type (Point, MultiLineString, Polygon)
+    folderId: props.fullFeatureData?.folderId || null,
     characteristics: props.fullFeatureData?.characteristics || {},
     altitudeOffset: 0,
   };
@@ -523,6 +540,7 @@ const confirmEdit = () => {
   const payload: any = {
     name: featureToEdit.value.name,
     description: featureToEdit.value.description,
+    folderId: featureToEdit.value.folderId,
     characteristics: updatedCharacteristics,
   };
 
