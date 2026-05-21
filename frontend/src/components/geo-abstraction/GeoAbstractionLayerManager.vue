@@ -75,8 +75,7 @@
                   <template v-slot:prepend>
                     <v-icon color="primary">mdi-satellite-variant</v-icon>
                   </template>
-                  <v-list-item-title>Спутниковые снимки (Sentinel/Landsat)</v-list-item-title>
-                </v-list-item>
+                  <v-list-item-title>Растровые данные (GeoTIFF, Спутники)</v-list-item-title>                </v-list-item>
               </v-list>
             </v-menu>
 
@@ -233,6 +232,8 @@ const getTaskIcon = (taskType: string | undefined) => {
       return { icon: 'mdi-satellite-variant', color: 'primary', label: 'Sentinel-2' };
     case 'LANDSAT_COG':
       return { icon: 'mdi-satellite-variant', color: 'indigo', label: 'Landsat 8' };
+    case 'RAW_GEOTIFF_OPTIMIZE':
+      return { icon: 'mdi-file-image', color: 'teal', label: 'GeoTIFF' };
     case 'TERRAIN_MESH':
       return { icon: 'mdi-terrain', color: 'brown', label: 'Terrain' };
     default:

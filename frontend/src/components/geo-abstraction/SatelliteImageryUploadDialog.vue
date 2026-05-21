@@ -9,6 +9,7 @@
       <v-tabs v-model="satelliteType" color="primary" grow>
         <v-tab value="sentinel">Sentinel-2</v-tab>
         <v-tab value="landsat">Landsat 8</v-tab>
+        <v-tab value="geotiff">GeoTIFF</v-tab>
       </v-tabs>
 
       <v-card-text class="pt-4">
@@ -16,7 +17,7 @@
           <v-text-field
             v-model="name"
             label="Название задачи"
-            placeholder="Напр. Satellite_Bishkek_2026"
+            placeholder="Напр. My_GeoTIFF_Area"
             :rules="[v => !!v || 'Название обязательно']"
             required
             density="comfortable"
@@ -24,51 +25,55 @@
 
           <v-file-input
             v-model="file"
-            :label="satelliteType === 'sentinel' ? 'Выберите Sentinel-2 SAFE (ZIP)' : 'Выберите Landsat 8 (ZIP/TAR)'"
-            :accept="satelliteType === 'sentinel' ? '.zip' : '.zip,.tar,.gz,.tgz'"
+            :label="getFileLabel"
+            :accept="getFileAccept"
             :rules="[v => !!v || 'Файл обязателен']"
             required
-            prepend-icon="mdi-zip-box"
-            :hint="satelliteType === 'sentinel' ? 'Загрузите весь пакет .SAFE в виде ZIP-архива' : 'Загрузите архив с каналами Landsat 8'"
+            :prepend-icon="satelliteType === 'geotiff' ? 'mdi-file-image' : 'mdi-zip-box'"
+            :hint="getFileHint"
             persistent-hint
             density="comfortable"
           ></v-file-input>
 
-          <v-divider class="my-4"></v-divider>
-
-          <v-select
-            v-model="selectedPreset"
-            :items="currentPresets"
-            label="Выберите пресет или индекс"
-            prepend-icon="mdi-tune-variant"
-            @update:modelValue="onPresetChange"
-            density="comfortable"
-          ></v-select>
-
           <v-expand-transition>
-            <div v-if="selectedPreset === 'Custom'">
+            <div v-if="satelliteType !== 'geotiff'">
+              <v-divider class="my-4"></v-divider>
+
               <v-select
-                v-model="selectedChannels"
-                :items="availableChannels"
-                label="Выберите спектральные каналы вручную"
-                multiple
-                chips
-                hint="Каналы будут объединены в один COG-файл"
-                persistent-hint
-                :rules="[v => v.length > 0 || 'Выберите хотя бы один канал']"
-                class="mt-2"
+                v-model="selectedPreset"
+                :items="currentPresets"
+                label="Выберите пресет или индекс"
+                prepend-icon="mdi-tune-variant"
+                @update:modelValue="onPresetChange"
                 density="comfortable"
               ></v-select>
-            </div>
-            <div v-else-if="selectedPreset !== 'Custom'">
-              <v-alert
-                type="info"
-                variant="tonal"
-                density="compact"
-                class="mt-2"
-              >
-                Используемые каналы: {{ getPresetChannels(selectedPreset).join(', ') }}
-              </v-alert>
+
+              <v-expand-transition>
+                <div v-if="selectedPreset === 'Custom'">
+                  <v-select
+                    v-model="selectedChannels"
+                    :items="availableChannels"
+                    label="Выберите спектральные каналы вручную"
+                    multiple
+                    chips
+                    hint="Каналы будут объединены в один COG-файл"
+                    persistent-hint
+                    :rules="[v => v.length > 0 || 'Выберите хотя бы один канал']"
+                    class="mt-2"
+                    density="comfortable"
+                  ></v-select>
+                </div>
+                <div v-else-if="selectedPreset !== 'Custom'">
+                  <v-alert
+                    type="info"
+                    variant="tonal"
+                    density="compact"
+                    class="mt-2"
+                  >
+                    Используемые каналы: {{ getPresetChannels(selectedPreset).join(', ') }}
+                  </v-alert>
+                </div>
+              </v-expand-transition>
             </div>
           </v-expand-transition>
 
@@ -85,7 +90,7 @@
           variant="elevated"
           @click="upload"
           :loading="loading"
-          :disabled="!valid || !file || (selectedPreset === 'Custom' && selectedChannels.length === 0)"
+          :disabled="!valid || !file || (satelliteType !== 'geotiff' && selectedPreset === 'Custom' && selectedChannels.length === 0)"
         >
           Запустить обработку
         </v-btn>
@@ -113,7 +118,25 @@ const valid = ref(false);
 const loading = ref(false);
 const name = ref('');
 const file = ref<File | null>(null);
-const satelliteType = ref<'sentinel' | 'landsat'>('sentinel');
+const satelliteType = ref<'sentinel' | 'landsat' | 'geotiff'>('sentinel');
+
+const getFileLabel = computed(() => {
+  if (satelliteType.value === 'sentinel') return 'Выберите Sentinel-2 SAFE (ZIP)';
+  if (satelliteType.value === 'landsat') return 'Выберите Landsat 8 (ZIP/TAR)';
+  return 'Выберите GeoTIFF (.tif, .tiff)';
+});
+
+const getFileAccept = computed(() => {
+  if (satelliteType.value === 'sentinel') return '.zip';
+  if (satelliteType.value === 'landsat') return '.zip,.tar,.gz,.tgz';
+  return '.tif,.tiff';
+});
+
+const getFileHint = computed(() => {
+  if (satelliteType.value === 'sentinel') return 'Загрузите весь пакет .SAFE в виде ZIP-архива';
+  if (satelliteType.value === 'landsat') return 'Загрузите архив с каналами Landsat 8';
+  return 'Загрузите файл GeoTIFF для оптимизации и публикации';
+});
 
 const sentinelChannels = [
   { title: 'B02 (Blue, 10m)', value: 'B02' },
@@ -206,6 +229,7 @@ const selectedPreset = ref('Natural Color (4-3-2)');
 const selectedChannels = ref(['B04', 'B03', 'B02']);
 
 watch(satelliteType, (newType) => {
+  if (newType === 'geotiff') return;
   selectedPreset.value = 'Natural Color (4-3-2)';
   selectedChannels.value = newType === 'sentinel' ? ['B04', 'B03', 'B02'] : ['B4', 'B3', 'B2'];
 });
@@ -233,21 +257,25 @@ const upload = async () => {
   
   loading.value = true;
   try {
-    const indexType = getIndexType(selectedPreset.value);
-    if (satelliteType.value === 'sentinel') {
-      await geoAbstractionService.createSentinelJob(
-          name.value, 
-          file.value, 
-          selectedChannels.value,
-          indexType
-      );
+    if (satelliteType.value === 'geotiff') {
+      await geoAbstractionService.uploadRawGeoTiff(name.value, file.value);
     } else {
-      await geoAbstractionService.createLandsatJob(
-          name.value, 
-          file.value, 
-          selectedChannels.value,
-          indexType
-      );
+      const indexType = getIndexType(selectedPreset.value);
+      if (satelliteType.value === 'sentinel') {
+        await geoAbstractionService.createSentinelJob(
+            name.value, 
+            file.value, 
+            selectedChannels.value,
+            indexType
+        );
+      } else {
+        await geoAbstractionService.createLandsatJob(
+            name.value, 
+            file.value, 
+            selectedChannels.value,
+            indexType
+        );
+      }
     }
     
     internalValue.value = false;
@@ -263,7 +291,9 @@ const upload = async () => {
 const resetForm = () => {
   name.value = '';
   file.value = null;
-  selectedPreset.value = 'Natural Color (4-3-2)';
-  selectedChannels.value = satelliteType.value === 'sentinel' ? ['B04', 'B03', 'B02'] : ['B4', 'B3', 'B2'];
+  if (satelliteType.value !== 'geotiff') {
+    selectedPreset.value = 'Natural Color (4-3-2)';
+    selectedChannels.value = satelliteType.value === 'sentinel' ? ['B04', 'B03', 'B02'] : ['B4', 'B3', 'B2'];
+  }
 };
 </script>

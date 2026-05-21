@@ -328,6 +328,8 @@ services:
     depends_on:
       postgres-geoabstraction:
         condition: service_healthy
+      geoserver:
+        condition: service_healthy
       kafka:
         condition: service_healthy
       config-server:
