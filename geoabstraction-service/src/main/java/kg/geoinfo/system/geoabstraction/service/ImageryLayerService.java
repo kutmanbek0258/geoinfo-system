@@ -6,6 +6,7 @@ import kg.geoinfo.system.geoabstraction.dto.ImageryLayerDto;
 import kg.geoinfo.system.geoabstraction.mapper.ImageryLayerMapper;
 import kg.geoinfo.system.geoabstraction.models.ImageryLayer;
 import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
+import kg.geoinfo.system.geoabstraction.service.geoserver.GeoServerClient;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +30,23 @@ public class ImageryLayerService {
     private final KafkaProducerService kafkaProducerService;
     private final ObjectMapper objectMapper;
 
+    private final GeoServerClient geoServerClient;
+
     public ImageryLayerDto save(ImageryLayerDto imageryLayerDto) {
         ImageryLayer entity = imageryLayerMapper.toEntity(imageryLayerDto);
         return save(entity);
+    }
+    
+    public List<String> getStyles() {
+        return geoServerClient.getStyles();
+    }
+
+    public ImageryLayerDto updateStyle(UUID id, String styleName) {
+        ImageryLayer entity = repository.findById(id).orElseThrow();
+        geoServerClient.updateLayerStyle(entity.getWorkspace(), entity.getLayerName(), styleName);
+        entity.setStyle(styleName);
+        repository.save(entity);
+        return imageryLayerMapper.toDto(entity);
     }
 
     public ImageryLayerDto save(ImageryLayer entity) {

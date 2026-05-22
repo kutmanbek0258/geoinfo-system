@@ -28,6 +28,9 @@ class RawRasterProcessor(BaseProcessor):
             logger.info("Downloading raw GeoTIFF: %s/%s", source_bucket, source_key)
             minio_client.fget_object(source_bucket, source_key, input_file)
 
+            logger.info("Validating downloaded GeoTIFF")
+            run_command(["gdalinfo", input_file])
+
             logger.info("Converting raw GeoTIFF to Cloud Optimized GeoTIFF: %s", final_output_file)
             
             # For raw GeoTIFF, we just optimize it to COG. 

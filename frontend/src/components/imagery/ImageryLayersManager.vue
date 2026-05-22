@@ -66,7 +66,7 @@
             </v-row>
             <v-row>
                 <v-col cols="12" sm="6">
-                    <v-text-field v-model="editableLayer.style" label="Style"></v-text-field>
+                    <v-select v-model="editableLayer.style" :items="availableStyles" label="Style"></v-select>
                 </v-col>
                 <v-col cols="12" sm="6">
                     <v-text-field v-model="editableLayer.crs" label="CRS (e.g., EPSG:4326)" :rules="[v => !!v || 'CRS is required']"></v-text-field>
@@ -88,6 +88,7 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import type { ImageryLayer } from '@/types/api';
+import GeoAbstractionService from '@/services/geo-abstraction.service';
 
 // Используем Vuex store
 const store = useStore();
@@ -99,6 +100,7 @@ const editableLayer = ref<Partial<ImageryLayer>>({});
 const form = ref<any>(null);
 const currentPage = ref(1);
 const pageSize = ref(10);
+const availableStyles = ref<string[]>([]);
 
 // --- Получение данных из Vuex ---
 const isLoading = computed(() => store.state.geodata.isLoading);
@@ -110,9 +112,19 @@ const fetchCurrentPage = () => {
     store.dispatch('geodata/fetchImageryLayers', { page: currentPage.value - 1, size: pageSize.value });
 }
 
+const fetchStyles = async () => {
+    try {
+        const response = await GeoAbstractionService.getStyles();
+        availableStyles.value = response.data;
+    } catch (e) {
+        console.error("Failed to fetch styles", e);
+    }
+}
+
 // --- Жизненный цикл и наблюдатели ---
-onMounted(() => {
+onMounted(async () => {
   fetchCurrentPage();
+  await fetchStyles();
 });
 
 watch(currentPage, () => {
@@ -145,6 +157,14 @@ const openEditDialog = (layer: ImageryLayer) => {
 const saveLayer = async () => {
   const { valid } = await form.value.validate();
   if (!valid) return;
+
+  // Если редактируем существующий слой и изменили стиль, выполняем обновление стиля через API
+  if (isEditing.value && editableLayer.value.id) {
+      const originalLayer = imageryLayers.value.find(l => l.id === editableLayer.value.id);
+      if (originalLayer && originalLayer.style !== editableLayer.value.style) {
+          await GeoAbstractionService.updateImageryLayerStyle(editableLayer.value.id, editableLayer.value.style as string);
+      }
+  }
 
   const actionPayload = {
       layerData: editableLayer.value,

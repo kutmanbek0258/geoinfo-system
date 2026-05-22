@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -130,6 +131,44 @@ public class GeoServerClient {
             log.info("Layer {} published successfully with style {}", layerName, styleName);
         } catch (Exception e) {
             log.error("Failed to publish layer {}: {}", layerName, e.getMessage());
+        }
+    }
+
+    public List<String> getStyles() {
+        String url = properties.getDomain() + "/rest/styles.json";
+        try {
+            ResponseEntity<Map> response = geoServerRestTemplate.getForEntity(url, Map.class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> stylesWrapper = (Map<String, Object>) response.getBody().get("styles");
+                List<Map<String, String>> stylesList = (List<Map<String, String>>) stylesWrapper.get("style");
+                return stylesList.stream().map(s -> s.get("name")).toList();
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch styles: {}", e.getMessage());
+        }
+        return List.of();
+    }
+
+    public void updateLayerStyle(String workspace, String layerName, String styleName) {
+        String url = String.format("%s/rest/workspaces/%s/layers/%s.xml", properties.getDomain(), workspace, layerName);
+        String xml = String.format("""
+            <layer>
+                <defaultStyle>
+                    <name>%s</name>
+                </defaultStyle>
+            </layer>
+            """, styleName);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_XML);
+
+        HttpEntity<String> entity = new HttpEntity<>(xml, headers);
+
+        try {
+            geoServerRestTemplate.exchange(url, HttpMethod.PUT, entity, String.class);
+            log.info("Layer {} style updated to {} in workspace {}", layerName, styleName, workspace);
+        } catch (Exception e) {
+            log.error("Failed to update style for layer {}: {}", layerName, e.getMessage());
         }
     }
 }
