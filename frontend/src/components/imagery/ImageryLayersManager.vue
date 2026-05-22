@@ -158,14 +158,6 @@ const saveLayer = async () => {
   const { valid } = await form.value.validate();
   if (!valid) return;
 
-  // Если редактируем существующий слой и изменили стиль, выполняем обновление стиля через API
-  if (isEditing.value && editableLayer.value.id) {
-      const originalLayer = imageryLayers.value.find(l => l.id === editableLayer.value.id);
-      if (originalLayer && originalLayer.style !== editableLayer.value.style) {
-          await GeoAbstractionService.updateImageryLayerStyle(editableLayer.value.id, editableLayer.value.style as string);
-      }
-  }
-
   const actionPayload = {
       layerData: editableLayer.value,
       page: currentPage.value - 1,

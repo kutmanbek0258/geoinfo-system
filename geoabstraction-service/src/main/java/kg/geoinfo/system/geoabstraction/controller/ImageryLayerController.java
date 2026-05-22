@@ -51,15 +51,15 @@ public class ImageryLayerController {
         return ResponseEntity.ok(imageryLayerPage);
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('IMAGERY_LAYER_UPDATE')")
+    public ResponseEntity<ImageryLayerDto> update(@PathVariable("id") UUID id, @RequestBody ImageryLayerDto imageryLayerDto) {
+        return ResponseEntity.ok(imageryLayerService.update(imageryLayerDto, id));
+    }
+
     @GetMapping("/styles")
     @PreAuthorize("hasAuthority('IMAGERY_LAYER_READ')")
     public ResponseEntity<java.util.List<String>> getStyles() {
         return ResponseEntity.ok(imageryLayerService.getStyles());
-    }
-
-    @PutMapping("/{id}/style")
-    @PreAuthorize("hasAuthority('IMAGERY_LAYER_UPDATE')")
-    public ResponseEntity<ImageryLayerDto> updateStyle(@PathVariable("id") UUID id, @RequestBody String styleName) {
-        return ResponseEntity.ok(imageryLayerService.updateStyle(id, styleName));
     }
 }

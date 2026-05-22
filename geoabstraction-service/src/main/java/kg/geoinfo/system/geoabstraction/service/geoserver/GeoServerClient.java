@@ -149,8 +149,8 @@ public class GeoServerClient {
         return List.of();
     }
 
-    public void updateLayerStyle(String workspace, String layerName, String styleName) {
-        String url = String.format("%s/rest/workspaces/%s/layers/%s.xml", properties.getDomain(), workspace, layerName);
+    public void updateLayerStyle(String layerName, String styleName) {
+        String url = String.format("%s/rest/layers/%s.xml", properties.getDomain(), layerName);
         String xml = String.format("""
             <layer>
                 <defaultStyle>
@@ -166,7 +166,7 @@ public class GeoServerClient {
 
         try {
             geoServerRestTemplate.exchange(url, HttpMethod.PUT, entity, String.class);
-            log.info("Layer {} style updated to {} in workspace {}", layerName, styleName, workspace);
+            log.info("Layer {} style updated to {}", layerName, styleName);
         } catch (Exception e) {
             log.error("Failed to update style for layer {}: {}", layerName, e.getMessage());
         }

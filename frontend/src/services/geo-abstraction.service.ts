@@ -163,14 +163,6 @@ class GeoAbstractionService {
   getStyles() {
     return api.get<string[]>(`${API_URL}/imagery-layer/styles`);
   }
-
-  updateImageryLayerStyle(id: string, styleName: string) {
-    return api.post<ImageryLayer>(`${API_URL}/imagery-layer/${id}/style`, styleName, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-  }
 }
 
 export default new GeoAbstractionService();

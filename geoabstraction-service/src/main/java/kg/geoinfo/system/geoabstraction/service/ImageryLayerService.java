@@ -41,14 +41,6 @@ public class ImageryLayerService {
         return geoServerClient.getStyles();
     }
 
-    public ImageryLayerDto updateStyle(UUID id, String styleName) {
-        ImageryLayer entity = repository.findById(id).orElseThrow();
-        geoServerClient.updateLayerStyle(entity.getWorkspace(), entity.getLayerName(), styleName);
-        entity.setStyle(styleName);
-        repository.save(entity);
-        return imageryLayerMapper.toDto(entity);
-    }
-
     public ImageryLayerDto save(ImageryLayer entity) {
         entity = repository.save(entity);
         sendKafkaEvent(entity, GeoObjectEvent.EventType.CREATED);
@@ -81,6 +73,7 @@ public class ImageryLayerService {
     public ImageryLayerDto update(ImageryLayerDto imageryLayerDto, UUID id) {
         ImageryLayer entity = repository.findById(id).orElseThrow(() -> new RuntimeException("ImageryLayer not found"));
         imageryLayerMapper.update(entity, imageryLayerDto);
+        geoServerClient.updateLayerStyle(entity.getLayerName(), entity.getStyle());
         entity = repository.save(entity);
         sendKafkaEvent(entity, GeoObjectEvent.EventType.UPDATED);
         return imageryLayerMapper.toDto(entity);
