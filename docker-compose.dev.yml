@@ -127,7 +127,7 @@ services:
     networks:
       - dev-net
 
-  terrain-service:
+  geoabstraction-service:
     ports:
       - "9007:9007"
     networks:
