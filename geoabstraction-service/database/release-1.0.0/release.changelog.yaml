@@ -9,3 +9,6 @@ databaseChangeLog:
   - include:
       file: object/add_imagery_layers.sql
       relativeToChangelogFile: true
+  - include:
+      file: object/update_imagery_layers_job_id.sql
+      relativeToChangelogFile: true

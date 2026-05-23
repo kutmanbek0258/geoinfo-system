@@ -11,4 +11,5 @@ import java.util.UUID;
 @Repository
 public interface ImageryLayerRepository extends JpaRepository<ImageryLayer, UUID> {
     Page<ImageryLayer> findAllByNameContainingIgnoreCase(String name, Pageable pageable);
+    java.util.Optional<ImageryLayer> findByJobId(UUID jobId);
 }

@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 public class KafkaConsumerService {
 
     private final GeoAbstractionService geoAbstractionService;
+    private final kg.geoinfo.system.geoabstraction.service.ImageryLayerService imageryLayerService;
+    private final kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository imageryLayerRepository;
 
     @KafkaListener(topics = {"geoabstraction.terrain.events", "geoabstraction.raster.events"}, 
                    groupId = "${spring.kafka.consumer.group-id:geoabstraction-service-group}")
@@ -34,6 +36,11 @@ public class KafkaConsumerService {
                     null,
                     terrainUrl
             );
+        } else if (event.getEventType() == GeoAbstractJobEvent.EventType.DELETED) {
+            // Confirmation from worker that files are deleted
+            imageryLayerRepository.findByJobId(event.getJobId()).ifPresent(layer -> {
+                imageryLayerService.forceDelete(layer.getId());
+            });
         }
     }
 }

@@ -313,6 +313,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             
             // 3. Create ImageryLayer in DB via Service (to trigger Kafka event)
             kg.geoinfo.system.geoabstraction.models.ImageryLayer imageryLayer = new kg.geoinfo.system.geoabstraction.models.ImageryLayer();
+            imageryLayer.setJobId(job.getId());
             imageryLayer.setName(job.getName());
             imageryLayer.setDescription("Automatically published layer from job " + job.getId());
             imageryLayer.setWorkspace(workspace);
@@ -327,11 +328,14 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             imageryLayerService.save(imageryLayer);
         }
 
-        if (jobStatus == GeoAbstractJobStatus.READY) {
-            // Cleanup source TIFF after successful import
+        if (jobStatus == GeoAbstractJobStatus.READY || jobStatus == GeoAbstractJobStatus.FAILED) {
+            // Cleanup source TIFF after terminal state reached
             try {
-                log.info("Cleaning up source file {} for job {}", job.getSourceObjectKey(), jobId);
-                fileStoreService.delete(job.getSourceObjectKey());
+                if (job.getSourceObjectKey() != null) {
+                    log.info("Cleaning up source file {} for job {} (Status: {})", 
+                            job.getSourceObjectKey(), jobId, jobStatus);
+                    fileStoreService.delete(job.getSourceObjectKey());
+                }
             } catch (Exception e) {
                 log.error("Failed to cleanup source file for job {}: {}", jobId, e.getMessage());
             }

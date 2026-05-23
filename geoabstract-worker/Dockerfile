@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip first
 RUN pip3 install --upgrade pip setuptools wheel
 
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 COPY requirements.txt .

@@ -1,11 +1,30 @@
 import time
+import os
+import shutil
+import tempfile
 from app.core.config import logger, log_config
 from app.core.clients import create_producer, create_consumer
 from app.processors.factory import get_processor
 
+def cleanup_on_startup():
+    """Removes orphaned temporary directories from /tmp on startup."""
+    temp_dir = tempfile.gettempdir()
+    prefixes = ["terrain-"]
+    logger.info("Starting startup cleanup in %s", temp_dir)
+    
+    try:
+        for item in os.listdir(temp_dir):
+            path = os.path.join(temp_dir, item)
+            if os.path.isdir(path) and any(item.startswith(p) for p in prefixes):
+                logger.info("Removing orphaned directory: %s", path)
+                shutil.rmtree(path, ignore_errors=True)
+    except Exception as e:
+        logger.warning("Failed to perform startup cleanup: %s", e)
+
 def main():
     logger.info("Terrain worker starting (Modular Version).")
     log_config()
+    cleanup_on_startup()
     
     producer = create_producer()
     consumer = create_consumer()

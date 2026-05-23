@@ -48,6 +48,38 @@ public class ImageryLayerService {
     }
 
     public void deleteById(UUID id) {
+        ImageryLayer entity = repository.findById(id).orElseThrow(() -> new RuntimeException("ImageryLayer not found"));
+        
+        // 1. Set status to DELETING
+        entity.setStatus(kg.geoinfo.system.geoabstraction.models.enums.Status.DELETING);
+        repository.save(entity);
+        sendKafkaEvent(entity, GeoObjectEvent.EventType.UPDATED);
+
+        // 2. Delete from GeoServer
+        geoServerClient.deleteLayer(entity.getWorkspace(), entity.getLayerName());
+        geoServerClient.deleteCoverageStore(entity.getWorkspace(), entity.getLayerName()); // layerName is storeName in our convention
+
+        // 3. Send event to Kafka for geoabstract-worker to delete file
+        log.info("Sending DELETED event for imagery layer {} (jobId: {})", id, entity.getJobId());
+        kg.geoinfo.system.common.GeoAbstractJobEvent event = kg.geoinfo.system.common.GeoAbstractJobEvent.builder()
+                .jobId(entity.getJobId())
+                .eventType(kg.geoinfo.system.common.GeoAbstractJobEvent.EventType.DELETED)
+                .taskType("RAW_GEOTIFF_OPTIMIZE") // worker uses this for raster cleanup
+                .outputPrefix(entity.getLayerName())
+                .build();
+
+        kafkaProducerService.sendGeoAbstractJobEvent(event);
+
+        // Fallback for legacy data: if jobId is null, we can't wait for confirmation.
+        // Delete from DB immediately.
+        if (entity.getJobId() == null) {
+            log.info("Legacy imagery layer without jobId detected, force deleting from DB immediately.");
+            forceDelete(id);
+        }
+    }
+
+    public void forceDelete(UUID id) {
+        log.info("Finalizing deletion for imagery layer {}", id);
         repository.deleteById(id);
         Map<String, Object> payload = Map.of("id", id, "type", "imagery");
         kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.DELETED);

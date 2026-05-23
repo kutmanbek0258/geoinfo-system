@@ -171,4 +171,24 @@ public class GeoServerClient {
             log.error("Failed to update style for layer {}: {}", layerName, e.getMessage());
         }
     }
+
+    public void deleteLayer(String workspace, String layerName) {
+        String url = String.format("%s/rest/layers/%s:%s?recurse=true", properties.getDomain(), workspace, layerName);
+        try {
+            geoServerRestTemplate.delete(url);
+            log.info("Layer {}:{} deleted successfully from GeoServer", workspace, layerName);
+        } catch (Exception e) {
+            log.warn("Failed to delete layer {}:{}: {}", workspace, layerName, e.getMessage());
+        }
+    }
+
+    public void deleteCoverageStore(String workspace, String storeName) {
+        String url = String.format("%s/rest/workspaces/%s/coveragestores/%s?recurse=true&purge=all", properties.getDomain(), workspace, storeName);
+        try {
+            geoServerRestTemplate.delete(url);
+            log.info("CoverageStore {}:{} deleted successfully from GeoServer", workspace, storeName);
+        } catch (Exception e) {
+            log.warn("Failed to delete CoverageStore {}:{}: {}", workspace, storeName, e.getMessage());
+        }
+    }
 }

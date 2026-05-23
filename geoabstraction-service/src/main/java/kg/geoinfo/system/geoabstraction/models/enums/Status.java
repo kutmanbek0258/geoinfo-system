@@ -5,5 +5,6 @@ public enum Status {
     IN_PROCESS,
     REJECTED,
     ACTIVE,
-    FAILED
+    FAILED,
+    DELETING
 }

@@ -116,19 +116,28 @@ class Landsat8Processor(BaseProcessor):
                 shutil.rmtree(work_dir, ignore_errors=True)
 
     def cleanup(self, job_data: Dict[str, Any]) -> None:
+        job_id = str(job_data.get("jobId"))
         output_prefix = job_data.get("outputPrefix")
-        if not output_prefix: return
+        if not output_prefix: 
+            return
+            
         target = os.path.join(GDAL_STORE, "{0}.tif".format(output_prefix))
-        logger.info("Deleting Landsat 8 data at %s", target)
+        logger.info("Cleaning up Landsat 8 data for job %s at %s", job_id, target)
+        
         try:
             if os.path.isfile(target):
                 os.remove(target)
+                logger.info("Deleted main TIFF: %s", target)
+            
             for suffix in (".aux.xml", ".ovr", ".msk"):
                 sidecar = target + suffix
                 if os.path.isfile(sidecar):
                     os.remove(sidecar)
-        except Exception:
-            logger.exception("Failed to delete %s", target)
+                    
+            self.send_status(job_id, "DELETED", "LANDSAT_COG", output_prefix=output_prefix)
+        except Exception as e:
+            logger.exception("Failed to cleanup job %s", job_id)
+            self.send_status(job_id, "FAILED", "LANDSAT_COG", error_message=str(e), output_prefix=output_prefix)
 
     def find_band_path(self, extract_dir: str, band: str) -> Optional[str]:
         # Landsat 8 files typically look like: LC08_L1TP_149039_20170411_20170414_01_T1_B1.TIF

@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip first
 RUN pip3 install --upgrade pip setuptools wheel
 
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 # Install versions compatible with Python 3.7
 RUN pip3 install --no-cache-dir \
     kafka-python==2.0.2 \

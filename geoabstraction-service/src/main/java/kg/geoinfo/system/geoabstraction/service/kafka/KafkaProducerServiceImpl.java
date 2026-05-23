@@ -30,8 +30,9 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
                 topic = RASTER_TOPIC;
             }
             
-            kafkaTemplate.send(topic, event.getJobId().toString(), event);
-            log.info("Sent {} event to topic {}: {}", event.getEventType(), topic, event.getJobId());
+            String key = event.getJobId() != null ? event.getJobId().toString() : java.util.UUID.randomUUID().toString();
+            kafkaTemplate.send(topic, key, event);
+            log.info("Sent {} event to topic {}: {}", event.getEventType(), topic, key);
         } catch (Exception e) {
             log.error("Error sending event to Kafka: {}", e.getMessage());
         }

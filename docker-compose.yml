@@ -315,6 +315,9 @@ services:
     build:
       context: ./geoabstraction-service
     container_name: geoabstraction-service
+    volumes:
+      - ./geoserver_uploads:/data/gdal-store
+      - ./terrain_store:/data/terrain-store
     environment:
       DB_URL: jdbc:postgresql://${POSTGRES_HOST_GEOABSTRACTION}:${POSTGRES_PORT_GEOABSTRACTION}/${POSTGRES_DB_GEOABSTRACTION}
       DB_USER: ${POSTGRES_USER_GEOABSTRACTION}

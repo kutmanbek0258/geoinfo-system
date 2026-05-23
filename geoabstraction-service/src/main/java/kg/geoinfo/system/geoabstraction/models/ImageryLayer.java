@@ -29,6 +29,9 @@ public class ImageryLayer extends AuditableCustom<String> {
     @Column(name = "id", nullable = false)
     private UUID id;
 
+    @Column(name = "job_id")
+    private UUID jobId;
+
     @Column(name = "name")
     private String name;
 
