@@ -2,38 +2,35 @@
 
 Данная схема предназначена для хранения метаданных файлов, которые физически располагаются в MinIO, и обеспечения связи с геообъектами.
 
-### **1\. Таблица documents (Метаданные Документов)**
+### **1. Таблица documents (Метаданные Документов)**
 
 Основная таблица для всех записей о документах.
 
-| Колонка | Тип данных | Описание | Ограничения/Индексы |
-| :---- | :---- | :---- | :---- |
-| id | UUID | Первичный ключ. Используется в API и для связи с Geo Data Service. | PRIMARY KEY |
-| geo\_object\_id | UUID | ID геообъекта, к которому привязан документ (из Geo Data Service). | NOT NULL, INDEX |
-| file\_name | VARCHAR(255) | Оригинальное имя файла, загруженного пользователем. | NOT NULL |
-| minio\_object\_key | VARCHAR(255) | **Ключ объекта в MinIO.** Используется для скачивания/удаления бинарного файла. | NOT NULL, UNIQUE |
-| mime\_type | VARCHAR(100) | Тип файла (например, application/pdf, image/jpeg). | NOT NULL |
-| file\_size\_bytes | BIGINT | Размер файла в байтах. | NOT NULL |
-| description | TEXT | Краткое описание или протокол осмотра. |  |
-| uploaded\_by\_user\_id | UUID | ID пользователя, загрузившего файл. |  |
-| upload\_date | TIMESTAMP WITH TIME ZONE | Дата и время загрузки. | NOT NULL |
-| is\_latest\_version | BOOLEAN | Флаг для версионирования (например, после сохранения из OnlyOffice). | DEFAULT TRUE |
+| Колонка | Тип данных | Описание | Ограничения |
+| :--- | :--- | :--- | :--- |
+| id | UUID | Первичный ключ | DEFAULT gen_random_uuid() |
+| geo_object_id | UUID | ID геообъекта (Point/Line/Polygon) | NOT NULL |
+| file_name | VARCHAR(255) | Оригинальное имя файла | NOT NULL |
+| minio_object_key | VARCHAR(255) | Ключ объекта в MinIO | NOT NULL, UNIQUE |
+| mime_type | VARCHAR(100) | MIME-тип файла | NOT NULL |
+| file_size_bytes | BIGINT | Размер в байтах | NOT NULL |
+| description | TEXT | Описание | |
+| is_latest_version | BOOLEAN | Флаг актуальной версии | DEFAULT TRUE |
+| created_by | VARCHAR(255) | Автор записи | |
+| created_date | TIMESTAMP | Дата создания | |
+| last_modified_by | VARCHAR(255) | Кто изменил | |
+| last_modified_date | TIMESTAMP | Дата изменения | |
 
-### **2\. Таблица tags (Справочник Тегов)**
+### **2. Таблица tags (Справочник Тегов)**
 
-Список уникальных тегов, используемых в системе.
+| Колонка | Тип данных | Описание | Ограничения |
+| :--- | :--- | :--- | :--- |
+| id | BIGINT | Первичный ключ | SERIAL |
+| name | VARCHAR(50) | Название тега | NOT NULL, UNIQUE |
 
-| Колонка | Тип данных | Описание | Ограничения/Индексы |
-| :---- | :---- | :---- | :---- |
-| id | BIGINT | Первичный ключ. | PRIMARY KEY, SERIAL |
-| name | VARCHAR(50) | Название тега (например, "Протокол", "2024", "Смета"). | NOT NULL, UNIQUE |
+### **3. Таблица document_tag_link (Связь Тегов и Документов)**
 
-### **3\. Таблица document\_tag\_link (Связь Тегов и Документов)**
-
-Таблица "многие-ко-многим" для связи документов и тегов.
-
-| Колонка | Тип данных | Описание | Ограничения/Индексы |
-| :---- | :---- | :---- | :---- |
-| document\_id | UUID | ID документа. | FOREIGN KEY, PRIMARY KEY (составной) |
-| tag\_id | BIGINT | ID тега. | FOREIGN KEY, PRIMARY KEY (составной) |
-
+| Колонка | Тип данных | Описание | Ограничения |
+| :--- | :--- | :--- | :--- |
+| document_id | UUID | ID документа | FOREIGN KEY |
+| tag_id | BIGINT | ID тега | FOREIGN KEY |
