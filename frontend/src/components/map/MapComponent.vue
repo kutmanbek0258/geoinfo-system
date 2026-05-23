@@ -5,38 +5,84 @@
 
     </div>
 
-    <!-- Оверлей 1: Переключатель слоев -->
-    <v-card class="map-overlay top-right-layers">
-      <v-card-title class="d-flex align-center">
-        <span>Imagery Layers</span>
-        <v-spacer></v-spacer>
-        <v-btn icon="mdi-magnify-scan" variant="text" @click="zoomToExtent" title="Zoom to extent"></v-btn>
-      </v-card-title>
-      <v-list dense>
-        <v-list-item v-for="layer in imageryLayers" :key="layer.id">
-          <v-checkbox
-            :label="layer.name"
-            :value="layer.id"
-            v-model="visibleLayerIds"
-            @update:modelValue="toggleImageryLayer(layer)"
-            hide-details
-            class="w-100"
-          ></v-checkbox>
-          <v-slider
-            v-if="visibleLayerIds.includes(layer.id)"
-            :model-value="layerOpacities[layer.id] || 100"
-            @update:modelValue="newOpacity => setLayerOpacity(layer.id, newOpacity)"
-            min="0"
-            max="100"
-            step="1"
-            hide-details
-            dense
-            class="mt-n2"
-          ></v-slider>
-        </v-list-item>
-      </v-list>
+    <!-- Оверлей 1: Переключатель слоев с выпадающим списком -->
+    <div class="map-overlay top-right-layers d-flex flex-column align-end">
+      <!-- Кнопка Imagery Layers -->
+      <v-menu
+        v-model="imageryMenuOpen"
+        :close-on-content-click="false"
+        location="bottom end"
+        offset="5"
+        transition="slide-y-transition"
+      >
+        <template v-slot:activator="{ props }">
+          <v-btn
+            v-bind="props"
+            icon="mdi-layers"
+            color="white"
+            class="mb-2"
+            elevation="2"
+            title="Imagery Layers"
+          >
+            <v-icon color="primary">mdi-layers</v-icon>
+          </v-btn>
+        </template>
+        
+        <v-card width="280">
+          <v-card-title class="d-flex align-center py-2 px-4 bg-primary text-white">
+            <v-icon class="mr-2">mdi-layers</v-icon>
+            <span class="text-subtitle-1 font-weight-bold">Imagery Layers</span>
+          </v-card-title>
+          
+          <v-divider></v-divider>
+          
+          <!-- Прокручиваемый список фиксированной высоты -->
+          <v-card-text class="pa-0" style="max-height: 250px; overflow-y: auto;">
+            <v-list dense class="py-1">
+              <v-list-item v-if="imageryLayers.length === 0" class="text-center text-grey py-4">
+                No imagery layers found
+              </v-list-item>
+              <v-list-item v-for="layer in imageryLayers" :key="layer.id" class="px-4 py-1">
+                <v-checkbox
+                  :label="layer.name"
+                  :value="layer.id"
+                  v-model="visibleLayerIds"
+                  @update:modelValue="toggleImageryLayer(layer)"
+                  hide-details
+                  density="compact"
+                  color="primary"
+                  class="w-100"
+                ></v-checkbox>
+                <v-slider
+                  v-if="visibleLayerIds.includes(layer.id)"
+                  :model-value="layerOpacities[layer.id] || 100"
+                  @update:modelValue="newOpacity => setLayerOpacity(layer.id, newOpacity)"
+                  min="0"
+                  max="100"
+                  step="1"
+                  hide-details
+                  dense
+                  color="primary"
+                  class="mt-n2 px-2"
+                ></v-slider>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+        </v-card>
+      </v-menu>
 
-    </v-card>
+      <!-- Кнопка Zoom to Extent -->
+      <v-btn
+        icon="mdi-magnify-scan"
+        color="white"
+        class="mb-2"
+        elevation="2"
+        @click="zoomToExtent"
+        title="Zoom to extent"
+      >
+        <v-icon color="primary">mdi-magnify-scan</v-icon>
+      </v-btn>
+    </div>
 
     <!-- Оверлей 3: Кнопки добавления -->
     <div class="map-overlay bottom-right d-flex flex-column align-end">
@@ -199,6 +245,7 @@ const visibleLayerIds = ref<string[]>([]);
 const selectedTerrainLayerId = ref<string | null>(null);
 const activeImageLayers = shallowRef<Record<string, TileLayer<TileWMS>>>({}); // Используем shallowRef
 const layerOpacities = ref<Record<string, number>>({}); // Для хранения прозрачности
+const imageryMenuOpen = ref(false);
 
 // --- Состояние импорта ---
 const importFileDialog = ref(false);
@@ -646,7 +693,9 @@ const executeFileImport = async () => {
 .top-right-layers {
   top: 40px;
   right: 10px;
-  width: 250px;
+  background-color: transparent !important;
+  padding: 0;
+  box-shadow: none !important;
 }
 
 .top-left-search {

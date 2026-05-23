@@ -27,6 +27,7 @@ RUN pip3 install --no-cache-dir \
 
 WORKDIR /app
 
-COPY worker.py .
+COPY app/ ./app/
+COPY main.py .
 
-CMD ["python3", "worker.py"]
+CMD ["python3", "main.py"]

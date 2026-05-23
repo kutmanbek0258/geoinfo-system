@@ -126,6 +126,9 @@ const onDragStart = (event: DragEvent, item: any, itemType: 'folder' | 'object')
       event.dataTransfer.setData('objectType', item.type);
     }
     event.dataTransfer.effectAllowed = 'move';
+    if (event.currentTarget) {
+      event.dataTransfer.setDragImage(event.currentTarget as Element, 20, 20);
+    }
   }
 };
 
