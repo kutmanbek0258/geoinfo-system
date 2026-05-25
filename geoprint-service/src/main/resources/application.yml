@@ -64,6 +64,7 @@ resilience4j:
 
 minio:
   endpoint: http://minio:9000
+  external-endpoint: ${MINIO_EXTERNAL_ENDPOINT:http://localhost/minio}
   access-key: ${MINIO_ROOT_USER:minio_access_key}
   secret-key: ${MINIO_ROOT_PASSWORD:minio_secret_key}
   bucket: geo-print

@@ -42,7 +42,7 @@ public class PrintOrchestrator {
             BufferedImage mapImage = mapRenderer.renderMap(spec);
 
             // 3. Сборка PDF
-            byte[] pdfBytes = pdfBuilder.buildPdfReport(mapImage, spec.getAttributes());
+            byte[] pdfBytes = pdfBuilder.buildPdfReport(mapImage, spec.getAttributes(), spec.getLayout());
 
             // 4. Загрузка в MinIO
             String fileName = "reports/" + taskId + ".pdf";

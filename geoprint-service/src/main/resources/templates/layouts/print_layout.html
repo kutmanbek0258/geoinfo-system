@@ -2,79 +2,71 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <style>
+    <style th:inline="css">
         @page {
-            size: A4 landscape;
-            margin: 10mm;
+            size: [(${pageSize})] [(${orientation})];
+            margin: 5mm; /* Рамка 5мм от края листа */
         }
-        body {
-            font-family: 'DejaVu Sans', sans-serif;
+        * {
+            box-sizing: border-box;
+        }
+        html, body {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'DejaVu Sans', sans-serif;
+            background-color: #fff;
         }
-        .container {
+
+        /* Основная рамка */
+        .drawing-frame {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border: 0.5mm solid #000;
+            overflow: hidden;
+        }
+
+        /* Контейнер для изображения карты */
+        .map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
         }
-        .header {
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        .map-frame {
-            width: 100%;
-            height: 700px;
-            border: 2px solid #333;
-            text-align: center;
-            overflow: hidden;
-        }
+
         .map-img {
-            max-width: 100%;
-            max-height: 100%;
-        }
-        .stamp-table {
             width: 100%;
-            margin-top: 15px;
-            border-collapse: collapse;
+            height: 100%;
+            display: block;
+            object-fit: cover; /* Заполняем всю рамку */
         }
-        .stamp-table td {
-            border: 1px solid #000;
-            padding: 8px;
-            font-size: 12px;
-        }
-        .footer {
-            margin-top: 10px;
-            font-size: 10px;
-            text-align: right;
+
+        /* Дата генерации в углу */
+        .generation-date {
+            position: absolute;
+            bottom: 2mm;
+            right: 2mm;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 1mm 2mm;
+            border: 0.2mm solid #333;
+            font-size: 8pt;
+            color: #000;
+            z-index: 10;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1 th:text="${attributes.title}">Геопространственный отчет</h1>
-        </div>
-        
-        <div class="map-frame">
+    <div class="drawing-frame">
+        <div class="map-container">
             <img class="map-img" th:src="${mapImageBase64}" />
         </div>
         
-        <table class="stamp-table">
-            <tr>
-                <td style="width: 20%; font-weight: bold;">Разработал:</td>
-                <td style="width: 30%;" th:text="${attributes.author}">Система</td>
-                <td style="width: 20%; font-weight: bold;">Организация:</td>
-                <td style="width: 30%;" th:text="${attributes.organization}">ГеоИнфоСистема</td>
-            </tr>
-            <tr>
-                <td style="font-weight: bold;">Дата создания:</td>
-                <td th:text="${#dates.format(#dates.createNow(), 'dd.MM.yyyy HH:mm')}"></td>
-                <td style="font-weight: bold;">Масштаб:</td>
-                <td>Указан в ГИС</td>
-            </tr>
-        </table>
-        
-        <div class="footer">
-            Сгенерировано автоматически модулем GeoPrint
+        <div class="generation-date">
+            Дата: <span th:text="${#dates.format(#dates.createNow(), 'dd.MM.yyyy HH:mm')}"></span>
         </div>
     </div>
 </body>

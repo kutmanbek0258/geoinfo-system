@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "minio")
 public class MinioProperties {
     private String endpoint;
+    private String externalEndpoint;
     private String accessKey;
     private String secretKey;
     private String bucket;

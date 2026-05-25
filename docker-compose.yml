@@ -364,6 +364,7 @@ services:
       DB_PASS: ${POSTGRES_PASSWORD_GEOPRINT}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-1024}
+      MINIO_EXTERNAL_ENDPOINT: http://${HOST}/minio
     depends_on:
       postgres-geoprint:
         condition: service_healthy

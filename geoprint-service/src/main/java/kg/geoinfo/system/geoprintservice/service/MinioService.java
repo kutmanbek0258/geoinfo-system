@@ -41,7 +41,7 @@ public class MinioService {
 
     public String getPresignedUrl(String objectName) {
         try {
-            return minioClient.getPresignedObjectUrl(
+            String url = minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(minioProperties.getBucket())
@@ -49,6 +49,14 @@ public class MinioService {
                             .expiry(7, TimeUnit.DAYS)
                             .build()
             );
+
+            // Transform internal URL to external one if externalEndpoint is provided
+            if (minioProperties.getExternalEndpoint() != null && !minioProperties.getExternalEndpoint().isEmpty()) {
+                // Example: replace http://minio:9000 with http://localhost/minio
+                return url.replace(minioProperties.getEndpoint(), minioProperties.getExternalEndpoint());
+            }
+
+            return url;
         } catch (Exception e) {
             log.error("Error generating presigned URL", e);
             throw new RuntimeException("Failed to generate presigned URL", e);
