@@ -57,6 +57,11 @@ spring:
           predicates:
             - Path=/api/geo-abstraction/**
 
+        - id: geoprint-service
+          uri: lb://geoprint-service
+          predicates:
+            - Path=/api/print/**
+
       httpserver:
         wiretap: true
       httpclient:

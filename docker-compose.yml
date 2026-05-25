@@ -71,6 +71,20 @@ services:
       retries: 5
       start_period: 20s
 
+  postgres-geoprint:
+    image: postgres:15
+    container_name: postgres-geoprint
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_GEOPRINT}
+      POSTGRES_USER: ${POSTGRES_USER_GEOPRINT}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_GEOPRINT}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d print_db -h localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   # ====== Message Broker ======
   kafka:
     image: confluentinc/cp-kafka:7.7.1
@@ -330,6 +344,28 @@ services:
       GEOSERVER_WORKSPACE: ${GEOSERVER_WORKSPACE}
     depends_on:
       postgres-geoabstraction:
+        condition: service_healthy
+      geoserver:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
+  geoprint-service:
+    build:
+      context: ./geoprint-service
+    container_name: geoprint-service
+    environment:
+      DB_URL: jdbc:postgresql://${POSTGRES_HOST_GEOPRINT}:${POSTGRES_PORT_GEOPRINT}/${POSTGRES_DB_GEOPRINT}
+      DB_USER: ${POSTGRES_USER_GEOPRINT}
+      DB_PASS: ${POSTGRES_PASSWORD_GEOPRINT}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-1024}
+    depends_on:
+      postgres-geoprint:
         condition: service_healthy
       geoserver:
         condition: service_healthy

@@ -22,6 +22,10 @@ services:
     networks:
       - prod-net
 
+  postgres-geoprint:
+    networks:
+      - prod-net
+
   # ====== Message Broker ======
   kafka:
     depends_on:
@@ -87,6 +91,10 @@ services:
       - prod-net
 
   geoabstraction-service:
+    networks:
+      - prod-net
+
+  geoprint-service:
     networks:
       - prod-net
 

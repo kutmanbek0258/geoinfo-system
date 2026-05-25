@@ -82,6 +82,9 @@
       >
         <v-icon color="primary">mdi-magnify-scan</v-icon>
       </v-btn>
+
+      <!-- Кнопка печати -->
+      <PrintDialog :map="map" />
     </div>
 
     <!-- Оверлей 3: Кнопки добавления -->
@@ -198,6 +201,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed, toRaw, shallowRef } from 'vue';
+import PrintDialog from '@/components/print/PrintDialog.vue';
 import { useStore } from 'vuex';
 import 'ol/ol.css';
 import { Map, View, Feature } from 'ol';
