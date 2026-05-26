@@ -130,22 +130,92 @@ public class MapRenderer {
         String geojson = objectMapper.writeValueAsString(spec.getFeatures());
         FeatureJSON fjson = new FeatureJSON();
         SimpleFeatureCollection features = (SimpleFeatureCollection) fjson.readFeatureCollection(geojson);
-        
+
+        if (features == null || features.isEmpty()) {
+            log.warn("Vector layer is empty or malformed, skipping.");
+            throw new IllegalArgumentException("Vector layer has no features");
+        }
+
         CoordinateReferenceSystem vectorCrs = CRS.decode("EPSG:4326", true);
         SimpleFeatureSource source = DataUtilities.source(features);
         
+        if (features.getSchema().getGeometryDescriptor() == null) {
+            log.error("No geometry descriptor found in vector layer schema. Features may be missing geometry data.");
+            throw new IllegalArgumentException("No geometry found in vector data");
+        }
+        String geometryPropertyName = features.getSchema().getGeometryDescriptor().getLocalName();
+
         Query query = new Query();
         query.setCoordinateSystem(vectorCrs);
-        
         SimpleFeatureSource view = DataUtilities.createView(source, query);
-        
-        Map<String, Object> styleSpec = spec.getStyle();
-        String colorStr = (styleSpec != null) ? (String) styleSpec.getOrDefault("strokeColor", "#FF0000") : "#FF0000";
-        Color color = Color.decode(colorStr);
-        float width = (styleSpec != null) ? Float.parseFloat(styleSpec.getOrDefault("strokeWidth", 2.0).toString()) : 2.0f;
 
-        Style style = SLD.createSimpleStyle(view.getSchema(), color);
-        
+        // Читаем цвет из layer-level style (fallback на синий)
+        Map<String, Object> styleSpec = spec.getLayerStyle() != null ? spec.getLayerStyle() : java.util.Collections.emptyMap();
+        String strokeColorStr = (String) styleSpec.getOrDefault("strokeColor", "#3399CC");
+        double strokeWidth = Double.parseDouble(styleSpec.getOrDefault("strokeWidth", 2).toString());
+        String fillColorStr = (String) styleSpec.getOrDefault("fillColor", "#3399CC");
+        double fillOpacity = Double.parseDouble(styleSpec.getOrDefault("fillOpacity", "0.4").toString());
+
+        org.geotools.styling.StyleFactory sf = org.geotools.factory.CommonFactoryFinder.getStyleFactory();
+        org.opengis.filter.FilterFactory2 ff = org.geotools.factory.CommonFactoryFinder.getFilterFactory2();
+
+        org.geotools.styling.Stroke stroke = sf.createStroke(
+            ff.literal(strokeColorStr),
+            ff.literal(strokeWidth)
+        );
+
+        java.awt.Color fillAwtColor = java.awt.Color.decode(fillColorStr);
+        org.geotools.styling.Fill fill = sf.createFill(
+            ff.literal(fillColorStr),
+            ff.literal(fillOpacity)
+        );
+
+        // Symbolizers
+        org.geotools.styling.Graphic graphic = sf.createDefaultGraphic();
+        graphic.graphicalSymbols().clear();
+        org.geotools.styling.Mark mark = sf.createMark();
+        mark.setWellKnownName(ff.literal("circle"));
+        mark.setFill(fill);
+        mark.setStroke(stroke);
+        graphic.graphicalSymbols().add(mark);
+        graphic.setSize(ff.literal(10));
+
+        org.geotools.styling.PointSymbolizer pointSym = sf.createPointSymbolizer(graphic, geometryPropertyName);
+        org.geotools.styling.LineSymbolizer lineSym = sf.createLineSymbolizer(stroke, geometryPropertyName);
+        org.geotools.styling.PolygonSymbolizer polySym = sf.createPolygonSymbolizer(stroke, fill, geometryPropertyName);
+
+        // Фильтры по типу геометрии через OGC-функцию geometryType()
+        org.opengis.filter.Filter pointFilter = ff.or(
+            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("Point")),
+            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("MultiPoint"))
+        );
+        org.opengis.filter.Filter lineFilter = ff.or(
+            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("LineString")),
+            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("MultiLineString"))
+        );
+        org.opengis.filter.Filter polyFilter = ff.or(
+            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("Polygon")),
+            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("MultiPolygon"))
+        );
+
+        org.geotools.styling.Rule pointRule = sf.createRule();
+        pointRule.setFilter(pointFilter);
+        pointRule.symbolizers().add(pointSym);
+
+        org.geotools.styling.Rule lineRule = sf.createRule();
+        lineRule.setFilter(lineFilter);
+        lineRule.symbolizers().add(lineSym);
+
+        org.geotools.styling.Rule polyRule = sf.createRule();
+        polyRule.setFilter(polyFilter);
+        polyRule.symbolizers().add(polySym);
+
+        org.geotools.styling.FeatureTypeStyle fts = sf.createFeatureTypeStyle(
+            new org.geotools.styling.Rule[]{pointRule, lineRule, polyRule}
+        );
+        Style style = sf.createStyle();
+        style.featureTypeStyles().add(fts);
+
         return new FeatureLayer(view, style);
     }
 }

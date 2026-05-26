@@ -258,14 +258,62 @@ const startPrint = async () => {
           };
         }
         if (source instanceof VectorSource) {
+          // Извлекаем стиль из первого объекта (layer-level стиль)
+          const firstFeature = source.getFeatures()[0];
+          const styleData = firstFeature?.get('style');
+
+          let strokeColor = '#3399CC';
+          let strokeWidth = 2;
+          let fillColor = '#3399CC';
+          let fillOpacity = 0.4;
+
+          if (styleData) {
+            if (styleData.line?.color) strokeColor = styleData.line.color;
+            if (styleData.line?.width) strokeWidth = styleData.line.width;
+            if (styleData.poly?.fillColor) {
+              const rgba = styleData.poly.fillColor;
+              if (rgba.startsWith('rgba')) {
+                const parts = rgba.replace('rgba(', '').replace(')', '').split(',');
+                if (parts.length === 4) {
+                  const r = parseInt(parts[0].trim());
+                  const g = parseInt(parts[1].trim());
+                  const b = parseInt(parts[2].trim());
+                  fillColor = '#' + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
+                  fillOpacity = parseFloat(parts[3].trim());
+                }
+              } else {
+                fillColor = rgba;
+                fillOpacity = 1.0;
+              }
+            }
+          }
+
           const format = new GeoJSON();
+          // Клонируем фичеры и удаляем все служебные атрибуты
+          const cleanFeatures = source.getFeatures().map(f => {
+            const clone = f.clone();
+            const geometryName = clone.getGeometryName();
+            // Оставляем только базовые метаданные и геометрию, удаляем 'style' и другие объекты
+            const properties = clone.getProperties();
+            for (const key in properties) {
+              if (key !== geometryName && (key === 'style' || typeof properties[key] === 'object')) {
+                clone.unset(key);
+              }
+            }
+            return clone;
+          });
           return {
             type: 'VECTOR',
-            features: format.writeFeaturesObject(source.getFeatures(), {
+            features: format.writeFeaturesObject(cleanFeatures, {
               featureProjection: view.getProjection(),
               dataProjection: 'EPSG:4326'
             }),
-            style: { strokeColor: '#FF0000', strokeWidth: 2 }
+            layerStyle: {
+              strokeColor,
+              strokeWidth,
+              fillColor,
+              fillOpacity
+            }
           };
         }
         return null;

@@ -389,6 +389,7 @@ const updateVectorSource = () => {
             if (feature) {
                 feature.setId(obj.id);
                 feature.set('id', obj.id);
+                feature.set('style', obj.characteristics?.style);
                 // Применяем стиль из характеристик
                 feature.setStyle(parseStyle(obj.characteristics, obj.name));
             }

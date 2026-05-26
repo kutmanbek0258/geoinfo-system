@@ -39,6 +39,6 @@ public class PrintSpecificationDto {
         private String layerName;
         private Double opacity;
         private Object features; // GeoJSON
-        private Map<String, Object> style;
+        private Map<String, Object> layerStyle;
     }
 }
