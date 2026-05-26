@@ -13,6 +13,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PrintSpecificationDto {
+    private java.util.UUID projectId;
     private String layout;
     private Integer dpi;
     private MapContextDto mapContext;

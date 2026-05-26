@@ -405,6 +405,9 @@ const updateVectorSource = () => {
 // Наблюдаем за изменением projectId
 watch(() => props.projectId, (newProjectId) => {
   if (newProjectId) {
+    if (map) {
+      map.set('projectId', newProjectId);
+    }
     clearWmsLayers(); // Очищаем старые WMS слои
     store.commit('geodata/SET_SELECTED_PROJECT_ID', newProjectId);
     store.dispatch('geodata/fetchVectorDataForProject', newProjectId);

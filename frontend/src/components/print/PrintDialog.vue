@@ -242,85 +242,105 @@ const startPrint = async () => {
     }
 
     const layers = props.map.getLayers().getArray()
+      .slice() // Клонируем массив, чтобы не менять порядок на живой карте
       .filter(l => l.getVisible() && l.getProperties().name !== 'selection-layer')
-      .map(l => {
-        if (!(l instanceof Layer)) return null;
+      .sort((a, b) => (a.getZIndex() || 0) - (b.getZIndex() || 0)) // Сортируем по z-index (от нижних к верхним)
+      .flatMap(l => {
+        if (!(l instanceof Layer)) return [];
         const source = l.getSource();
         if (source instanceof TileWMS) {
           let wmsUrl = source.getUrls() ? source.getUrls()![0] : (source as any).getUrl();
           wmsUrl = wmsUrl.replace('localhost', 'nginx-proxy');
           
-          return {
+          return [{
             type: 'WMS',
             url: wmsUrl,
             layerName: source.getParams().LAYERS,
             opacity: l.getOpacity()
-          };
+          }];
         }
         if (source instanceof VectorSource) {
-          // Извлекаем стиль из первого объекта (layer-level стиль)
-          const firstFeature = source.getFeatures()[0];
-          const styleData = firstFeature?.get('style');
+          const allFeatures = source.getFeatures();
+          // Группируем фичи по типу геометрии для корректного рендеринга на бэкенде
+          const geometryGroups = [
+            { types: ['Polygon', 'MultiPolygon'], name: 'POLYGONS' },
+            { types: ['LineString', 'MultiLineString'], name: 'LINES' },
+            { types: ['Point', 'MultiPoint'], name: 'POINTS' }
+          ];
 
-          let strokeColor = '#3399CC';
-          let strokeWidth = 2;
-          let fillColor = '#3399CC';
-          let fillOpacity = 0.4;
+          return geometryGroups.map(group => {
+            const groupFeatures = allFeatures.filter(f => {
+              const type = f.getGeometry()?.getType() || '';
+              return group.types.includes(type);
+            });
 
-          if (styleData) {
-            if (styleData.line?.color) strokeColor = styleData.line.color;
-            if (styleData.line?.width) strokeWidth = styleData.line.width;
-            if (styleData.poly?.fillColor) {
-              const rgba = styleData.poly.fillColor;
-              if (rgba.startsWith('rgba')) {
-                const parts = rgba.replace('rgba(', '').replace(')', '').split(',');
-                if (parts.length === 4) {
-                  const r = parseInt(parts[0].trim());
-                  const g = parseInt(parts[1].trim());
-                  const b = parseInt(parts[2].trim());
-                  fillColor = '#' + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
-                  fillOpacity = parseFloat(parts[3].trim());
+            if (groupFeatures.length === 0) return null;
+
+            // Извлекаем стиль из первого объекта данной группы
+            const firstFeature = groupFeatures[0];
+            const styleData = firstFeature?.get('style');
+
+            let strokeColor = '#3399CC';
+            let strokeWidth = 2;
+            let fillColor = '#3399CC';
+            let fillOpacity = 0.4;
+
+            if (styleData) {
+              if (styleData.line?.color) strokeColor = styleData.line.color;
+              if (styleData.line?.width) strokeWidth = styleData.line.width;
+              if (styleData.poly?.fillColor) {
+                const rgba = styleData.poly.fillColor;
+                if (rgba.startsWith('rgba')) {
+                  const parts = rgba.replace('rgba(', '').replace(')', '').split(',');
+                  if (parts.length === 4) {
+                    const r = parseInt(parts[0].trim());
+                    const g = parseInt(parts[1].trim());
+                    const b = parseInt(parts[2].trim());
+                    fillColor = '#' + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
+                    fillOpacity = parseFloat(parts[3].trim());
+                  }
+                } else {
+                  fillColor = rgba;
+                  fillOpacity = 1.0;
                 }
-              } else {
-                fillColor = rgba;
-                fillOpacity = 1.0;
               }
             }
-          }
 
-          const format = new GeoJSON();
-          // Клонируем фичеры и удаляем все служебные атрибуты
-          const cleanFeatures = source.getFeatures().map(f => {
-            const clone = f.clone();
-            const geometryName = clone.getGeometryName();
-            // Оставляем только базовые метаданные и геометрию, удаляем 'style' и другие объекты
-            const properties = clone.getProperties();
-            for (const key in properties) {
-              if (key !== geometryName && (key === 'style' || typeof properties[key] === 'object')) {
-                clone.unset(key);
+            const format = new GeoJSON();
+            // Клонируем фичеры и удаляем все служебные атрибуты
+            const cleanFeatures = groupFeatures.map(f => {
+              const clone = f.clone();
+              const geometryName = clone.getGeometryName();
+              // Оставляем только базовые метаданные и геометрию, удаляем 'style' и другие объекты
+              const properties = clone.getProperties();
+              for (const key in properties) {
+                if (key !== geometryName && (key === 'style' || typeof properties[key] === 'object')) {
+                  clone.unset(key);
+                }
               }
-            }
-            return clone;
-          });
-          return {
-            type: 'VECTOR',
-            features: format.writeFeaturesObject(cleanFeatures, {
-              featureProjection: view.getProjection(),
-              dataProjection: 'EPSG:4326'
-            }),
-            layerStyle: {
-              strokeColor,
-              strokeWidth,
-              fillColor,
-              fillOpacity
-            }
-          };
+              return clone;
+            });
+
+            return {
+              type: 'VECTOR',
+              features: format.writeFeaturesObject(cleanFeatures, {
+                featureProjection: view.getProjection(),
+                dataProjection: 'EPSG:4326'
+              }),
+              layerStyle: {
+                strokeColor,
+                strokeWidth,
+                fillColor,
+                fillOpacity
+              }
+            };
+          }).filter((v): v is any => v !== null);
         }
-        return null;
-      })
-      .filter(l => l !== null);
+        return [];
+      });
 
     const spec: PrintSpecification = {
+      projectId: props.map.get('projectId') || (props.map as any).getProperties().projectId,
       layout: layout.value,
       dpi: 300,
       mapContext: {

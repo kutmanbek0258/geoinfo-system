@@ -3,6 +3,7 @@ import api from './api';
 const API_URL = "/print";
 
 export interface PrintSpecification {
+  projectId: string;
   layout: string;
   dpi: number;
   mapContext: {

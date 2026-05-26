@@ -123,6 +123,7 @@ public class MapRenderer {
             }
         }
         if (wmsLayer == null) wmsLayer = WMSUtils.getNamedLayers(wms.getCapabilities())[0];
+        
         return new WMSLayer(wms, wmsLayer);
     }
 
@@ -185,18 +186,22 @@ public class MapRenderer {
         org.geotools.styling.PolygonSymbolizer polySym = sf.createPolygonSymbolizer(stroke, fill, geometryPropertyName);
 
         // Фильтры по типу геометрии через OGC-функцию geometryType()
-        org.opengis.filter.Filter pointFilter = ff.or(
-            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("Point")),
-            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("MultiPoint"))
-        );
-        org.opengis.filter.Filter lineFilter = ff.or(
-            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("LineString")),
-            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("MultiLineString"))
-        );
-        org.opengis.filter.Filter polyFilter = ff.or(
-            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("Polygon")),
-            ff.equals(ff.function("geometryType", ff.property(geometryPropertyName)), ff.literal("MultiPolygon"))
-        );
+        // Используем ff.property("") для обращения к геометрии по умолчанию
+        org.opengis.filter.Filter pointFilter = ff.or(java.util.List.of(
+            ff.equals(ff.function("geometryType", ff.property("")), ff.literal("Point")),
+            ff.equals(ff.function("geometryType", ff.property("")), ff.literal("MultiPoint")),
+            ff.equals(ff.function("geometryType", ff.property("")), ff.literal("point")),
+            ff.equals(ff.function("geometryType", ff.property("")), ff.literal("multipoint"))
+        ));
+        org.opengis.filter.Filter lineFilter = ff.or(java.util.List.of(
+            ff.equals(ff.function("geometryType", ff.property("")), ff.literal("LineString")),
+            ff.equals(ff.function("geometryType", ff.property("")), ff.literal("MultiLineString")),
+            ff.equals(ff.function("geometryType", ff.property("")), ff.literal("linestring")),
+            ff.equals(ff.function("geometryType", ff.property("")), ff.literal("multilinestring"))
+        ));
+
+        // Для полигонов используем исключение: все что не точка и не линия
+        org.opengis.filter.Filter polyFilter = ff.not(ff.or(pointFilter, lineFilter));
 
         org.geotools.styling.Rule pointRule = sf.createRule();
         pointRule.setFilter(pointFilter);

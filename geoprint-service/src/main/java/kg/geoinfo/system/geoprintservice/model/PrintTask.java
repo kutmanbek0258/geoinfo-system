@@ -25,6 +25,9 @@ public class PrintTask extends AuditableCustom<String> {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
+    @Column(name = "project_id")
+    private UUID projectId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PrintTaskStatus status;

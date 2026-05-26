@@ -39,6 +39,20 @@ public class MinioService {
         }
     }
 
+    public void deleteFile(String objectName) {
+        try {
+            minioClient.removeObject(
+                    RemoveObjectArgs.builder()
+                            .bucket(minioProperties.getBucket())
+                            .object(objectName)
+                            .build()
+            );
+            log.info("Deleted file from MinIO: {}", objectName);
+        } catch (Exception e) {
+            log.error("Error deleting file from MinIO: {}", objectName, e);
+        }
+    }
+
     public String getPresignedUrl(String objectName) {
         try {
             String url = minioClient.getPresignedObjectUrl(
