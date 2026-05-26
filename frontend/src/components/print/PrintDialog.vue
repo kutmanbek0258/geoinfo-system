@@ -261,7 +261,10 @@ const startPrint = async () => {
           const format = new GeoJSON();
           return {
             type: 'VECTOR',
-            features: format.writeFeaturesObject(source.getFeatures()),
+            features: format.writeFeaturesObject(source.getFeatures(), {
+              featureProjection: view.getProjection(),
+              dataProjection: 'EPSG:4326'
+            }),
             style: { strokeColor: '#FF0000', strokeWidth: 2 }
           };
         }

@@ -43,8 +43,8 @@ public class MapRenderer {
         double[] sizeMm = getSizeMmForLayout(layoutName);
         boolean isPortrait = layoutName.contains("PORTRAIT");
         
-        double widthMm = isPortrait ? sizeMm[1] : sizeMm[0];
-        double heightMm = isPortrait ? sizeMm[0] : sizeMm[1];
+        double widthMm = (isPortrait ? sizeMm[1] : sizeMm[0]) - 10;
+        double heightMm = (isPortrait ? sizeMm[0] : sizeMm[1]) - 10;
 
         int widthPx = (int) (widthMm / 25.4 * dpi);
         int heightPx = (int) (heightMm / 25.4 * dpi);
@@ -56,7 +56,7 @@ public class MapRenderer {
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
         MapContent mapContent = new MapContent();
-        CoordinateReferenceSystem mapCrs = CRS.decode(spec.getMapContext().getProjection());
+        CoordinateReferenceSystem mapCrs = CRS.decode(spec.getMapContext().getProjection(), true);
         mapContent.getViewport().setCoordinateReferenceSystem(mapCrs);
 
         for (PrintSpecificationDto.LayerSpecDto layerSpec : spec.getLayers()) {
@@ -131,7 +131,7 @@ public class MapRenderer {
         FeatureJSON fjson = new FeatureJSON();
         SimpleFeatureCollection features = (SimpleFeatureCollection) fjson.readFeatureCollection(geojson);
         
-        CoordinateReferenceSystem vectorCrs = CRS.decode("EPSG:4326");
+        CoordinateReferenceSystem vectorCrs = CRS.decode("EPSG:4326", true);
         SimpleFeatureSource source = DataUtilities.source(features);
         
         Query query = new Query();

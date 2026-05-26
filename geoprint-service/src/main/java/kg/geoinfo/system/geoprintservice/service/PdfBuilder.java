@@ -28,7 +28,7 @@ public class PdfBuilder {
         String base64Image = "data:image/png;base64," + Base64.getEncoder().encodeToString(baos.toByteArray());
 
         String pageSize = layout != null ? layout.split("_")[0].toLowerCase() : "a4";
-        String orientation = layout != null && layout.toUpperCase().contains("PORTRAIT") ? "portrait" : "landscape";
+        String orientation = layout != null && layout.toUpperCase().contains("PORTRAIT") ? "" : "landscape";
 
         Context context = new Context();
         context.setVariable("mapImageBase64", base64Image);
