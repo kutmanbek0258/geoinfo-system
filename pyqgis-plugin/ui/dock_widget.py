@@ -10,7 +10,7 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
 from qgis.core import QgsMessageLog, Qgis, NULL, QgsProject, QgsVectorLayer
-from .create_dialog import CreateObjectDialog
+# from .create_dialog import CreateObjectDialog
 
 class GeoInfoDockWidget(QDockWidget):
     def __init__(self, iface, api_client, layer_factory, parent=None):
@@ -66,26 +66,8 @@ class GeoInfoDockWidget(QDockWidget):
             QgsMessageLog.logMessage("Please select a project or folder", "GeoInfoSystem", Qgis.Warning)
             return
             
-        dialog = CreateObjectDialog(self)
-        if dialog.exec_():
-            obj_type, name = dialog.get_data()
-            parent_item = self.model.itemFromIndex(index)
-            parent_data = parent_item.data(Qt.UserRole)
-            
-            # Logic: If creating a vector, add to model as 'new'
-            if obj_type != "Folder":
-                geom_map = {"Point": "points", "Line": "multilines", "Polygon": "polygons"}
-                new_obj = {
-                    "name": name,
-                    "type": obj_type,
-                    "is_new": True,
-                    "project_id": parent_data.get('project_id') or parent_data.get('projectId')
-                }
-                obj_item = QStandardItem(name)
-                obj_item.setData(new_obj, Qt.UserRole)
-                parent_item.appendRow([obj_item, QStandardItem(obj_type)])
-            else:
-                QgsMessageLog.logMessage("Folder creation via UI requires backend API support.", "GeoInfoSystem", Qgis.Warning)
+        QgsMessageLog.logMessage("Create Object dialog is currently unavailable (missing create_dialog.py).", "GeoInfoSystem", Qgis.Warning)
+        return
 
     def synchronize_changes(self):
         """Finds all vector layers added by the plugin and syncs changes to the server."""
@@ -161,6 +143,29 @@ class GeoInfoDockWidget(QDockWidget):
         imagery_layers = self.api.get_imagery_layers()
         terrain_layers = self.api.get_terrain_layers()
 
+        # 1. Imagery Layers Folder (Global Group)
+        wms_root = QStandardItem("Imagery Layers")
+        wms_root.setData({'type': 'group'}, Qt.UserRole)
+        self.model.appendRow([wms_root, QStandardItem("Global Group")])
+        
+        for l in imagery_layers:
+            l_item = QStandardItem(l.get('name', 'Unnamed Imagery'))
+            l_item.setData(l, Qt.UserRole)
+            l_item.setEditable(False)
+            wms_root.appendRow([l_item, QStandardItem("WMS")])
+
+        # 2. Terrain Layers Folder (Global Group)
+        terrain_root = QStandardItem("Terrain Layers")
+        terrain_root.setData({'type': 'group'}, Qt.UserRole)
+        self.model.appendRow([terrain_root, QStandardItem("Global Group")])
+        
+        for t in terrain_layers:
+            t_item = QStandardItem(t.get('title', 'Unnamed Terrain'))
+            t_item.setData(t, Qt.UserRole)
+            t_item.setEditable(False)
+            terrain_root.appendRow([t_item, QStandardItem("Terrain")])
+
+        # 3. Projects and their Vectors
         for p in projects:
             project_id = p.get('id')
             p_item = QStandardItem(p.get('name', 'Unnamed Project'))
@@ -168,35 +173,12 @@ class GeoInfoDockWidget(QDockWidget):
             p_item.setEditable(False)
             self.model.appendRow([p_item, QStandardItem("Project")])
             
-            # 1. Vectors Folder (Hierarchical)
+            # Vectors Folder (Hierarchical)
             vectors_root = QStandardItem("Vectors")
             vectors_root.setData({'type': 'group'}, Qt.UserRole)
             p_item.appendRow([vectors_root, QStandardItem("Folder")])
             
             self._build_vector_hierarchy(project_id, vectors_root)
-
-            # 2. WMS Layers Folder
-            wms_root = QStandardItem("WMS Layers")
-            wms_root.setData({'type': 'group'}, Qt.UserRole)
-            p_item.appendRow([wms_root, QStandardItem("Folder")])
-            
-            for l in imagery_layers:
-                # In a real scenario, we might want to filter imagery by project if possible
-                l_item = QStandardItem(l.get('name', 'Unnamed Imagery'))
-                l_item.setData(l, Qt.UserRole)
-                l_item.setEditable(False)
-                wms_root.appendRow([l_item, QStandardItem("WMS")])
-
-            # 3. Terrain Layers Folder
-            terrain_root = QStandardItem("Terrain Layers")
-            terrain_root.setData({'type': 'group'}, Qt.UserRole)
-            p_item.appendRow([terrain_root, QStandardItem("Folder")])
-            
-            for t in terrain_layers:
-                t_item = QStandardItem(t.get('title', 'Unnamed Terrain'))
-                t_item.setData(t, Qt.UserRole)
-                t_item.setEditable(False)
-                terrain_root.appendRow([t_item, QStandardItem("Terrain")])
 
     def _build_vector_hierarchy(self, project_id, parent_item):
         """Builds the recursive folder and object structure for vectors."""

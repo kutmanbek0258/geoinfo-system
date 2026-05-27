@@ -131,6 +131,9 @@ class LayerFactory:
         # List of provider/URI combinations to try
         test_configs = [
             ("mesh_cesium", f"type=cesium&url={url}layer.json"),
+            ("mesh_cesium", f"type=cesium-terrain&url={url}layer.json"),
+            ("mesh_cesium", f"cesium:url={url}layer.json"),
+            ("mesh_cesium", f"url={url}layer.json"),
             ("mesh_cesium", f"type=cesium&url={url}"),
             ("mdal", f"{url}layer.json"),
             ("mdal", url),
@@ -143,6 +146,12 @@ class LayerFactory:
             if test_layer.isValid():
                 mlayer = test_layer
                 break
+            else:
+                # Log why it's invalid if possible
+                error_msg = "Unknown error"
+                if test_layer.dataProvider():
+                    error_msg = test_layer.dataProvider().error().message()
+                QgsMessageLog.logMessage(f"GeoInfoSystem: Variant failed. Info: {error_msg}", "GeoInfoSystem", Qgis.Info)
 
         if mlayer:
             QgsProject.instance().addMapLayer(mlayer)
