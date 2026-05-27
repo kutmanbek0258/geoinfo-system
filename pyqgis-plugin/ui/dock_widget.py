@@ -2,6 +2,7 @@ from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtWidgets import (
     QDockWidget, 
     QVBoxLayout, 
+    QHBoxLayout,
     QWidget, 
     QTreeView, 
     QPushButton, 
@@ -9,11 +10,11 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
 from qgis.core import QgsMessageLog, Qgis, NULL, QgsProject, QgsVectorLayer
+from .create_dialog import CreateObjectDialog
 
 class GeoInfoDockWidget(QDockWidget):
     def __init__(self, iface, api_client, layer_factory, parent=None):
         super(GeoInfoDockWidget, self).__init__(parent)
-        QgsMessageLog.logMessage("GeoInfoSystem: DockWidget Initializing...", "GeoInfoSystem", Qgis.Info)
         self.iface = iface
         self.api = api_client
         self.layer_factory = layer_factory
@@ -25,8 +26,14 @@ class GeoInfoDockWidget(QDockWidget):
         self.content_widget = QWidget()
         self.layout = QVBoxLayout(self.content_widget)
 
-        self.label = QLabel("Projects and Layers")
-        self.layout.addWidget(self.label)
+        # Header with + button
+        header_layout = QHBoxLayout()
+        header_layout.addWidget(QLabel("Projects and Layers"))
+        self.add_new_btn = QPushButton("+")
+        self.add_new_btn.setFixedWidth(30)
+        self.add_new_btn.clicked.connect(self.show_create_dialog)
+        header_layout.addWidget(self.add_new_btn)
+        self.layout.addLayout(header_layout)
 
         # Tree View for projects and layers
         self.tree_view = QTreeView()
@@ -36,27 +43,49 @@ class GeoInfoDockWidget(QDockWidget):
         self.layout.addWidget(self.tree_view)
 
         # Buttons layout
-        self.btn_layout = QVBoxLayout()
+        self.btn_layout = QHBoxLayout()
         
-        # Refresh button
         self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self.refresh_data)
         self.btn_layout.addWidget(self.refresh_btn)
 
-        # Add button
         self.add_btn = QPushButton("Add to Map")
         self.add_btn.clicked.connect(self.add_selected_layer)
         self.btn_layout.addWidget(self.add_btn)
 
-        # Sync button
-        self.sync_btn = QPushButton("Synchronize Changes")
-        self.sync_btn.setStyleSheet("background-color: #e1f5fe; font-weight: bold;")
+        self.sync_btn = QPushButton("Sync")
         self.sync_btn.clicked.connect(self.synchronize_changes)
         self.btn_layout.addWidget(self.sync_btn)
 
         self.layout.addLayout(self.btn_layout)
-
         self.setWidget(self.content_widget)
+
+    def show_create_dialog(self):
+        index = self.tree_view.currentIndex()
+        if not index.isValid():
+            QgsMessageLog.logMessage("Please select a project or folder", "GeoInfoSystem", Qgis.Warning)
+            return
+            
+        dialog = CreateObjectDialog(self)
+        if dialog.exec_():
+            obj_type, name = dialog.get_data()
+            parent_item = self.model.itemFromIndex(index)
+            parent_data = parent_item.data(Qt.UserRole)
+            
+            # Logic: If creating a vector, add to model as 'new'
+            if obj_type != "Folder":
+                geom_map = {"Point": "points", "Line": "multilines", "Polygon": "polygons"}
+                new_obj = {
+                    "name": name,
+                    "type": obj_type,
+                    "is_new": True,
+                    "project_id": parent_data.get('project_id') or parent_data.get('projectId')
+                }
+                obj_item = QStandardItem(name)
+                obj_item.setData(new_obj, Qt.UserRole)
+                parent_item.appendRow([obj_item, QStandardItem(obj_type)])
+            else:
+                QgsMessageLog.logMessage("Folder creation via UI requires backend API support.", "GeoInfoSystem", Qgis.Warning)
 
     def synchronize_changes(self):
         """Finds all vector layers added by the plugin and syncs changes to the server."""
@@ -232,9 +261,21 @@ class GeoInfoDockWidget(QDockWidget):
         elif 'terrainUrl' in data:
             self.layer_factory.add_terrain_layer(data)
         
-        # Case 3: Vector Object
-        elif 'geom' in data:
-            self.layer_factory.add_single_vector_object(data)
+        # Case 3: Vector Object (Existing or New)
+        else:
+            # If it's a new object created in UI, add basic fields
+            if data.get('is_new'):
+                # Initialize empty structure if geom missing
+                if 'geom' not in data:
+                    geom_map = {"Point": "POINT EMPTY", "Line": "LINESTRING EMPTY", "Polygon": "POLYGON EMPTY"}
+                    data['geom'] = geom_map.get(data.get('type'), "POINT EMPTY")
+                
+                # Create the layer
+                layer = self.layer_factory.add_single_vector_object(data)
+                if layer and data.get('project_id'):
+                    layer.setCustomProperty("geoinfo_project_id", str(data.get('project_id')))
+            else:
+                self.layer_factory.add_single_vector_object(data)
 
     def add_selected_folder(self):
         """Future: Add all objects within a folder/project."""

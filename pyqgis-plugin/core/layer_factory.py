@@ -159,23 +159,32 @@ class LayerFactory:
     def export_feature_to_dto(self, feature, project_id, folder_id=None):
         """Converts a QgsFeature back to a DTO dictionary for the API."""
         geom = feature.geometry()
-        # Convert QgsGeometry to GeoJSON dict string using asJson()
+        # Export geometry to GeoJSON dict string
         geom_json_str = geom.asJson()
-        geom_json = json.loads(geom_json_str) if geom_json_str else None
+        geom_obj = json.loads(geom_json_str)
         
+        # Backend expects the geometry object itself, not a GeoJSON Feature
+        # If it's a GeoJSON Feature, extract the 'geometry' property
+        if isinstance(geom_obj, dict) and geom_obj.get('type') == 'Feature':
+            geom_data = geom_obj.get('geometry')
+        else:
+            geom_data = geom_obj
+
         dto = {
             "name": feature.attribute("name") or "New Object",
             "description": feature.attribute("description") or "",
             "projectId": project_id,
             "folderId": folder_id,
-            "status": "COMPLETED", # Default status
-            "geom": geom_json,
+            "status": "COMPLETED",
+            "geom": geom_data,
             "characteristics": {}
         }
         
         # If it's an existing feature, add its ID
         feat_id = feature.attribute("id")
-        if feat_id and feat_id != NULL:
+        if feat_id and feat_id != NULL and str(feat_id).strip() != "":
             dto["id"] = str(feat_id)
+            
+        QgsMessageLog.logMessage(f"GeoInfoSystem: Exported DTO: {json.dumps(dto)}", "GeoInfoSystem", Qgis.Info)
             
         return dto
