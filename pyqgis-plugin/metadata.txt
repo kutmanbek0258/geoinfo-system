@@ -1,0 +1,15 @@
+[general]
+name=GeoInfoSystem Connector
+description=Professional GIS client for GeoInfoSystem with OAuth2, COG and real-time sync.
+about=Integrated QGIS client for the GeoInfoSystem microservices platform.
+version=0.1
+qgisMinimumVersion=3.10
+author=GeoInfoSystem Team
+email=support@geoinfo-system.kg
+repository=https://github.com/geoinfo-system/qgis-plugin
+
+[python]
+python_version=3.9
+
+[gui]
+icon=icons/logo.png
