@@ -1,4 +1,4 @@
-from qgis.PyQt.QtCore import Qt, pyqtSignal
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QVariant
 from qgis.PyQt.QtWidgets import (
     QDockWidget, 
     QVBoxLayout, 
@@ -10,7 +10,7 @@ from qgis.PyQt.QtWidgets import (
     QMessageBox
 )
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
-from qgis.core import QgsMessageLog, Qgis, NULL, QgsProject, QgsVectorLayer
+from qgis.core import QgsMessageLog, Qgis, NULL, QgsProject, QgsVectorLayer, QgsField
 # from .create_dialog import CreateObjectDialog
 
 class GeoInfoDockWidget(QDockWidget):
@@ -69,6 +69,32 @@ class GeoInfoDockWidget(QDockWidget):
 
         self.layout.addLayout(self.btn_layout)
         self.setWidget(self.content_widget)
+
+    def get_or_create_external_id_field(self, layer):
+        """Finds or creates a string field capable of holding a UUID."""
+        fields = layer.fields()
+        
+        # 1. Check for dedicated 'ginf_id' (GeoInfo ID)
+        idx = fields.indexOf("ginf_id")
+        if idx != -1:
+            return idx, "ginf_id"
+            
+        # 2. Check if existing 'id' is a string
+        idx = fields.indexOf("id")
+        if idx != -1 and fields[idx].type() == QVariant.String:
+            return idx, "id"
+            
+        # 3. Create 'ginf_id' if possible
+        if not layer.isEditable() and not layer.startEditing():
+            return -1, None
+            
+        # Shapefile limit is 10 chars, 'ginf_id' is 7.
+        new_field = QgsField("ginf_id", QVariant.String, "text", 36)
+        if layer.dataProvider().addAttributes([new_field]):
+            layer.updateFields()
+            return layer.fields().indexOf("ginf_id"), "ginf_id"
+            
+        return -1, None
 
     def show_create_dialog(self):
         index = self.tree_view.currentIndex()
@@ -143,15 +169,22 @@ class GeoInfoDockWidget(QDockWidget):
             # Use batch editing for stability
             layer.startEditing()
             try:
+                # Ensure we have a suitable ID field
+                id_field_idx, id_field_name = self.get_or_create_external_id_field(layer)
+                
                 features = list(layer.getFeatures())
-                id_field_idx = layer.fields().indexOf("id")
                 
                 for feature in features:
                     dto = self.layer_factory.export_feature_to_dto(feature, project_id, folder_id, api_type=api_type)
                     if not dto: continue
                     
-                    feat_id = feature.attribute("id") if id_field_idx != -1 else None
-                    is_new = (feat_id == NULL or not str(feat_id).strip() or len(str(feat_id)) < 10)
+                    # Check if it already has a UUID in our chosen ID field
+                    feat_id = feature.attribute(id_field_name) if id_field_idx != -1 else None
+                    
+                    # Helper to check if string is a valid UUID
+                    import re
+                    is_uuid = feat_id and feat_id != NULL and bool(re.match(r'^[0-9a-f]{8}-', str(feat_id), re.I))
+                    is_new = not is_uuid
 
                     result = self.api.sync_feature(api_type, dto, is_new=is_new)
                     if result:
@@ -206,15 +239,25 @@ class GeoInfoDockWidget(QDockWidget):
 
             layer.startEditing()
             try:
+                # Ensure we have a suitable ID field
+                id_field_idx, id_field_name = self.get_or_create_external_id_field(layer)
+                
                 features = list(layer.getFeatures())
-                id_field_idx = layer.fields().indexOf("id")
                 
                 for feature in features:
-                    feat_id = feature.attribute("id") if id_field_idx != -1 else None
-                    is_new = (feat_id == NULL or not str(feat_id).strip() or len(str(feat_id)) < 10)
+                    # Determine if new or update
+                    feat_id = feature.attribute(id_field_name) if id_field_idx != -1 else None
                     
+                    import re
+                    is_uuid = feat_id and feat_id != NULL and bool(re.match(r'^[0-9a-f]{8}-', str(feat_id), re.I))
+                    is_new = not is_uuid
+                    
+                    # If updating, ensure the DTO has the ID
                     dto = self.layer_factory.export_feature_to_dto(feature, project_id, folder_id, api_type=api_type)
                     if not dto: continue
+                    
+                    if is_uuid:
+                        dto["id"] = str(feat_id)
                     
                     result = self.api.sync_feature(api_type, dto, is_new=is_new)
                     if result:
