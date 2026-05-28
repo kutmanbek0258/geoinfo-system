@@ -15,6 +15,7 @@ interface GeodataState {
     polygons: ProjectPolygon[];
     selectedProjectId: string | null;
     selectedFeatureId: string | null;
+    selectedFolderId: string | null;
     isLoading: boolean;
     error: string | null;
     activeCameraStream: { geoObjectId: string, streamHlsUrl: string } | null;
@@ -31,6 +32,7 @@ const state: GeodataState = {
     polygons: [],
     selectedProjectId: null,
     selectedFeatureId: null,
+    selectedFolderId: null,
     isLoading: false,
     error: null,
     activeCameraStream: null,
@@ -48,9 +50,13 @@ const mutations = {
     },
     SET_SELECTED_PROJECT_ID(state: GeodataState, projectId: string | null) {
         state.selectedProjectId = projectId;
+        state.selectedFolderId = null; // Reset folder when project changes
     },
     SET_SELECTED_FEATURE_ID(state: GeodataState, featureId: string | null) {
         state.selectedFeatureId = featureId;
+    },
+    SET_SELECTED_FOLDER_ID(state: GeodataState, folderId: string | null) {
+        state.selectedFolderId = folderId;
     },
     SET_LOADING(state: GeodataState, isLoading: boolean) {
         state.isLoading = isLoading;

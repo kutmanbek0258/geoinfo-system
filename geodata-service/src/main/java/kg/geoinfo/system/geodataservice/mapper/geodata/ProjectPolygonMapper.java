@@ -18,6 +18,7 @@ public interface ProjectPolygonMapper {
     ProjectPolygonDto toDto(ProjectPolygon projectPolygon);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")
+    @Mapping(target = "folder", source = "folderId", qualifiedByName = "mapFolder")
     ProjectPolygon toEntity(CreateProjectPolygonDto createProjectPolygonDto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

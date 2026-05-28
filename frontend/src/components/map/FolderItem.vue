@@ -12,8 +12,10 @@
         prepend-icon="mdi-folder"
         :title="folder.name"
         class="folder-item draggable-item"
+        :active="selectedFolderId === folder.id"
         draggable="true"
         @dragstart="onDragStart($event, folder, 'folder')"
+        @click="selectFolder"
       >
         <template v-slot:append>
           <div class="folder-actions">
@@ -126,6 +128,7 @@ const store = useStore();
 const subFolders = computed(() => props.allFolders.filter((f: GeoFolder) => f.parentId === props.folder.id));
 const folderObjects = computed(() => props.objects.filter((obj: any) => obj.folderId === props.folder.id));
 const selectedFeatureId = computed(() => store.state.geodata.selectedFeatureId);
+const selectedFolderId = computed(() => store.state.geodata.selectedFolderId);
 
 const isFolderVisible = computed(() => props.folder.characteristics?.visible !== false);
 
@@ -136,7 +139,12 @@ const getIcon = (type: string) => {
 };
 
 const selectObject = (obj: any) => {
+  store.commit('geodata/SET_SELECTED_FOLDER_ID', obj.folderId);
   store.dispatch('geodata/selectFeature', obj.id);
+};
+
+const selectFolder = () => {
+  store.commit('geodata/SET_SELECTED_FOLDER_ID', props.folder.id);
 };
 
 const isVisible = (obj: any) => {

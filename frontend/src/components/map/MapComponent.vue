@@ -543,6 +543,7 @@ const saveNewFeature = async () => {
 
     const payload = {
         projectId: props.projectId,
+        folderId: store.state.geodata.selectedFolderId,
         geom: newObjectGeometry.value,
         name: newObjectMetadata.value.name,
         description: newObjectMetadata.value.description,

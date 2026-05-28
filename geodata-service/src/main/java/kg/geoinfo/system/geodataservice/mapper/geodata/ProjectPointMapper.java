@@ -18,6 +18,7 @@ public interface ProjectPointMapper {
     ProjectPointDto toDto(ProjectPoint projectPoint);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")
+    @Mapping(target = "folder", source = "folderId", qualifiedByName = "mapFolder")
     ProjectPoint toEntity(CreateProjectPointDto createProjectPointDto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

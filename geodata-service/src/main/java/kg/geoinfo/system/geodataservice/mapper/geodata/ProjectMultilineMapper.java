@@ -18,6 +18,7 @@ public interface ProjectMultilineMapper {
     ProjectMultilineDto toDto(ProjectMultiline projectMultiline);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")
+    @Mapping(target = "folder", source = "folderId", qualifiedByName = "mapFolder")
     ProjectMultiline toEntity(CreateProjectMultilineDto createProjectMultilineDto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

@@ -1,8 +1,14 @@
 <template>
   <v-list density="compact" nav class="pa-0" @dragover.prevent @drop="onDropToRoot">
     <!-- Header with Actions -->
-    <v-list-item class="px-2">
+    <v-list-item 
+      class="px-2" 
+      :active="selectedFolderId === null" 
+      @click="selectRoot"
+      prepend-icon="mdi-layers-triple"
+    >
       <template v-slot:prepend>
+        <v-icon color="primary" class="mr-2">mdi-layers-triple</v-icon>
         <span class="text-subtitle-2 font-weight-bold">Слои и объекты</span>
       </template>
       <template v-slot:append>
@@ -12,7 +18,7 @@
           density="compact"
           color="primary"
           title="Создать папку"
-          @click="openCreateFolderDialog"
+          @click.stop="openCreateFolderDialog"
         ></v-btn>
       </template>
     </v-list-item>
@@ -78,6 +84,7 @@ const polygons = computed(() => store.state.geodata.polygons.map((p: ProjectPoly
 
 const allObjects = computed(() => [...points.value, ...multilines.value, ...polygons.value]);
 const selectedFeatureId = computed(() => store.state.geodata.selectedFeatureId);
+const selectedFolderId = computed(() => store.state.geodata.selectedFolderId);
 
 const rootFolders = computed(() => folders.value.filter((f: GeoFolder) => !f.parentId));
 const rootObjects = computed(() => allObjects.value.filter((obj: any) => !obj.folderId));
@@ -89,7 +96,12 @@ const getIcon = (type: string) => {
 };
 
 const selectObject = (obj: any) => {
+  store.commit('geodata/SET_SELECTED_FOLDER_ID', obj.folderId);
   store.dispatch('geodata/selectFeature', obj.id);
+};
+
+const selectRoot = () => {
+  store.commit('geodata/SET_SELECTED_FOLDER_ID', null);
 };
 
 const isVisible = (obj: any) => {

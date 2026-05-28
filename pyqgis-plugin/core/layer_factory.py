@@ -165,35 +165,67 @@ class LayerFactory:
         """COG logic preserved but currently bypassed in UI as per request."""
         pass
 
-    def export_feature_to_dto(self, feature, project_id, folder_id=None):
-        """Converts a QgsFeature back to a DTO dictionary for the API."""
-        geom = feature.geometry()
-        # Export geometry to GeoJSON dict string
-        geom_json_str = geom.asJson()
-        geom_obj = json.loads(geom_json_str)
-        
-        # Backend expects the geometry object itself, not a GeoJSON Feature
-        # If it's a GeoJSON Feature, extract the 'geometry' property
-        if isinstance(geom_obj, dict) and geom_obj.get('type') == 'Feature':
-            geom_data = geom_obj.get('geometry')
-        else:
-            geom_data = geom_obj
+    def export_feature_to_dto(self, feature, project_id, folder_id=None, api_type=None):
+        """Converts a QgsFeature back to a DTO dictionary for the API with high-stability normalization."""
+        try:
+            geom = feature.geometry()
+            if not geom or geom.isNull() or geom.isEmpty():
+                return None
 
-        dto = {
-            "name": feature.attribute("name") or "New Object",
-            "description": feature.attribute("description") or "",
-            "projectId": project_id,
-            "folderId": folder_id,
-            "status": "COMPLETED",
-            "geom": geom_data,
-            "characteristics": {}
-        }
-        
-        # If it's an existing feature, add its ID
-        feat_id = feature.attribute("id")
-        if feat_id and feat_id != NULL and str(feat_id).strip() != "":
-            dto["id"] = str(feat_id)
+            # Ensure geometry is valid to prevent crashes during asJson()
+            if not geom.isGeosValid():
+                QgsMessageLog.logMessage("GeoInfoSystem: Invalid geometry detected, attempting to fix...", "GeoInfoSystem", Qgis.Warning)
+                geom = geom.makeValid()
+
+            normalized_geom = geom
             
-        QgsMessageLog.logMessage(f"GeoInfoSystem: Exported DTO: {json.dumps(dto)}", "GeoInfoSystem", Qgis.Info)
+            # Normalization logic
+            if api_type == 'points' or api_type == 'polygons':
+                if geom.isMultipart():
+                    QgsMessageLog.logMessage(f"GeoInfoSystem: Normalizing multipart {api_type}...", "GeoInfoSystem", Qgis.Info)
+                    try:
+                        # Using WKT as a stable bridge to avoid pointer/ownership issues that cause crashes
+                        parts_iter = geom.parts()
+                        first_part = next(parts_iter)
+                        wkt_part = first_part.asWkt()
+                        normalized_geom = QgsGeometry.fromWkt(wkt_part)
+                        QgsMessageLog.logMessage(f"GeoInfoSystem: Extracted first part via WKT: {wkt_part[:50]}...", "GeoInfoSystem", Qgis.Info)
+                    except Exception as e:
+                        QgsMessageLog.logMessage(f"GeoInfoSystem: Normalization failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
             
-        return dto
+            elif api_type == 'multilines':
+                if not geom.isMultipart():
+                    normalized_geom = geom.convertToMultiType()
+                    QgsMessageLog.logMessage("GeoInfoSystem: LineString promoted to MultiLineString.", "GeoInfoSystem", Qgis.Info)
+
+            # Export to JSON
+            QgsMessageLog.logMessage("GeoInfoSystem: Exporting geometry to JSON...", "GeoInfoSystem", Qgis.Info)
+            geom_json_str = normalized_geom.asJson()
+            geom_obj = json.loads(geom_json_str)
+            
+            # Extract geometry data from GeoJSON Feature if needed
+            if isinstance(geom_obj, dict) and geom_obj.get('type') == 'Feature':
+                geom_data = geom_obj.get('geometry')
+            else:
+                geom_data = geom_obj
+
+            QgsMessageLog.logMessage("GeoInfoSystem: Building DTO...", "GeoInfoSystem", Qgis.Info)
+            dto = {
+                "name": feature.attribute("name") if "name" in feature.fields().names() else "New Object",
+                "description": feature.attribute("description") if "description" in feature.fields().names() else "",
+                "projectId": project_id,
+                "folderId": folder_id,
+                "status": "COMPLETED",
+                "geom": geom_data,
+                "characteristics": {}
+            }
+            
+            if "id" in feature.fields().names():
+                feat_id = feature.attribute("id")
+                if feat_id and feat_id != NULL and str(feat_id).strip() != "":
+                    dto["id"] = str(feat_id)
+                
+            return dto
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: CRITICAL ERROR in export_feature_to_dto: {str(e)}", "GeoInfoSystem", Qgis.Critical)
+            return None

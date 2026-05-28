@@ -6,7 +6,8 @@ from qgis.PyQt.QtWidgets import (
     QWidget, 
     QTreeView, 
     QPushButton, 
-    QLabel
+    QLabel,
+    QMessageBox
 )
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
 from qgis.core import QgsMessageLog, Qgis, NULL, QgsProject, QgsVectorLayer
@@ -43,19 +44,28 @@ class GeoInfoDockWidget(QDockWidget):
         self.layout.addWidget(self.tree_view)
 
         # Buttons layout
-        self.btn_layout = QHBoxLayout()
+        self.btn_layout = QVBoxLayout()
         
+        main_btns = QHBoxLayout()
         self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self.refresh_data)
-        self.btn_layout.addWidget(self.refresh_btn)
+        main_btns.addWidget(self.refresh_btn)
 
         self.add_btn = QPushButton("Add to Map")
         self.add_btn.clicked.connect(self.add_selected_layer)
-        self.btn_layout.addWidget(self.add_btn)
+        main_btns.addWidget(self.add_btn)
 
         self.sync_btn = QPushButton("Sync")
         self.sync_btn.clicked.connect(self.synchronize_changes)
-        self.btn_layout.addWidget(self.sync_btn)
+        main_btns.addWidget(self.sync_btn)
+        
+        self.btn_layout.addLayout(main_btns)
+
+        # Add to Project Button
+        self.bind_btn = QPushButton("Add to Project")
+        self.bind_btn.setToolTip("Bind selected QGIS vector layers to the selected folder/project in the tree.")
+        self.bind_btn.clicked.connect(self.bind_layers_to_project)
+        self.btn_layout.addWidget(self.bind_btn)
 
         self.layout.addLayout(self.btn_layout)
         self.setWidget(self.content_widget)
@@ -69,14 +79,104 @@ class GeoInfoDockWidget(QDockWidget):
         QgsMessageLog.logMessage("Create Object dialog is currently unavailable (missing create_dialog.py).", "GeoInfoSystem", Qgis.Warning)
         return
 
+    def bind_layers_to_project(self):
+        """Binds selected QGIS vector layers to the selected folder/project in the tree."""
+        index = self.tree_view.currentIndex()
+        if not index.isValid():
+            QMessageBox.warning(self, "GeoInfoSystem", "Please select a target folder or 'Vectors' node in the tree.")
+            return
+
+        item = self.model.itemFromIndex(index)
+        data = item.data(Qt.UserRole) or {}
+        
+        project_id = None
+        folder_id = None
+
+        # Determine target project and folder
+        if data.get('type') == 'folder':
+            folder_id = data.get('id')
+            project_id = data.get('projectId')
+        elif data.get('type') == 'group' and item.text() == 'Vectors':
+            # Need to find project ID from parent
+            parent = item.parent()
+            if parent:
+                project_id = parent.data(Qt.UserRole).get('id')
+        
+        if not project_id:
+            QMessageBox.warning(self, "GeoInfoSystem", "Could not determine target project. Please select a folder or 'Vectors' node.")
+            return
+
+        selected_layers = self.iface.layerTreeView().selectedLayers()
+        vector_layers = [l for l in selected_layers if isinstance(l, QgsVectorLayer)]
+
+        if not vector_layers:
+            QMessageBox.warning(self, "GeoInfoSystem", "No vector layers selected in the QGIS Layer Panel.")
+            return
+
+        confirm = QMessageBox.question(
+            self, "Confirm Import",
+            f"Import {len(vector_layers)} layers into project '{project_id}'?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        total_sync_count = 0
+        for layer in vector_layers:
+            # Determine API type
+            geom_type = layer.geometryType()
+            api_type = None
+            if geom_type == 0: api_type = "points"
+            elif geom_type == 1: api_type = "multilines"
+            elif geom_type == 2: api_type = "polygons"
+            
+            if not api_type:
+                continue
+
+            # Tag layer with project and folder IDs for persistence
+            layer.setCustomProperty("geoinfo_project_id", str(project_id))
+            if folder_id:
+                layer.setCustomProperty("geoinfo_folder_id", str(folder_id))
+            else:
+                layer.setCustomProperty("geoinfo_folder_id", "") # Clear if root
+            
+            # Use batch editing for stability
+            layer.startEditing()
+            try:
+                features = list(layer.getFeatures())
+                id_field_idx = layer.fields().indexOf("id")
+                
+                for feature in features:
+                    dto = self.layer_factory.export_feature_to_dto(feature, project_id, folder_id, api_type=api_type)
+                    if not dto: continue
+                    
+                    feat_id = feature.attribute("id") if id_field_idx != -1 else None
+                    is_new = (feat_id == NULL or not str(feat_id).strip() or len(str(feat_id)) < 10)
+
+                    result = self.api.sync_feature(api_type, dto, is_new=is_new)
+                    if result:
+                        total_sync_count += 1
+                        if is_new and id_field_idx != -1:
+                            new_id = str(result.get('id'))
+                            layer.changeAttributeValue(feature.id(), id_field_idx, new_id)
+                
+                layer.commitChanges()
+                QgsMessageLog.logMessage(f"GeoInfoSystem: Layer '{layer.name()}' synced successfully.", "GeoInfoSystem", Qgis.Success)
+            except Exception as e:
+                layer.rollBack()
+                QgsMessageLog.logMessage(f"GeoInfoSystem: Error syncing layer '{layer.name()}': {str(e)}", "GeoInfoSystem", Qgis.Critical)
+
+        self.iface.messageBar().pushMessage("GeoInfoSystem", f"Successfully imported {total_sync_count} features.", level=Qgis.Success)
+        self.refresh_data()
+
     def synchronize_changes(self):
         """Finds all vector layers added by the plugin and syncs changes to the server."""
         QgsMessageLog.logMessage("GeoInfoSystem: Starting synchronization...", "GeoInfoSystem", Qgis.Info)
         
         layers = QgsProject.instance().mapLayers().values()
-        sync_count = 0
+        total_sync_count = 0
         
-        # Determine fallback project ID from the tree if nothing else found
+        # Determine fallback project ID
         fallback_project_id = None
         for i in range(self.model.rowCount()):
             item = self.model.item(i)
@@ -88,20 +188,14 @@ class GeoInfoDockWidget(QDockWidget):
             if not isinstance(layer, QgsVectorLayer):
                 continue
             
-            # Check for our marker or required fields
             project_id = layer.customProperty("geoinfo_project_id") or fallback_project_id
+            folder_id = layer.customProperty("geoinfo_folder_id")
+            if folder_id == "": folder_id = None
             
-            # A layer is syncable if it has project_id and at least the 'name' field
             fields = [f.name().lower() for f in layer.fields()]
-            has_name = 'name' in fields
-            
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Inspecting layer '{layer.name()}' [Project: {project_id}, HasName: {has_name}]", "GeoInfoSystem", Qgis.Info)
-            
-            if not project_id or not has_name:
-                QgsMessageLog.logMessage(f"GeoInfoSystem: Skipped layer '{layer.name()}' - missing project ID or 'name' field.", "GeoInfoSystem", Qgis.Warning)
+            if not project_id or 'name' not in fields:
                 continue
             
-            # Determine geometry type for API
             geom_type = layer.geometryType()
             api_type = None
             if geom_type == 0: api_type = "points"
@@ -110,30 +204,31 @@ class GeoInfoDockWidget(QDockWidget):
             
             if not api_type: continue
 
-            # Sync all features
-            features = list(layer.getFeatures())
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Layer '{layer.name()}' has {len(features)} features. Syncing...", "GeoInfoSystem", Qgis.Info)
-            
-            for feature in features:
-                # We identify new features by lack of valid UUID in 'id' field
-                feat_id = feature.attribute("id")
-                is_new = (feat_id == NULL or not str(feat_id).strip() or len(str(feat_id)) < 10)
+            layer.startEditing()
+            try:
+                features = list(layer.getFeatures())
+                id_field_idx = layer.fields().indexOf("id")
                 
-                dto = self.layer_factory.export_feature_to_dto(feature, project_id)
+                for feature in features:
+                    feat_id = feature.attribute("id") if id_field_idx != -1 else None
+                    is_new = (feat_id == NULL or not str(feat_id).strip() or len(str(feat_id)) < 10)
+                    
+                    dto = self.layer_factory.export_feature_to_dto(feature, project_id, folder_id, api_type=api_type)
+                    if not dto: continue
+                    
+                    result = self.api.sync_feature(api_type, dto, is_new=is_new)
+                    if result:
+                        total_sync_count += 1
+                        if is_new and id_field_idx != -1:
+                            new_id = str(result.get('id'))
+                            layer.changeAttributeValue(feature.id(), id_field_idx, new_id)
                 
-                # Send to API
-                result = self.api.sync_feature(api_type, dto, is_new=is_new)
-                if result:
-                    sync_count += 1
-                    if is_new:
-                        new_id = str(result.get('id'))
-                        layer.startEditing()
-                        layer.changeAttributeValue(feature.id(), layer.fields().indexOf("id"), new_id)
-                        layer.commitChanges()
-                        QgsMessageLog.logMessage(f"GeoInfoSystem: Created new {api_type} with ID {new_id}", "GeoInfoSystem", Qgis.Success)
+                layer.commitChanges()
+            except Exception as e:
+                layer.rollBack()
+                QgsMessageLog.logMessage(f"GeoInfoSystem: Error during sync of '{layer.name()}': {str(e)}", "GeoInfoSystem", Qgis.Critical)
 
-        QgsMessageLog.logMessage(f"GeoInfoSystem: Synchronization finished. {sync_count} features processed.", "GeoInfoSystem", Qgis.Success)
-        self.iface.messageBar().pushMessage("GeoInfoSystem", f"Synchronized {sync_count} features.", level=Qgis.Success)
+        self.iface.messageBar().pushMessage("GeoInfoSystem", f"Synchronized {total_sync_count} features.", level=Qgis.Success)
 
     def refresh_data(self):
         """Loads projects and layers from API and builds a hierarchical tree."""
