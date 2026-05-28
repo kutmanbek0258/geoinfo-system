@@ -242,8 +242,19 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
     @Override
     @Transactional
-    public void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl) {
-        log.info("Updating job {} status to {}", jobId, status);
+    public void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType) {
+        log.info("Updating job {} status to {} (Task: {})", jobId, status, taskType);
+
+        // Handle TERRAIN_COG separately as it targets an existing layer created by TERRAIN_MESH
+        if ("TERRAIN_COG".equals(taskType) && "READY".equals(status)) {
+            layerRepository.findByJobId(jobId).ifPresent(layer -> {
+                layer.setCogObjectKey(cogObjectKey);
+                layerRepository.save(layer);
+                log.info("Late update: TerrainLayer {} updated with COG key {}", layer.getId(), cogObjectKey);
+            });
+            return;
+        }
+
         GeoAbstractJob job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobId));
 
@@ -275,8 +286,26 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
                 layer.setJob(job);
                 layer.setTitle(job.getName());
                 layer.setTerrainUrl(terrainUrl);
+                layer.setCogObjectKey(cogObjectKey);
                 layer.setStatus("READY");
                 layerRepository.save(layer);
+
+                // Trigger COG generation in geoabstract-worker if not provided by terrain-worker
+                if (cogObjectKey == null) {
+                    log.info("Triggering COG optimization for terrain job {}", jobId);
+                    GeoAbstractJobEvent cogEvent = GeoAbstractJobEvent.builder()
+                            .jobId(job.getId())
+                            .name(job.getName() + " COG")
+                            .eventType(GeoAbstractJobEvent.EventType.QUEUED)
+                            .taskType("TERRAIN_COG")
+                            .sourceBucket(job.getSourceBucket())
+                            .sourceObjectKey(job.getSourceObjectKey())
+                            .outputBucket(job.getOutputBucket())
+                            .outputPrefix("terrain-cog/" + job.getId())
+                            .build();
+
+                    kafkaProducerService.sendGeoAbstractJobEvent(cogEvent);
+                }
             }
         }
 
@@ -330,16 +359,45 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
         if (jobStatus == GeoAbstractJobStatus.READY || jobStatus == GeoAbstractJobStatus.FAILED) {
             // Cleanup source TIFF after terminal state reached
-            try {
-                if (job.getSourceObjectKey() != null) {
-                    log.info("Cleaning up source file {} for job {} (Status: {})", 
-                            job.getSourceObjectKey(), jobId, jobStatus);
-                    fileStoreService.delete(job.getSourceObjectKey());
+            // Special case for Terrain: source is needed for both MESH and COG tasks
+            if ("TERRAIN_MESH".equals(job.getTaskType()) && jobStatus == GeoAbstractJobStatus.READY) {
+                log.info("Keeping source file for job {} to allow TERRAIN_COG processing", jobId);
+            } else {
+                try {
+                    if (job.getSourceObjectKey() != null) {
+                        log.info("Cleaning up source file {} for job {} (Status: {})", 
+                                job.getSourceObjectKey(), jobId, jobStatus);
+                        fileStoreService.delete(job.getSourceObjectKey());
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to cleanup source file for job {}: {}", jobId, e.getMessage());
                 }
-            } catch (Exception e) {
-                log.error("Failed to cleanup source file for job {}: {}", jobId, e.getMessage());
             }
         }
+    }
+
+    @Override
+    public String generateTerrainPresignedUrl(UUID layerId) {
+        TerrainLayer layer = layerRepository.findById(layerId)
+                .orElseThrow(() -> new RuntimeException("Layer not found: " + layerId));
+
+        if (layer.getCogObjectKey() == null) {
+            throw new RuntimeException("COG object key not found for layer: " + layerId);
+        }
+
+        String url = fileStoreService.generateDownloadUrl(layer.getCogObjectKey());
+
+        // Rewrite internal MinIO URL to public /terrain/cog/ prefix
+        // From: http://minio:9000/geo-abstraction-input/terrain-cog/uuid.tif?X-Amz...
+        // To:   /terrain/cog/uuid.tif?X-Amz...
+        String bucketPath = "/" + minioProperties.getBucket() + "/terrain-cog/";
+        if (url.contains(bucketPath)) {
+            url = "/terrain/cog/" + url.split(bucketPath)[1];
+        } else if (url.contains("/" + minioProperties.getBucket() + "/")) {
+            url = "/minio/" + url.split("/" + minioProperties.getBucket() + "/")[1];
+        }
+
+        return url;
     }
 
     @Override

@@ -14,6 +14,8 @@ public class TerrainLayerDto extends AbstractDto {
     private String title;
     private String description;
     private String terrainUrl;
+    private String cogObjectKey;
+    private String cogUrl;
     private String status;
     private Boolean isVisible;
     private Instant createdAt;

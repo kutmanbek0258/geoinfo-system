@@ -35,6 +35,9 @@ public class TerrainLayer extends AuditableCustom<String> {
     @Column(name = "terrain_url", length = 512)
     private String terrainUrl;
 
+    @Column(name = "cog_object_key", length = 512)
+    private String cogObjectKey;
+
     @Column(name = "status", length = 50)
     private String status;
 

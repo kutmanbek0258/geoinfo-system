@@ -15,5 +15,6 @@ public interface GeoAbstractMapper {
 
     @Mapping(target = "jobId", source = "job.id")
     @Mapping(target = "createdAt", source = "createdDate")
+    @Mapping(target = "cogUrl", ignore = true)
     TerrainLayerDto toDto(TerrainLayer entity);
 }

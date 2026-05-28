@@ -11,6 +11,7 @@ class RawRasterProcessor(BaseProcessor):
     def process(self, job_data: Dict[str, Any]) -> None:
         job_id = str(job_data.get("jobId"))
         output_prefix = job_data.get("outputPrefix")
+        task_type = job_data.get("taskType", "RAW_GEOTIFF_OPTIMIZE")
         characteristics = job_data.get("characteristics", {})
 
         if not job_id or not output_prefix:
@@ -24,7 +25,7 @@ class RawRasterProcessor(BaseProcessor):
         input_file = os.path.join(work_dir, "input.tif")
 
         try:
-            self.send_status(job_id, "PROCESSING", "RAW_GEOTIFF_OPTIMIZE", output_prefix=output_prefix)
+            self.send_status(job_id, "PROCESSING", task_type, output_prefix=output_prefix)
             logger.info("Downloading raw GeoTIFF: %s/%s", source_bucket, source_key)
             minio_client.fget_object(source_bucket, source_key, input_file)
 
@@ -40,12 +41,19 @@ class RawRasterProcessor(BaseProcessor):
             
             build_final_cog(input_file, final_output_file, render_mode="analytic")
 
-            self.send_status(job_id, "READY", "RAW_GEOTIFF_OPTIMIZE", output_prefix=output_prefix)
+            if task_type == "TERRAIN_COG":
+                cog_object_key = "{0}.tif".format(output_prefix)
+                logger.info("Uploading Terrain COG to MinIO: %s/%s", source_bucket, cog_object_key)
+                minio_client.fput_object(source_bucket, cog_object_key, final_output_file)
+                self.send_status(job_id, "READY", task_type, output_prefix=output_prefix, cogObjectKey=cog_object_key)
+            else:
+                self.send_status(job_id, "READY", task_type, output_prefix=output_prefix, cogObjectKey=output_prefix)
+
             logger.info("Raw raster job %s completed successfully", job_id)
 
         except Exception as e:
             logger.exception("Raw raster job %s failed", job_id)
-            self.send_status(job_id, "FAILED", "RAW_GEOTIFF_OPTIMIZE", error_message=str(e), output_prefix=output_prefix)
+            self.send_status(job_id, "FAILED", task_type, error_message=str(e), output_prefix=output_prefix)
         finally:
             if os.path.exists(work_dir):
                 shutil.rmtree(work_dir, ignore_errors=True)

@@ -23,8 +23,8 @@ public class KafkaConsumerService {
                 event.getEventType(), event.getJobId(), event.getTaskType());
 
         if (event.getEventType() == GeoAbstractJobEvent.EventType.READY || event.getEventType() == GeoAbstractJobEvent.EventType.FAILED) {
-            String terrainUrl = null;
-            if (event.getEventType() == GeoAbstractJobEvent.EventType.READY && "TERRAIN_MESH".equals(event.getTaskType())) {
+            String terrainUrl = event.getTerrainUrl();
+            if (terrainUrl == null && event.getEventType() == GeoAbstractJobEvent.EventType.READY && "TERRAIN_MESH".equals(event.getTaskType())) {
                 terrainUrl = "/terrain/" + event.getOutputPrefix() + "/";
             }
 
@@ -34,7 +34,9 @@ public class KafkaConsumerService {
                     event.getErrorMessage(),
                     null,
                     null,
-                    terrainUrl
+                    terrainUrl,
+                    event.getCogObjectKey(),
+                    event.getTaskType()
             );
         } else if (event.getEventType() == GeoAbstractJobEvent.EventType.DELETED) {
             // Confirmation from worker that files are deleted

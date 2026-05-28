@@ -23,6 +23,7 @@ public interface GeoAbstractionService {
     GeoAbstractJobDto getJob(UUID jobId);
     Page<GeoAbstractJobDto> getJobs(Pageable pageable);
     Page<TerrainLayerDto> getLayers(Pageable pageable);
-    void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl);
+    void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType);
+    String generateTerrainPresignedUrl(UUID layerId);
     void deleteLayer(UUID id);
 }

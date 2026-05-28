@@ -11,6 +11,8 @@ from qgis.core import (
     Qgis,
     QgsJsonUtils,
     QgsMeshLayer,
+    QgsRasterLayerElevationProperties,
+    QgsHillshadeRenderer,
     NULL
 )
 from PyQt5.QtCore import QVariant
@@ -104,61 +106,63 @@ class LayerFactory:
         return vlayer
 
     def add_terrain_layer(self, terrain_data):
-        """Adds a terrain layer (Quantized Mesh) to QGIS."""
-        raw_url = terrain_data.get('terrainUrl', '')
+        """Adds a terrain layer to QGIS using COG (Raster Elevation)."""
         title = terrain_data.get('title', 'Terrain Layer')
+        layer_id = terrain_data.get('id')
         
-        # Sanitize URL: ensure it points to localhost/terrain correctly
-        if 'terrain-worker' in raw_url or '8000' in raw_url:
-            parts = raw_url.split('/')
-            dataset_name = parts[-1] if parts[-1] else parts[-2]
-            url = f"http://localhost/terrain/{dataset_name}"
-        elif raw_url.startswith('http'):
-            url = raw_url
-        else:
-            path = raw_url.lstrip('/')
-            url = f"http://localhost/{path}" if path.startswith('terrain/') else f"http://localhost/terrain/{path}"
+        if not layer_id:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Layer ID missing for {title}", "GeoInfoSystem", Qgis.Critical)
+            return None
+
+        # Request COG presigned URL
+        cog_url = self.api.get_terrain_layer_presigned_url(layer_id)
+        if not cog_url:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Could not get COG URL for terrain layer {title}", "GeoInfoSystem", Qgis.Critical)
+            return None
+
+        # Build full URL if relative
+        if cog_url.startswith('/'):
+            base_url = self.api.gateway_url
+            if base_url.endswith('/api'):
+                base_url = base_url[:-4]
+            elif '/api/' in base_url:
+                base_url = base_url.replace('/api/', '/')
+                
+            cog_url = base_url.rstrip('/') + cog_url
+            
+        # Wrap in /vsicurl/ for GDAL to enable efficient COG reading
+        vsi_url = f"/vsicurl/{cog_url}"
+
+        QgsMessageLog.logMessage(f"GeoInfoSystem: Adding {title} as Raster Elevation layer. URI: {vsi_url}", "GeoInfoSystem", Qgis.Info)
         
-        # Remove any specific tile path if present (we need the root)
-        import re
-        match = re.search(r'(http://.*?/terrain/[^/]+)', url)
-        if match:
-            url = match.group(1)
-
-        if not url.endswith('/'):
-            url += '/'
-
-        # List of provider/URI combinations to try
-        test_configs = [
-            ("mesh_cesium", f"type=cesium&url={url}layer.json"),
-            ("mesh_cesium", f"type=cesium-terrain&url={url}layer.json"),
-            ("mesh_cesium", f"cesium:url={url}layer.json"),
-            ("mesh_cesium", f"url={url}layer.json"),
-            ("mesh_cesium", f"type=cesium&url={url}"),
-            ("mdal", f"{url}layer.json"),
-            ("mdal", url),
-        ]
-
-        mlayer = None
-        for provider, uri in test_configs:
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Trying terrain [Provider: {provider}] URI: {uri}", "GeoInfoSystem", Qgis.Info)
-            test_layer = QgsMeshLayer(uri, title, provider)
-            if test_layer.isValid():
-                mlayer = test_layer
-                break
-            else:
-                # Log why it's invalid if possible
-                error_msg = "Unknown error"
-                if test_layer.dataProvider():
-                    error_msg = test_layer.dataProvider().error().message()
-                QgsMessageLog.logMessage(f"GeoInfoSystem: Variant failed. Info: {error_msg}", "GeoInfoSystem", Qgis.Info)
-
-        if mlayer:
-            QgsProject.instance().addMapLayer(mlayer)
-            QgsMessageLog.logMessage(f"Terrain layer {title} added successfully", "GeoInfoSystem", Qgis.Success)
-            return mlayer
+        # Add as raster layer using GDAL provider
+        rlayer = QgsRasterLayer(vsi_url, title, "gdal")
+        if rlayer.isValid():
+            # Set Hillshade renderer to make it look "3D" in 2D map
+            renderer = QgsHillshadeRenderer(rlayer.dataProvider(), 1, 45.0, 315.0)
+            rlayer.setRenderer(renderer)
+            
+            QgsProject.instance().addMapLayer(rlayer)
+            
+            # Configure as Elevation layer for QGIS 3D
+            elevation_props = rlayer.elevationProperties()
+            elevation_props.setEnabled(True)
+            
+            # RepresentsElevationSurface tells QGIS this layer is a terrain source
+            try:
+                # Try setting the mode using the enum if available
+                if hasattr(QgsRasterLayerElevationProperties, 'RepresentsElevationSurface'):
+                    elevation_props.setMode(QgsRasterLayerElevationProperties.RepresentsElevationSurface)
+                else:
+                    elevation_props.setMode(Qgis.RasterElevationMode.RepresentsElevationSurface)
+            except Exception as e:
+                QgsMessageLog.logMessage(f"GeoInfoSystem: Could not set elevation mode: {str(e)}", "GeoInfoSystem", Qgis.Warning)
+            
+            QgsMessageLog.logMessage(f"Terrain layer {title} (COG) added successfully. Open QGIS 3D View and select this layer as Terrain source.", "GeoInfoSystem", Qgis.Success)
+            return rlayer
         else:
-            QgsMessageLog.logMessage(f"Terrain layer {title} is invalid after trying all URI formats. Please ensure 'mesh_cesium' provider is active.", "GeoInfoSystem", Qgis.Critical)
+            error_msg = rlayer.dataProvider().error().message() if rlayer.dataProvider() else "Invalid layer"
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to add COG layer {title}. Error: {error_msg}", "GeoInfoSystem", Qgis.Critical)
             return None
 
     def add_cog_layer(self, imagery_layer_data):

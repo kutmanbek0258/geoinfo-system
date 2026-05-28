@@ -39,6 +39,8 @@ def main():
                 job_id = event.get("jobId", "unknown")
 
                 processor = get_processor(task_type, producer)
+                if task_type == "TERRAIN_COG" and not processor:
+                    processor = get_processor("RAW_GEOTIFF_OPTIMIZE", producer)
                 
                 if not processor:
                     if event_type == "QUEUED":

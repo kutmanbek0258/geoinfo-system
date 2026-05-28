@@ -22,6 +22,8 @@ public class GeoAbstractJobEvent {
     private String sourceObjectKey;
     private String outputBucket;
     private String outputPrefix;
+    private String terrainUrl;
+    private String cogObjectKey;
     private String errorMessage;
 
     public enum EventType {

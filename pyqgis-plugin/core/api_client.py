@@ -106,6 +106,19 @@ class GeoInfoAPIClient:
             QgsMessageLog.logMessage(f"Failed to fetch terrain layers: {str(e)}", "GeoInfoSystem", Qgis.Critical)
             return []
 
+    def get_terrain_layer_presigned_url(self, layer_id):
+        """Requests a presigned URL for a specific terrain layer's COG."""
+        url = f"{self.gateway_url}/geo-abstraction/layers/{layer_id}/presigned-url"
+        QgsMessageLog.logMessage(f"GeoInfoSystem: GET {url}", "GeoInfoSystem", Qgis.Info)
+        try:
+            response = requests.get(url, headers=self._get_headers())
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Response [{response.status_code}]: {response.text}", "GeoInfoSystem", Qgis.Info)
+            response.raise_for_status()
+            return response.json().get('url')
+        except Exception as e:
+            QgsMessageLog.logMessage(f"Failed to get presigned URL for terrain layer {layer_id}: {str(e)}", "GeoInfoSystem", Qgis.Critical)
+            return None
+
     def get_presigned_url(self, filename):
         """Requests a presigned URL for direct S3 upload/download."""
         url = f"{self.gateway_url}/geo-abstraction/upload/presigned-url"

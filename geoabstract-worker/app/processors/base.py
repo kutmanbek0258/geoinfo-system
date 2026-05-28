@@ -24,6 +24,7 @@ class BaseProcessor(ABC):
         task_type: str,
         error_message: Optional[str] = None,
         output_prefix: Optional[str] = None,
+        **extra_fields: Any,
     ) -> None:
         event: Dict[str, Any] = {
             "jobId": job_id,
@@ -34,6 +35,7 @@ class BaseProcessor(ABC):
             "timestamp": int(time.time() * 1000),
             "source": "geoabstract-worker",
         }
+        event.update(extra_fields)
 
         try:
             future = self.producer.send(KAFKA_TOPIC, key=job_id, value=event)

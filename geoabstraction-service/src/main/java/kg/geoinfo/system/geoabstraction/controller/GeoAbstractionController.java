@@ -99,6 +99,14 @@ public class GeoAbstractionController {
         return ResponseEntity.ok(geoAbstractionService.getLayers(pageable));
     }
 
+    @GetMapping("/layers/{id}/presigned-url")
+    public ResponseEntity<Map<String, String>> getTerrainPresignedUrl(@PathVariable UUID id) {
+        String url = geoAbstractionService.generateTerrainPresignedUrl(id);
+        Map<String, String> response = new HashMap<>();
+        response.put("url", url);
+        return ResponseEntity.ok(response);
+    }
+
     @DeleteMapping("/layers/{id}")
     public ResponseEntity<Void> deleteLayer(@PathVariable UUID id) {
         geoAbstractionService.deleteLayer(id);
