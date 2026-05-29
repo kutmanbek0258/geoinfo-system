@@ -466,14 +466,18 @@ const updateVectorSource = () => {
 
     if (obj.geom.type === 'Point' || obj.geom.type === 'MultiPoint') {
       const allCoords = obj.geom.type === 'MultiPoint' ? obj.geom.coordinates : [obj.geom.coordinates];
-      allCoords.forEach((coords: any) => {
+      allCoords.forEach((coords: any, idx: number) => {
         if (!coords || coords.length < 2) return;
         let position = is3D 
           ? Cesium.Cartesian3.fromDegrees(coords[0], coords[1], coords[2])
           : Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
         
         const heightReference = is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND;
-        const eOptions = { ...entityOptions, position };
+        const eOptions = { 
+          ...entityOptions, 
+          id: allCoords.length > 1 ? `${obj.id}-${idx}` : obj.id, 
+          position 
+        };
 
         if (style.icon?.url) {
           v.entities.add({
@@ -501,7 +505,7 @@ const updateVectorSource = () => {
       });
     } else if (obj.geom.type === 'MultiLineString' || obj.geom.type === 'LineString') {
       const allLineCoords = obj.geom.type === 'MultiLineString' ? obj.geom.coordinates : [obj.geom.coordinates];
-      allLineCoords.forEach((lineCoords: any) => {
+      allLineCoords.forEach((lineCoords: any, idx: number) => {
         if (lineCoords && lineCoords.length >= 2) {
           const flattened = getFlattened(lineCoords, is3D);
           const positions = is3D 
@@ -510,6 +514,7 @@ const updateVectorSource = () => {
 
           v.entities.add({
             ...entityOptions,
+            id: allLineCoords.length > 1 ? `${obj.id}-${idx}` : obj.id,
             polyline: {
               positions: positions,
               width: style.line?.width || 2,
@@ -521,7 +526,7 @@ const updateVectorSource = () => {
       });
     } else if (obj.geom.type === 'Polygon' || obj.geom.type === 'MultiPolygon') {
       const allPolygons = obj.geom.type === 'MultiPolygon' ? obj.geom.coordinates : [obj.geom.coordinates];
-      allPolygons.forEach((polygonCoords: any) => {
+      allPolygons.forEach((polygonCoords: any, idx: number) => {
         const outerRing = polygonCoords[0];
         if (outerRing && outerRing.length >= 3) {
           const flattened = getFlattened(outerRing, is3D);
@@ -540,8 +545,11 @@ const updateVectorSource = () => {
             }
           }
 
+          const polyId = allPolygons.length > 1 ? `${obj.id}-${idx}` : obj.id;
+
           v.entities.add({
             ...entityOptions,
+            id: polyId,
             polygon: {
               hierarchy: new Cesium.PolygonHierarchy(positions, holes),
               material: Cesium.Color.fromCssColorString(style.poly?.fillColor || 'rgba(51, 153, 204, 0.4)'),
@@ -551,6 +559,8 @@ const updateVectorSource = () => {
           });
           
           v.entities.add({
+            id: `${polyId}-outline`,
+            name: obj.name,
             show: isVisible,
             polyline: {
               positions: [...positions, positions[0]],
@@ -766,7 +776,13 @@ watch([points, multilines, polygons], updateVectorSource);
 watch(selectedFeatureId, (newId) => {
   const v = viewer;
   if (!newId || !v || !autoExtentEnabled.value || !store.state.geodata.lastSelectionShouldZoom) return;
-  const entity = v.entities.getById(newId);
+  
+  let entity = v.entities.getById(newId);
+  if (!entity) {
+    // If not found (e.g. for Multi-parts where first part might be id-0), find any that starts with the id
+    entity = v.entities.values.find(e => e.id.startsWith(newId));
+  }
+
   if (entity) {
     v.zoomTo(entity);
   }
@@ -885,7 +901,17 @@ onMounted(async () => {
   v.screenSpaceEventHandler.setInputAction((click: any) => {
     const pickedObject = v.scene.pick(click.position);
     if (Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.id) {
-        store.dispatch('geodata/selectFeature', pickedObject.id.id);
+        let actualId = pickedObject.id.id;
+        // Strip suffixes like -outline or -0, -1 to get the base object ID
+        if (actualId.endsWith('-outline')) {
+            actualId = actualId.replace('-outline', '');
+        }
+        // Match -0, -1, -2 etc at the end
+        const partMatch = actualId.match(/(.*)-[0-9]+$/);
+        if (partMatch) {
+            actualId = partMatch[1];
+        }
+        store.dispatch('geodata/selectFeature', actualId);
     } else {
         store.dispatch('geodata/selectFeature', null);
     }

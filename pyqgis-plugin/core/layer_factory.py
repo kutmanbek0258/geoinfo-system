@@ -249,7 +249,7 @@ class LayerFactory:
             # Universal Multi-type promotion and Topology Fix
             if not normalized_geom.isMultipart():
                 QgsMessageLog.logMessage(f"GeoInfoSystem: Promoting single {api_type} to Multi-type...", "GeoInfoSystem", Qgis.Info)
-                normalized_geom = normalized_geom.convertToMultiType()
+                normalized_geom.convertToMultiType()
             
             # CRITICAL FIX: Ensure all polygon rings are closed. 
             # Some QGIS providers/edits might produce unclosed rings that JTS (Backend) rejects.
