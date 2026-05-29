@@ -12,6 +12,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @RequestMapping("/api/geo-abstraction/imagery-layer")
@@ -22,6 +24,15 @@ public class ImageryLayerController {
 
     public ImageryLayerController(ImageryLayerService imageryLayerService) {
         this.imageryLayerService = imageryLayerService;
+    }
+
+    @GetMapping("/{id}/presigned-url")
+    @PreAuthorize("hasAuthority('IMAGERY_LAYER_READ')")
+    public ResponseEntity<Map<String, String>> getImageryPresignedUrl(@PathVariable UUID id) {
+        String url = imageryLayerService.generateImageryPresignedUrl(id);
+        Map<String, String> response = new HashMap<>();
+        response.put("url", url);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping

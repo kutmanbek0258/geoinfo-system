@@ -58,23 +58,23 @@ public class GeometryUtils {
         }
     }
 
-    public static Polygon ensurePolygon3D(Geometry geom) {
+    public static MultiPolygon ensureMultiPolygon3D(Geometry geom) {
         Geometry geom3D = ensure3D(geom);
-        if (geom3D instanceof Polygon) {
-            return (Polygon) geom3D;
-        } else if (geom3D instanceof MultiPolygon) {
-            if (geom3D.getNumGeometries() > 0) {
-                return (Polygon) geom3D.getGeometryN(0);
-            }
+        if (geom3D instanceof MultiPolygon) {
+            return (MultiPolygon) geom3D;
+        } else if (geom3D instanceof Polygon) {
+            return geometryFactory.createMultiPolygon(new Polygon[]{(Polygon) geom3D});
         }
         throw new IllegalArgumentException("Expected Polygon or MultiPolygon, but got " + (geom != null ? geom.getGeometryType() : "null"));
     }
 
-    public static Point ensurePoint3D(Geometry geom) {
+    public static MultiPoint ensureMultiPoint3D(Geometry geom) {
         Geometry geom3D = ensure3D(geom);
-        if (geom3D instanceof Point) {
-            return (Point) geom3D;
+        if (geom3D instanceof MultiPoint) {
+            return (MultiPoint) geom3D;
+        } else if (geom3D instanceof Point) {
+            return geometryFactory.createMultiPoint(new Point[]{(Point) geom3D});
         }
-        throw new IllegalArgumentException("Expected Point, but got " + (geom != null ? geom.getGeometryType() : "null"));
+        throw new IllegalArgumentException("Expected Point or MultiPoint, but got " + (geom != null ? geom.getGeometryType() : "null"));
     }
 }

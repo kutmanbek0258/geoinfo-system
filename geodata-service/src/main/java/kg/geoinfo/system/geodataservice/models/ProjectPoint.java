@@ -6,7 +6,7 @@ import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.MultiPoint;
 
 import java.util.Map;
 import java.util.UUID;
@@ -46,8 +46,8 @@ public class ProjectPoint extends AuditableCustom<String> {
     @Column(name = "status", nullable = false)
     private Status status;
 
-    @Column(columnDefinition = "geometry(PointZ,4326)", nullable = false)
-    private Point geom;
+    @Column(columnDefinition = "geometry(MultiPointZ,4326)", nullable = false)
+    private MultiPoint geom;
 
     @Column(name = "image_url", length = 1000)
     private String imageUrl;

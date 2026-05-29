@@ -3,7 +3,7 @@ package kg.geoinfo.system.geodataservice.dto.geodata;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.MultiPolygon;
 
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +16,6 @@ public class UpdateProjectPolygonDto {
     private UUID folderId;
     private Status status;
 
-    private Polygon geom;
+    private MultiPolygon geom;
     private Map<String, Object> characteristics;
 }

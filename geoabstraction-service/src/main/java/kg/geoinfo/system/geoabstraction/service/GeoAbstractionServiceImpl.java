@@ -44,6 +44,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     private final GeoServerClient geoServerClient;
     private final GeoServerProperties geoServerProperties;
     private final ImageryLayerService imageryLayerService;
+    private final ImageryLayerRepository imageryLayerRepository;
 
     @Override
     @Transactional
@@ -353,6 +354,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             imageryLayer.setDateCaptured(new java.util.Date());
             imageryLayer.setCrs(job.getCrs() != null ? job.getCrs() : "EPSG:4326");
             imageryLayer.setCharacteristics(job.getCharacteristics());
+            imageryLayer.setCogObjectKey(cogObjectKey);
             
             imageryLayerService.save(imageryLayer);
         }

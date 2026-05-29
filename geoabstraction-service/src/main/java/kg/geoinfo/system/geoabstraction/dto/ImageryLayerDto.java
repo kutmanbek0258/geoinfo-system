@@ -25,4 +25,5 @@ public class ImageryLayerDto extends AbstractDto<UUID> {
     private Date dateCaptured;
     private String crs;
     private Map<String, Object> characteristics;
+    private String cogObjectKey;
 }

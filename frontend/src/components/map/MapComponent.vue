@@ -221,6 +221,7 @@ import {FullScreen} from "ol/control";
 import GeodataService from '@/services/geodata.service';
 import GeoObjectTree from './GeoObjectTree.vue';
 import { parseStyle } from '@/util/style.util';
+import { ensureMultiType } from '@/util/geo.util';
 
 // --- Props & Store ---
 const props = defineProps({
@@ -544,7 +545,7 @@ const saveNewFeature = async () => {
     const payload = {
         projectId: props.projectId,
         folderId: store.state.geodata.selectedFolderId,
-        geom: newObjectGeometry.value,
+        geom: ensureMultiType(newObjectGeometry.value),
         name: newObjectMetadata.value.name,
         description: newObjectMetadata.value.description,
         status: newObjectMetadata.value.status,
@@ -613,7 +614,7 @@ const confirmGeometryEdit = async () => {
             data: {
                 name: selectedFeature.value.name, // Keep existing name
                 description: selectedFeature.value.description, // Keep existing description
-                geom: newGeomAsGeoJSON // Update geometry
+                geom: ensureMultiType(newGeomAsGeoJSON) // Update geometry
             }
         });
     }

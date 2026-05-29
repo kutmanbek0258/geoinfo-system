@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.MultiPolygon;
 
 import java.util.Map;
 import java.util.UUID;
@@ -56,8 +56,8 @@ public class GeoAbstractJob extends AuditableCustom<String> {
     @Column(name = "crs", length = 50)
     private String crs;
 
-    @Column(name = "bbox", columnDefinition = "geometry(Polygon, 4326)")
-    private Polygon bbox;
+    @Column(name = "bbox", columnDefinition = "geometry(MultiPolygon, 4326)")
+    private MultiPolygon bbox;
 
     @Column(name = "min_height")
     private Double minHeight;

@@ -36,6 +36,14 @@ export interface ImageryLayer {
     crs: string;
 }
 
+export type GeoGeometry = 
+    | { type: 'Point'; coordinates: number[] }
+    | { type: 'MultiPoint'; coordinates: number[][] }
+    | { type: 'LineString'; coordinates: number[][] }
+    | { type: 'MultiLineString'; coordinates: number[][][] }
+    | { type: 'Polygon'; coordinates: number[][][] }
+    | { type: 'MultiPolygon'; coordinates: number[][][][] };
+
 export interface ProjectPoint {
     id: string;
     projectId: string;
@@ -43,7 +51,7 @@ export interface ProjectPoint {
     name: string;
     description?: string;
     status: Status;
-    geom: any; // GeoJSON Point
+    geom: GeoGeometry;
     imageUrl?: string;
     characteristics?: Record<string, any>;
 }
@@ -55,7 +63,7 @@ export interface ProjectMultiline {
     name: string;
     description?: string;
     status: Status;
-    geom: any; // GeoJSON MultiLineString
+    geom: GeoGeometry;
     lengthM?: number;
     imageUrl?: string;
     characteristics?: Record<string, any>;
@@ -68,7 +76,7 @@ export interface ProjectPolygon {
     name: string;
     description?: string;
     status: Status;
-    geom: any; // GeoJSON Polygon
+    geom: GeoGeometry;
     areaM2?: number;
     imageUrl?: string;
     characteristics?: Record<string, any>;

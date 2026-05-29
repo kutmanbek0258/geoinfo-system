@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.MultiPolygon;
 
 import java.util.Map;
 import java.util.UUID;
@@ -20,7 +20,7 @@ public class ProjectPolygonDto {
     private String description;
     private Status status;
 
-    private Polygon geom;
+    private MultiPolygon geom;
 
     private Double areaM2;
     private String imageUrl;

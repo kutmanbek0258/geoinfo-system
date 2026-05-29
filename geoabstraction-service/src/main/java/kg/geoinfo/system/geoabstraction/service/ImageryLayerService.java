@@ -6,6 +6,8 @@ import kg.geoinfo.system.geoabstraction.dto.ImageryLayerDto;
 import kg.geoinfo.system.geoabstraction.mapper.ImageryLayerMapper;
 import kg.geoinfo.system.geoabstraction.models.ImageryLayer;
 import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
+import kg.geoinfo.system.geoabstraction.config.MinioProperties;
+import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
 import kg.geoinfo.system.geoabstraction.service.geoserver.GeoServerClient;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,6 +34,8 @@ public class ImageryLayerService {
     private final ObjectMapper objectMapper;
 
     private final GeoServerClient geoServerClient;
+    private final FileStoreService fileStoreService;
+    private final MinioProperties minioProperties;
 
     public ImageryLayerDto save(ImageryLayerDto imageryLayerDto) {
         ImageryLayer entity = imageryLayerMapper.toEntity(imageryLayerDto);
@@ -115,5 +120,26 @@ public class ImageryLayerService {
         Map<String, Object> payload = objectMapper.convertValue(entity, Map.class);
         payload.put("type", "imagery");
         kafkaProducerService.sendGeoObjectEvent(payload, eventType);
+    }
+
+    public String generateImageryPresignedUrl(UUID layerId) {
+        ImageryLayer layer = repository.findById(layerId)
+                .orElseThrow(() -> new RuntimeException("ImageryLayer not found: " + layerId));
+
+        if (layer.getCogObjectKey() == null) {
+            throw new RuntimeException("COG object key not found for imagery layer: " + layerId);
+        }
+
+        String url = fileStoreService.generateDownloadUrl(layer.getCogObjectKey());
+
+        // Rewrite internal MinIO URL to public /imagery/cog/ prefix
+        // From: http://minio:9000/geo-abstraction-input/imagery-cog/uuid.tif?X-Amz...
+        // To:   /imagery/cog/uuid.tif?X-Amz...
+        String bucketPath = "/" + minioProperties.getBucket() + "/imagery-cog/";
+        if (url.contains(bucketPath)) {
+            url = "/imagery/cog/" + url.split(bucketPath)[1];
+        }
+
+        return url;
     }
 }

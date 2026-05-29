@@ -20,44 +20,83 @@
         <span class="text-subtitle-2 font-weight-bold">Geographic Info</span>
       </div>
       
-      <!-- Point Coordinates -->
-      <div v-if="featureType === 'Point' && fullFeatureData?.geom?.coordinates" class="text-body-2 pl-7">
-        <div class="d-flex flex-wrap">
-          <div class="mr-4"><strong>Lon:</strong> {{ fullFeatureData.geom.coordinates[0].toFixed(6) }}</div>
-          <div class="mr-4"><strong>Lat:</strong> {{ fullFeatureData.geom.coordinates[1].toFixed(6) }}</div>
-          <div v-if="fullFeatureData.geom.coordinates.length > 2">
-            <strong>Height:</strong> {{ fullFeatureData.geom.coordinates[2].toFixed(2) }} m
+      <!-- Point/MultiPoint Coordinates -->
+      <div v-if="(fullFeatureData?.geom?.type === 'Point' || fullFeatureData?.geom?.type === 'MultiPoint') && fullFeatureData?.geom?.coordinates" class="text-body-2 pl-7">
+        <template v-if="fullFeatureData.geom.type === 'Point'">
+          <div class="d-flex flex-wrap">
+            <div class="mr-4"><strong>Lon:</strong> {{ (fullFeatureData.geom.coordinates as any)[0].toFixed(6) }}</div>
+            <div class="mr-4"><strong>Lat:</strong> {{ (fullFeatureData.geom.coordinates as any)[1].toFixed(6) }}</div>
+            <div v-if="(fullFeatureData.geom.coordinates as any).length > 2">
+              <strong>Height:</strong> {{ (fullFeatureData.geom.coordinates as any)[2].toFixed(2) }} m
+            </div>
           </div>
-        </div>
+        </template>
+        <template v-else-if="fullFeatureData.geom.type === 'MultiPoint'">
+          <div class="mb-1 text-caption text-grey">
+            MultiPoint: {{ fullFeatureData.geom.coordinates.length }} points
+          </div>
+          <div style="max-height: 120px; overflow-y: auto;" class="coordinate-list border rounded pa-2 bg-grey-lighten-4">
+            <div v-for="(coord, index) in (fullFeatureData.geom.coordinates as any[][])" :key="index" class="coordinate-item mb-1 pb-1 d-flex">
+              <span class="text-caption font-weight-bold mr-2" style="min-width: 25px;">#{{ index + 1 }}</span>
+              <div class="d-flex flex-wrap flex-grow-1">
+                <span class="mr-2"><strong>Lon:</strong> {{ coord[0].toFixed(6) }}</span>
+                <span class="mr-2"><strong>Lat:</strong> {{ coord[1].toFixed(6) }}</span>
+                <span v-if="coord.length > 2"><strong>H:</strong> {{ coord[2].toFixed(2) }}m</span>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- Line/Polygon Vertices and Measurements -->
-      <div v-else-if="(featureType === 'MultiLineString' || featureType === 'Polygon') && fullFeatureData?.geom?.coordinates" class="text-body-2 pl-7">
+      <div v-else-if="(fullFeatureData?.geom?.type === 'MultiLineString' || fullFeatureData?.geom?.type === 'Polygon' || fullFeatureData?.geom?.type === 'MultiPolygon') && fullFeatureData?.geom?.coordinates" class="text-body-2 pl-7">
         <!-- New Measurements Section -->
         <div class="mb-2 d-flex align-center" v-if="(fullFeatureData as any).lengthM || (fullFeatureData as any).areaM2">
           <v-icon size="x-small" color="primary" class="mr-1">
-            {{ featureType === 'Polygon' ? 'mdi-texture-box' : 'mdi-ruler-square' }}
+            {{ fullFeatureData.geom.type === 'Polygon' || fullFeatureData.geom.type === 'MultiPolygon' ? 'mdi-texture-box' : 'mdi-ruler-square' }}
           </v-icon>
-          <span v-if="featureType === 'MultiLineString' && (fullFeatureData as any).lengthM">
+          <span v-if="fullFeatureData.geom.type === 'MultiLineString' && (fullFeatureData as any).lengthM">
             <strong>Length:</strong> {{ formatLength((fullFeatureData as any).lengthM) }}
           </span>
-          <span v-else-if="featureType === 'Polygon' && (fullFeatureData as any).areaM2">
+          <span v-else-if="(fullFeatureData.geom.type === 'Polygon' || fullFeatureData.geom.type === 'MultiPolygon') && (fullFeatureData as any).areaM2">
             <strong>Area:</strong> {{ formatArea((fullFeatureData as any).areaM2) }}
           </span>
         </div>
 
-        <div class="mb-1 text-caption text-grey">
-          Vertices: {{ fullFeatureData.geom.coordinates[0].length }} points
-        </div>
-        <div style="max-height: 120px; overflow-y: auto;" class="coordinate-list border rounded pa-2 bg-grey-lighten-4">
-          <div v-for="(coord, index) in fullFeatureData.geom.coordinates[0]" :key="index" class="coordinate-item mb-1 pb-1 d-flex">
-            <span class="text-caption font-weight-bold mr-2" style="min-width: 25px;">#{{ index + 1 }}</span>
-            <div class="d-flex flex-wrap flex-grow-1">
-              <span class="mr-2"><strong>Lon:</strong> {{ coord[0].toFixed(6) }}</span>
-              <span class="mr-2"><strong>Lat:</strong> {{ coord[1].toFixed(6) }}</span>
-              <span v-if="coord.length > 2"><strong>H:</strong> {{ coord[2].toFixed(2) }}m</span>
-            </div>
+        <div v-if="fullFeatureData.geom.type === 'MultiPolygon'">
+          <div class="mb-1 text-caption text-grey">
+            MultiPolygon: {{ fullFeatureData.geom.coordinates.length }} parts
           </div>
+        </div>
+        <div v-else class="mb-1 text-caption text-grey">
+          Vertices: {{ (fullFeatureData.geom.coordinates[0] as any[]).length }} points
+        </div>
+
+        <div style="max-height: 120px; overflow-y: auto;" class="coordinate-list border rounded pa-2 bg-grey-lighten-4">
+          <!-- MultiPolygon Case -->
+          <template v-if="fullFeatureData.geom.type === 'MultiPolygon'">
+            <div v-for="(poly, pIdx) in (fullFeatureData.geom.coordinates as any[][][])" :key="pIdx" class="mb-2">
+               <div class="text-caption font-weight-bold">Part #{{ pIdx + 1 }} ({{ poly[0].length }} vertices)</div>
+               <div v-for="(coord, index) in (poly[0] as any[])" :key="index" class="coordinate-item d-flex ml-2">
+                <span class="text-caption mr-2" style="min-width: 20px;">.{{ index + 1 }}</span>
+                <div class="d-flex flex-wrap flex-grow-1">
+                  <span class="mr-2"><strong>Lon:</strong> {{ coord[0].toFixed(6) }}</span>
+                  <span class="mr-2"><strong>Lat:</strong> {{ coord[1].toFixed(6) }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <!-- Single Polygon or Line Case -->
+          <template v-else>
+            <div v-for="(coord, index) in (fullFeatureData.geom.coordinates[0] as any[])" :key="index" class="coordinate-item mb-1 pb-1 d-flex">
+              <span class="text-caption font-weight-bold mr-2" style="min-width: 25px;">#{{ index + 1 }}</span>
+              <div class="d-flex flex-wrap flex-grow-1">
+                <span class="mr-2"><strong>Lon:</strong> {{ coord[0].toFixed(6) }}</span>
+                <span class="mr-2"><strong>Lat:</strong> {{ coord[1].toFixed(6) }}</span>
+                <span v-if="coord.length > 2"><strong>H:</strong> {{ coord[2].toFixed(2) }}m</span>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 

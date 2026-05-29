@@ -63,4 +63,7 @@ public class ImageryLayer extends AuditableCustom<String> {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "characteristics", columnDefinition = "jsonb")
     private Map<String, Object> characteristics;
+
+    @Column(name = "cog_object_key", length = 512)
+    private String cogObjectKey;
 }

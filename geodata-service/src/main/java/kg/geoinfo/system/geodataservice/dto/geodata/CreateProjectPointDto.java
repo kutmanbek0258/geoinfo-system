@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotNull;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.MultiPoint;
 
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +25,6 @@ public class CreateProjectPointDto {
     private Status status;
 
     @NotNull
-    private Point geom;
+    private MultiPoint geom;
     private Map<String, Object> characteristics;
 }

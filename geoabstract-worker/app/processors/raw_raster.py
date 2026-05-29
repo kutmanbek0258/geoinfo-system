@@ -19,9 +19,16 @@ class RawRasterProcessor(BaseProcessor):
 
         source_bucket = job_data["sourceBucket"]
         source_key = job_data["sourceObjectKey"]
-        final_output_file = os.path.join(GDAL_STORE, "{0}.tif".format(output_prefix))
-
+        
         work_dir = tempfile.mkdtemp(prefix="raw-raster-{0}-".format(job_id))
+        
+        # If it's a terrain task, we don't need to keep it in GDAL_STORE (shared volume)
+        # as QGIS plugin now uses presigned URLs from MinIO.
+        if task_type == "TERRAIN_COG":
+            final_output_file = os.path.join(work_dir, "processed_terrain.tif")
+        else:
+            final_output_file = os.path.join(GDAL_STORE, "{0}.tif".format(output_prefix))
+
         input_file = os.path.join(work_dir, "input.tif")
 
         try:
@@ -47,7 +54,10 @@ class RawRasterProcessor(BaseProcessor):
                 minio_client.fput_object(source_bucket, cog_object_key, final_output_file)
                 self.send_status(job_id, "READY", task_type, output_prefix=output_prefix, cogObjectKey=cog_object_key)
             else:
-                self.send_status(job_id, "READY", task_type, output_prefix=output_prefix, cogObjectKey=output_prefix)
+                cog_object_key = "imagery-cog/{0}.tif".format(output_prefix)
+                logger.info("Uploading optimized Raw COG to MinIO: %s/%s", source_bucket, cog_object_key)
+                minio_client.fput_object(source_bucket, cog_object_key, final_output_file)
+                self.send_status(job_id, "READY", task_type, output_prefix=output_prefix, cogObjectKey=cog_object_key)
 
             logger.info("Raw raster job %s completed successfully", job_id)
 

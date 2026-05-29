@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotNull;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.MultiPolygon;
 
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +25,6 @@ public class CreateProjectPolygonDto {
     private Status status;
 
     @NotNull
-    private Polygon geom;
+    private MultiPolygon geom;
     private Map<String, Object> characteristics;
 }

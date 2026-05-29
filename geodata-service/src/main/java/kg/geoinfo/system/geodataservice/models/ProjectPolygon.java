@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.MultiPolygon;
 
 import java.util.Map;
 import java.util.UUID;
@@ -51,8 +51,8 @@ public class ProjectPolygon extends AuditableCustom<String> {
     @Column(name = "area_m2")
     private Double areaM2;
 
-    @Column(columnDefinition = "geometry(PolygonZ,4326)", nullable = false)
-    private Polygon geom;
+    @Column(columnDefinition = "geometry(MultiPolygonZ,4326)", nullable = false)
+    private MultiPolygon geom;
 
     @Column(name = "image_url", length = 1000)
     private String imageUrl;

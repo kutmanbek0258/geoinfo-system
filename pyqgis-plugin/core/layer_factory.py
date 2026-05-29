@@ -123,14 +123,21 @@ class LayerFactory:
         # Build full URL if relative
         if cog_url.startswith('/'):
             base_url = self.api.gateway_url
+            # gateway_url might be http://localhost/api or http://sso.localhost/api
+            # We must ensure we use the host that handles /terrain/cog/ (default_server)
+            if 'sso.localhost' in base_url:
+                base_url = base_url.replace('sso.localhost', 'localhost')
+                
             if base_url.endswith('/api'):
                 base_url = base_url[:-4]
             elif '/api/' in base_url:
-                base_url = base_url.replace('/api/', '/')
+                base_url = base_url.split('/api/')[0]
+            elif ':9005' in base_url:
+                base_url = base_url.split(':9005')[0]
                 
             cog_url = base_url.rstrip('/') + cog_url
             
-        # Wrap in /vsicurl/ for GDAL to enable efficient COG reading
+        # Wrap in /vsicurl/ - NO literal quotes here
         vsi_url = f"/vsicurl/{cog_url}"
 
         QgsMessageLog.logMessage(f"GeoInfoSystem: Adding {title} as Raster Elevation layer. URI: {vsi_url}", "GeoInfoSystem", Qgis.Info)
@@ -166,8 +173,52 @@ class LayerFactory:
             return None
 
     def add_cog_layer(self, imagery_layer_data):
-        """COG logic preserved but currently bypassed in UI as per request."""
-        pass
+        """Adds an imagery COG layer to QGIS via presigned URL."""
+        title = imagery_layer_data.get('name', 'Imagery COG')
+        layer_id = imagery_layer_data.get('id')
+        
+        if not layer_id:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Layer ID missing for {title}", "GeoInfoSystem", Qgis.Critical)
+            return None
+
+        # Request COG presigned URL for imagery layer
+        cog_url = self.api.get_imagery_layer_presigned_url(layer_id)
+        if not cog_url:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Could not get COG URL for imagery layer {title}", "GeoInfoSystem", Qgis.Critical)
+            return None
+
+        # Build full URL if relative
+        if cog_url.startswith('/'):
+            base_url = self.api.gateway_url
+            # gateway_url might be http://localhost/api or http://sso.localhost/api
+            # We must ensure we use the host that handles /imagery/cog/ (default_server)
+            if 'sso.localhost' in base_url:
+                base_url = base_url.replace('sso.localhost', 'localhost')
+            
+            if base_url.endswith('/api'):
+                base_url = base_url[:-4]
+            elif '/api/' in base_url:
+                base_url = base_url.split('/api/')[0]
+            elif ':9005' in base_url:
+                base_url = base_url.split(':9005')[0]
+                
+            cog_url = base_url.rstrip('/') + cog_url
+            
+        # Wrap in /vsicurl/ - NO literal quotes here as they break GDAL connection (Code 0)
+        vsi_url = f"/vsicurl/{cog_url}"
+
+        QgsMessageLog.logMessage(f"GeoInfoSystem: Adding {title} as COG layer. URI: {vsi_url}", "GeoInfoSystem", Qgis.Info)
+        
+        # Add as raster layer using GDAL provider
+        rlayer = QgsRasterLayer(vsi_url, f"{title} (COG)", "gdal")
+        if rlayer.isValid():
+            QgsProject.instance().addMapLayer(rlayer)
+            QgsMessageLog.logMessage(f"Imagery COG layer {title} added successfully.", "GeoInfoSystem", Qgis.Success)
+            return rlayer
+        else:
+            error_msg = rlayer.dataProvider().error().message() if rlayer.dataProvider() else "Invalid layer"
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to add Imagery COG layer {title}. Error: {error_msg}", "GeoInfoSystem", Qgis.Critical)
+            return None
 
     def export_feature_to_dto(self, feature, project_id, folder_id=None, api_type=None):
         """Converts a QgsFeature back to a DTO dictionary for the API with high-stability normalization."""
@@ -183,24 +234,21 @@ class LayerFactory:
 
             normalized_geom = geom
             
-            # Normalization logic
-            if api_type == 'points' or api_type == 'polygons':
-                if geom.isMultipart():
-                    QgsMessageLog.logMessage(f"GeoInfoSystem: Normalizing multipart {api_type}...", "GeoInfoSystem", Qgis.Info)
-                    try:
-                        # Using WKT as a stable bridge to avoid pointer/ownership issues that cause crashes
-                        parts_iter = geom.parts()
-                        first_part = next(parts_iter)
-                        wkt_part = first_part.asWkt()
-                        normalized_geom = QgsGeometry.fromWkt(wkt_part)
-                        QgsMessageLog.logMessage(f"GeoInfoSystem: Extracted first part via WKT: {wkt_part[:50]}...", "GeoInfoSystem", Qgis.Info)
-                    except Exception as e:
-                        QgsMessageLog.logMessage(f"GeoInfoSystem: Normalization failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
+            # Universal Multi-type promotion and Topology Fix
+            if not geom.isMultipart():
+                QgsMessageLog.logMessage(f"GeoInfoSystem: Promoting single {api_type} to Multi-type...", "GeoInfoSystem", Qgis.Info)
+                normalized_geom = geom.convertToMultiType()
             
-            elif api_type == 'multilines':
-                if not geom.isMultipart():
-                    normalized_geom = geom.convertToMultiType()
-                    QgsMessageLog.logMessage("GeoInfoSystem: LineString promoted to MultiLineString.", "GeoInfoSystem", Qgis.Info)
+            # CRITICAL FIX: Ensure all polygon rings are closed. 
+            # Some QGIS providers/edits might produce unclosed rings that JTS (Backend) rejects.
+            if api_type == 'polygons':
+                abstract_geom = normalized_geom.constGet()
+                if abstract_geom and abstract_geom.geometryType() == "MultiPolygon":
+                    # We need to ensure each ring of each polygon is closed
+                    # This is easier to do by letting QGIS re-validate or via explicit closure check
+                    # Standard check: QGIS's makeValid() often fixes closure, but we'll do an explicit check if needed.
+                    if not normalized_geom.isGeosValid():
+                        normalized_geom = normalized_geom.makeValid()
 
             # Export to JSON
             QgsMessageLog.logMessage("GeoInfoSystem: Exporting geometry to JSON...", "GeoInfoSystem", Qgis.Info)

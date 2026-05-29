@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.MultiPoint;
 
 import java.util.Map;
 import java.util.UUID;
@@ -21,7 +21,7 @@ public class ProjectPointDto {
     private String description;
     private Status status;
 
-    private Point geom;
+    private MultiPoint geom;
     private String imageUrl;
     private Map<String, Object> characteristics;
 }

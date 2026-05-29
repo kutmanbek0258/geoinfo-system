@@ -125,7 +125,11 @@ class Sentinel2Processor(BaseProcessor):
             else:
                 build_final_cog(processed_tif, final_output_file, render_mode="analytic")
 
-            self.send_status(job_id, "READY", "SENTINEL_COG", output_prefix=output_prefix)
+            cog_object_key = "imagery-cog/{0}.tif".format(output_prefix)
+            logger.info("Uploading Sentinel-2 COG to MinIO: %s/%s", source_bucket, cog_object_key)
+            minio_client.fput_object(source_bucket, cog_object_key, final_output_file)
+
+            self.send_status(job_id, "READY", "SENTINEL_COG", output_prefix=output_prefix, cogObjectKey=cog_object_key)
             logger.info("Sentinel job %s completed successfully", job_id)
 
         except Exception as e:

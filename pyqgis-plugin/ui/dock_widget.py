@@ -290,7 +290,16 @@ class GeoInfoDockWidget(QDockWidget):
             l_item = QStandardItem(l.get('name', 'Unnamed Imagery'))
             l_item.setData(l, Qt.UserRole)
             l_item.setEditable(False)
-            wms_root.appendRow([l_item, QStandardItem("WMS")])
+            wms_root.appendRow([l_item, QStandardItem("Imagery")])
+            
+            # Sub-options for Imagery: WMS and COG
+            wms_sub = QStandardItem("WMS (Visual)")
+            wms_sub.setData({**l, 'layer_mode': 'wms'}, Qt.UserRole)
+            l_item.appendRow([wms_sub, QStandardItem("WMS")])
+            
+            cog_sub = QStandardItem("COG (Analytics)")
+            cog_sub.setData({**l, 'layer_mode': 'cog'}, Qt.UserRole)
+            l_item.appendRow([cog_sub, QStandardItem("COG")])
 
         # 2. Terrain Layers Folder (Global Group)
         terrain_root = QStandardItem("Terrain Layers")
@@ -373,9 +382,13 @@ class GeoInfoDockWidget(QDockWidget):
         if not data or data.get('type') in ['group', 'folder']:
             return
 
-        # Case 1: Imagery Layer (WMS)
+        # Case 1: Imagery Layer (WMS or COG)
         if 'layerName' in data:
-            self.layer_factory.add_wms_layer(data)
+            mode = data.get('layer_mode', 'wms')
+            if mode == 'cog':
+                self.layer_factory.add_cog_layer(data)
+            else:
+                self.layer_factory.add_wms_layer(data)
         
         # Case 2: Terrain Layer
         elif 'terrainUrl' in data:

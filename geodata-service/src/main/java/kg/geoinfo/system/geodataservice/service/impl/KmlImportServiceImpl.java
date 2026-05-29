@@ -311,7 +311,7 @@ public class KmlImportServiceImpl implements KmlImportService {
         }
     }
 
-    private void savePoint(Project project, GeoFolder folder, String name, String description, Point geom, Map<String, Object> characteristics) {
+    private void savePoint(Project project, GeoFolder folder, String name, String description, Geometry geom, Map<String, Object> characteristics) {
         if (characteristics == null) {
             characteristics = new HashMap<>();
         }
@@ -322,7 +322,7 @@ public class KmlImportServiceImpl implements KmlImportService {
         point.setName(name);
         point.setDescription(description);
         point.setStatus(Status.COMPLETED);
-        Point geom3D = (Point) GeometryUtils.ensure3D(geom);
+        MultiPoint geom3D = GeometryUtils.ensureMultiPoint3D(geom);
         point.setGeom(geom3D);
         point.setCharacteristics(characteristics);
         projectPointRepository.save(point);
@@ -340,12 +340,8 @@ public class KmlImportServiceImpl implements KmlImportService {
         line.setStatus(Status.COMPLETED);
         line.setCharacteristics(characteristics);
 
-        Geometry geom3D = GeometryUtils.ensure3D(geom);
-        if (geom3D instanceof MultiLineString) {
-            line.setGeom((MultiLineString) geom3D);
-        } else if (geom3D instanceof LineString) {
-            line.setGeom(geometryFactory.createMultiLineString(new LineString[]{(LineString) geom3D}));
-        }
+        MultiLineString geom3D = GeometryUtils.ensureMultiLineString3D(geom);
+        line.setGeom(geom3D);
 
         projectMultilineRepository.save(line);
         Map<String, Object> payload = objectMapper.convertValue(line, Map.class);
@@ -362,14 +358,8 @@ public class KmlImportServiceImpl implements KmlImportService {
         polygon.setStatus(Status.COMPLETED);
         polygon.setCharacteristics(characteristics);
 
-        Geometry geom3D = GeometryUtils.ensure3D(geom);
-        if (geom3D instanceof Polygon) {
-            polygon.setGeom((Polygon) geom3D);
-        } else if (geom3D instanceof MultiPolygon) {
-            if (geom3D.getNumGeometries() > 0) {
-                polygon.setGeom((Polygon) geom3D.getGeometryN(0));
-            }
-        }
+        MultiPolygon geom3D = GeometryUtils.ensureMultiPolygon3D(geom);
+        polygon.setGeom(geom3D);
 
         projectPolygonRepository.save(polygon);
         Map<String, Object> payload = objectMapper.convertValue(polygon, Map.class);

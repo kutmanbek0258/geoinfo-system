@@ -248,6 +248,7 @@ import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeodataService from '@/services/geodata.service';
 import GeoObjectTree from './GeoObjectTree.vue';
 import { parseStyle } from '@/util/style.util';
+import { ensureMultiType } from '@/util/geo.util';
 
 const props = defineProps<{
   projectId: string;
@@ -450,78 +451,104 @@ const updateVectorSource = () => {
 
     const is3D = hasZHeight(obj.geom);
 
-    if (obj.geom.type === 'Point') {
-      const coords = obj.geom.coordinates;
-      
-      if (is3D) {
-        entityOptions.position = Cesium.Cartesian3.fromDegrees(coords[0], coords[1], coords[2]);
-      } else {
-        entityOptions.position = Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
-      }
-      
-      const heightReference = is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND;
-
-      if (style.icon?.url) {
-        entityOptions.billboard = {
-          image: style.icon.url,
-          scale: style.icon.scale || 1.0,
-          heightReference: heightReference,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        };
-      } else {
-        entityOptions.point = {
-          pixelSize: 10,
-          color: Cesium.Color.fromCssColorString(style.poly?.fillColor || '#3399CC'),
-          outlineColor: Cesium.Color.WHITE,
-          outlineWidth: 2,
-          heightReference: heightReference,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        };
-      }
-    } else if (obj.geom.type === 'MultiLineString' || obj.geom.type === 'LineString') {
-      const lineCoords = obj.geom.type === 'MultiLineString' ? obj.geom.coordinates[0] : obj.geom.coordinates;
-      if (lineCoords && lineCoords.length >= 2) {
-        const flattened = getFlattened(lineCoords, is3D);
-        const positions = is3D 
-          ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
-          : Cesium.Cartesian3.fromDegreesArray(flattened);
-
-        entityOptions.polyline = {
-          positions: positions,
-          width: style.line?.width || 2,
-          material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
-          clampToGround: !is3D,
-        };
-      }
-    } else if (obj.geom.type === 'Polygon') {
-      const outerRing = obj.geom.coordinates[0];
-      if (outerRing && outerRing.length >= 3) {
-        const flattened = getFlattened(outerRing, is3D);
-        const positions = is3D
-          ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
-          : Cesium.Cartesian3.fromDegreesArray(flattened);
-
-        entityOptions.polygon = {
-          hierarchy: new Cesium.PolygonHierarchy(positions),
-          material: Cesium.Color.fromCssColorString(style.poly?.fillColor || 'rgba(51, 153, 204, 0.4)'),
-          heightReference: is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND,
-          perPositionHeight: is3D,
-        };
+    if (obj.geom.type === 'Point' || obj.geom.type === 'MultiPoint') {
+      const allCoords = obj.geom.type === 'MultiPoint' ? obj.geom.coordinates : [obj.geom.coordinates];
+      allCoords.forEach((coords: any) => {
+        if (!coords || coords.length < 2) return;
+        let position = is3D 
+          ? Cesium.Cartesian3.fromDegrees(coords[0], coords[1], coords[2])
+          : Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
         
-        // Add outline as polyline
-        v.entities.add({
-          show: isVisible,
-          polyline: {
-            positions: [...positions, positions[0]],
-            width: (style.line?.width || 2) + 1,
-            material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
-            clampToGround: !is3D,
-          }
-        });
-      }
-    }
+        const heightReference = is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND;
+        const eOptions = { ...entityOptions, position };
 
-    v.entities.add(entityOptions);
+        if (style.icon?.url) {
+          v.entities.add({
+            ...eOptions,
+            billboard: {
+              image: style.icon.url,
+              scale: style.icon.scale || 1.0,
+              heightReference: heightReference,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            }
+          });
+        } else {
+          v.entities.add({
+            ...eOptions,
+            point: {
+              pixelSize: 10,
+              color: Cesium.Color.fromCssColorString(style.poly?.fillColor || '#3399CC'),
+              outlineColor: Cesium.Color.WHITE,
+              outlineWidth: 2,
+              heightReference: heightReference,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            }
+          });
+        }
+      });
+    } else if (obj.geom.type === 'MultiLineString' || obj.geom.type === 'LineString') {
+      const allLineCoords = obj.geom.type === 'MultiLineString' ? obj.geom.coordinates : [obj.geom.coordinates];
+      allLineCoords.forEach((lineCoords: any) => {
+        if (lineCoords && lineCoords.length >= 2) {
+          const flattened = getFlattened(lineCoords, is3D);
+          const positions = is3D 
+            ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
+            : Cesium.Cartesian3.fromDegreesArray(flattened);
+
+          v.entities.add({
+            ...entityOptions,
+            polyline: {
+              positions: positions,
+              width: style.line?.width || 2,
+              material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
+              clampToGround: !is3D,
+            }
+          });
+        }
+      });
+    } else if (obj.geom.type === 'Polygon' || obj.geom.type === 'MultiPolygon') {
+      const allPolygons = obj.geom.type === 'MultiPolygon' ? obj.geom.coordinates : [obj.geom.coordinates];
+      allPolygons.forEach((polygonCoords: any) => {
+        const outerRing = polygonCoords[0];
+        if (outerRing && outerRing.length >= 3) {
+          const flattened = getFlattened(outerRing, is3D);
+          const positions = is3D
+            ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
+            : Cesium.Cartesian3.fromDegreesArray(flattened);
+
+          const holes = [];
+          if (polygonCoords.length > 1) {
+            for (let i = 1; i < polygonCoords.length; i++) {
+              const holeFlattened = getFlattened(polygonCoords[i], is3D);
+              const holePositions = is3D
+                ? Cesium.Cartesian3.fromDegreesArrayHeights(holeFlattened)
+                : Cesium.Cartesian3.fromDegreesArray(holeFlattened);
+              holes.push(new Cesium.PolygonHierarchy(holePositions));
+            }
+          }
+
+          v.entities.add({
+            ...entityOptions,
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions, holes),
+              material: Cesium.Color.fromCssColorString(style.poly?.fillColor || 'rgba(51, 153, 204, 0.4)'),
+              heightReference: is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND,
+              perPositionHeight: is3D,
+            }
+          });
+          
+          v.entities.add({
+            show: isVisible,
+            polyline: {
+              positions: [...positions, positions[0]],
+              width: (style.line?.width || 2) + 1,
+              material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
+              clampToGround: !is3D,
+            }
+          });
+        }
+      });
+    }
   });
 };
 
@@ -535,7 +562,7 @@ const saveNewFeature = async () => {
 
   const payload = {
     projectId: props.projectId,
-    geom: newObjectGeometry.value,
+    geom: ensureMultiType(newObjectGeometry.value),
     name: newObjectMetadata.value.name,
     description: newObjectMetadata.value.description,
     status: newObjectMetadata.value.status,
@@ -685,7 +712,7 @@ const confirmGeometryEdit = async () => {
     data: {
       name: selectedFeature.value.name,
       description: selectedFeature.value.description,
-      geom: newGeomAsGeoJSON
+      geom: ensureMultiType(newGeomAsGeoJSON)
     }
   });
 

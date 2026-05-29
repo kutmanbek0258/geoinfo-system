@@ -107,10 +107,10 @@ const mutations = {
         } else {
             return;
         }
-        const targetArray = state[targetArrayName];
+        const targetArray = state[targetArrayName] as any[];
         const index = targetArray.findIndex((f: any) => f.id === id);
         if (index !== -1) {
-            state[targetArrayName] = [...targetArray.slice(0, index), ...targetArray.slice(index + 1)];
+            (state[targetArrayName] as any[]) = [...targetArray.slice(0, index), ...targetArray.slice(index + 1)];
         }
     },
 

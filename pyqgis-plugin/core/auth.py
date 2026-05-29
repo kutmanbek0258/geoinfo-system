@@ -111,6 +111,44 @@ class AuthService:
             QgsMessageLog.logMessage(f"Token exchange failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
             return False
 
+    def refresh_token_func(self):
+        """Refreshes the access token using the refresh token."""
+        if not self.refresh_token:
+            QgsMessageLog.logMessage("No refresh token available.", "GeoInfoSystem", Qgis.Warning)
+            return False
+
+        token_url = f"{self.base_url}/oauth2/token"
+        data = {
+            'grant_type': 'refresh_token',
+            'refresh_token': self.refresh_token,
+            'client_id': self.client_id
+        }
+        
+        headers = {
+            'Content-type': 'application/x-www-form-urlencoded',
+            'Authorization': self.auth_header_value
+        }
+        
+        try:
+            QgsMessageLog.logMessage("Attempting to refresh access token...", "GeoInfoSystem", Qgis.Info)
+            response = requests.post(token_url, data=data, headers=headers)
+            response.raise_for_status()
+            tokens = response.json()
+            
+            self.access_token = tokens.get('access_token')
+            # If the server provides a new refresh token, update it
+            if tokens.get('refresh_token'):
+                self.refresh_token = tokens.get('refresh_token')
+            
+            QgsMessageLog.logMessage("Access token refreshed successfully.", "GeoInfoSystem", Qgis.Success)
+            return True
+        except Exception as e:
+            QgsMessageLog.logMessage(f"Token refresh failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
+            # If refresh fails, we might need to clear tokens to force re-login
+            self.access_token = None
+            self.refresh_token = None
+            return False
+
     def get_auth_header(self):
         if self.access_token:
             return {'Authorization': f'Bearer {self.access_token}'}
