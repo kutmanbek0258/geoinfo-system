@@ -9,22 +9,27 @@ public class GeometryUtils {
     public static Geometry ensure3D(Geometry geom) {
         if (geom == null) return null;
 
-        Coordinate[] oldCoords = geom.getCoordinates();
-        Coordinate[] newCoords = new Coordinate[oldCoords.length];
-
-        for (int i = 0; i < oldCoords.length; i++) {
-            Coordinate old = oldCoords[i];
-            // Создаем Coordinate с 3-мя значениями (X, Y, Z), Z=0 если NaN
-            newCoords[i] = new Coordinate(old.x, old.y, Double.isNaN(old.getZ()) ? 0.0 : old.getZ());
-        }
-
         Geometry result;
         if (geom instanceof Point) {
-            result = geometryFactory.createPoint(newCoords[0]);
+            result = geometryFactory.createPoint(convertCoordinate((Point) geom));
+        } else if (geom instanceof LinearRing) {
+            result = geometryFactory.createLinearRing(convertCoordinates(geom.getCoordinates()));
         } else if (geom instanceof LineString) {
-            result = geometryFactory.createLineString(newCoords);
+            result = geometryFactory.createLineString(convertCoordinates(geom.getCoordinates()));
         } else if (geom instanceof Polygon) {
-            result = geometryFactory.createPolygon(newCoords);
+            Polygon poly = (Polygon) geom;
+            LinearRing shell = ensureLinearRing3D(poly.getExteriorRing());
+            LinearRing[] holes = new LinearRing[poly.getNumInteriorRing()];
+            for (int i = 0; i < poly.getNumInteriorRing(); i++) {
+                holes[i] = ensureLinearRing3D(poly.getInteriorRingN(i));
+            }
+            result = geometryFactory.createPolygon(shell, holes);
+        } else if (geom instanceof MultiPoint) {
+            Point[] points = new Point[geom.getNumGeometries()];
+            for (int i = 0; i < geom.getNumGeometries(); i++) {
+                points[i] = (Point) ensure3D(geom.getGeometryN(i));
+            }
+            result = geometryFactory.createMultiPoint(points);
         } else if (geom instanceof MultiLineString) {
             LineString[] lines = new LineString[geom.getNumGeometries()];
             for (int i = 0; i < geom.getNumGeometries(); i++) {
@@ -45,6 +50,26 @@ public class GeometryUtils {
             result.setSRID(4326);
         }
         return result;
+    }
+
+    private static LinearRing ensureLinearRing3D(LineString lineString) {
+        if (lineString == null) return null;
+        Coordinate[] coords = convertCoordinates(lineString.getCoordinates());
+        return geometryFactory.createLinearRing(coords);
+    }
+
+    private static Coordinate convertCoordinate(Point point) {
+        Coordinate old = point.getCoordinate();
+        return new Coordinate(old.x, old.y, Double.isNaN(old.getZ()) ? 0.0 : old.getZ());
+    }
+
+    private static Coordinate[] convertCoordinates(Coordinate[] oldCoords) {
+        Coordinate[] newCoords = new Coordinate[oldCoords.length];
+        for (int i = 0; i < oldCoords.length; i++) {
+            Coordinate old = oldCoords[i];
+            newCoords[i] = new Coordinate(old.x, old.y, Double.isNaN(old.getZ()) ? 0.0 : old.getZ());
+        }
+        return newCoords;
     }
 
     public static MultiLineString ensureMultiLineString3D(Geometry geom) {
