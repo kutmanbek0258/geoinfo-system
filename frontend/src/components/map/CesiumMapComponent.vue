@@ -127,6 +127,18 @@
       >
         <v-icon color="primary">mdi-magnify-scan</v-icon>
       </v-btn>
+
+      <!-- Кнопка Auto Extent Toggle -->
+      <v-btn
+        icon="mdi-target-variant"
+        :color="autoExtentEnabled ? 'primary' : 'white'"
+        class="mb-2"
+        elevation="2"
+        @click="autoExtentEnabled = !autoExtentEnabled"
+        :title="autoExtentEnabled ? 'Auto Extent Enabled' : 'Auto Extent Disabled'"
+      >
+        <v-icon :color="autoExtentEnabled ? 'white' : 'primary'">mdi-target-variant</v-icon>
+      </v-btn>
     </div>
 
     <!-- Оверлей 3: Кнопки добавления -->
@@ -267,6 +279,7 @@ const activeImageryLayers = shallowRef<Record<string, Cesium.ImageryLayer>>({});
 const layerOpacities = ref<Record<string, number>>({});
 const imageryMenuOpen = ref(false);
 const terrainMenuOpen = ref(false);
+const autoExtentEnabled = ref(false);
 
 // --- Состояние импорта ---
 const importFileDialog = ref(false);
@@ -752,10 +765,10 @@ watch([points, multilines, polygons], updateVectorSource);
 
 watch(selectedFeatureId, (newId) => {
   const v = viewer;
-  if (!newId || !v) return;
+  if (!newId || !v || !autoExtentEnabled.value || !store.state.geodata.lastSelectionShouldZoom) return;
   const entity = v.entities.getById(newId);
   if (entity) {
-    // v.zoomTo(entity);
+    v.zoomTo(entity);
   }
 });
 

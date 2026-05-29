@@ -175,7 +175,7 @@ class GeoInfoDockWidget(QDockWidget):
                 features = list(layer.getFeatures())
                 
                 for feature in features:
-                    dto = self.layer_factory.export_feature_to_dto(feature, project_id, folder_id, api_type=api_type)
+                    dto = self.layer_factory.export_feature_to_dto(feature, project_id, folder_id, api_type=api_type, source_layer=layer)
                     if not dto: continue
                     
                     # Check if it already has a UUID in our chosen ID field
@@ -253,7 +253,7 @@ class GeoInfoDockWidget(QDockWidget):
                     is_new = not is_uuid
                     
                     # If updating, ensure the DTO has the ID
-                    dto = self.layer_factory.export_feature_to_dto(feature, project_id, folder_id, api_type=api_type)
+                    dto = self.layer_factory.export_feature_to_dto(feature, project_id, folder_id, api_type=api_type, source_layer=layer)
                     if not dto: continue
                     
                     if is_uuid:

@@ -13,6 +13,8 @@ from qgis.core import (
     QgsMeshLayer,
     QgsRasterLayerElevationProperties,
     QgsHillshadeRenderer,
+    QgsCoordinateReferenceSystem,
+    QgsCoordinateTransform,
     NULL
 )
 from PyQt5.QtCore import QVariant
@@ -220,8 +222,8 @@ class LayerFactory:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to add Imagery COG layer {title}. Error: {error_msg}", "GeoInfoSystem", Qgis.Critical)
             return None
 
-    def export_feature_to_dto(self, feature, project_id, folder_id=None, api_type=None):
-        """Converts a QgsFeature back to a DTO dictionary for the API with high-stability normalization."""
+    def export_feature_to_dto(self, feature, project_id, folder_id=None, api_type=None, source_layer=None):
+        """Converts a QgsFeature back to a DTO dictionary for the API with high-stability normalization and CRS transformation."""
         try:
             geom = feature.geometry()
             if not geom or geom.isNull() or geom.isEmpty():
@@ -232,12 +234,22 @@ class LayerFactory:
                 QgsMessageLog.logMessage("GeoInfoSystem: Invalid geometry detected, attempting to fix...", "GeoInfoSystem", Qgis.Warning)
                 geom = geom.makeValid()
 
-            normalized_geom = geom
+            normalized_geom = QgsGeometry(geom)
             
+            # --- CRS Transformation to EPSG:4326 (WGS 84) ---
+            if source_layer:
+                source_crs = source_layer.crs()
+                dest_crs = QgsCoordinateReferenceSystem("EPSG:4326")
+                
+                if source_crs != dest_crs:
+                    QgsMessageLog.logMessage(f"GeoInfoSystem: Transforming geometry from {source_crs.authid()} to EPSG:4326", "GeoInfoSystem", Qgis.Info)
+                    transform = QgsCoordinateTransform(source_crs, dest_crs, QgsProject.instance())
+                    normalized_geom.transform(transform)
+
             # Universal Multi-type promotion and Topology Fix
-            if not geom.isMultipart():
+            if not normalized_geom.isMultipart():
                 QgsMessageLog.logMessage(f"GeoInfoSystem: Promoting single {api_type} to Multi-type...", "GeoInfoSystem", Qgis.Info)
-                normalized_geom = geom.convertToMultiType()
+                normalized_geom = normalized_geom.convertToMultiType()
             
             # CRITICAL FIX: Ensure all polygon rings are closed. 
             # Some QGIS providers/edits might produce unclosed rings that JTS (Backend) rejects.

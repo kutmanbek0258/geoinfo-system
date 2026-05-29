@@ -16,6 +16,7 @@ interface GeodataState {
     selectedProjectId: string | null;
     selectedFeatureId: string | null;
     selectedFolderId: string | null;
+    lastSelectionShouldZoom: boolean;
     isLoading: boolean;
     error: string | null;
     activeCameraStream: { geoObjectId: string, streamHlsUrl: string } | null;
@@ -33,6 +34,7 @@ const state: GeodataState = {
     selectedProjectId: null,
     selectedFeatureId: null,
     selectedFolderId: null,
+    lastSelectionShouldZoom: false,
     isLoading: false,
     error: null,
     activeCameraStream: null,
@@ -52,8 +54,9 @@ const mutations = {
         state.selectedProjectId = projectId;
         state.selectedFolderId = null; // Reset folder when project changes
     },
-    SET_SELECTED_FEATURE_ID(state: GeodataState, featureId: string | null) {
-        state.selectedFeatureId = featureId;
+    SET_SELECTED_FEATURE_ID(state: GeodataState, payload: { id: string | null, shouldZoom?: boolean }) {
+        state.selectedFeatureId = payload.id;
+        state.lastSelectionShouldZoom = !!payload.shouldZoom;
     },
     SET_SELECTED_FOLDER_ID(state: GeodataState, folderId: string | null) {
         state.selectedFolderId = folderId;
@@ -244,8 +247,12 @@ const actions = {
     },
 
     // Feature Selection
-    selectFeature({ commit }: ActionContext<GeodataState, any>, featureId: string | null) {
-        commit('SET_SELECTED_FEATURE_ID', featureId);
+    selectFeature({ commit }: ActionContext<GeodataState, any>, payload: string | { id: string | null, shouldZoom?: boolean } | null) {
+        if (typeof payload === 'string' || payload === null) {
+            commit('SET_SELECTED_FEATURE_ID', { id: payload, shouldZoom: true });
+        } else {
+            commit('SET_SELECTED_FEATURE_ID', payload);
+        }
     },
 
     // Vector Data Actions

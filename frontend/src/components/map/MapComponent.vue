@@ -83,6 +83,18 @@
         <v-icon color="primary">mdi-magnify-scan</v-icon>
       </v-btn>
 
+      <!-- Кнопка Auto Extent Toggle -->
+      <v-btn
+        icon="mdi-target-variant"
+        :color="autoExtentEnabled ? 'primary' : 'white'"
+        class="mb-2"
+        elevation="2"
+        @click="autoExtentEnabled = !autoExtentEnabled"
+        :title="autoExtentEnabled ? 'Auto Extent Enabled' : 'Auto Extent Disabled'"
+      >
+        <v-icon :color="autoExtentEnabled ? 'white' : 'primary'">mdi-target-variant</v-icon>
+      </v-btn>
+
       <!-- Кнопка печати -->
       <PrintDialog :map="map" />
     </div>
@@ -251,6 +263,7 @@ const selectedTerrainLayerId = ref<string | null>(null);
 const activeImageLayers = shallowRef<Record<string, TileLayer<TileWMS>>>({}); // Используем shallowRef
 const layerOpacities = ref<Record<string, number>>({}); // Для хранения прозрачности
 const imageryMenuOpen = ref(false);
+const autoExtentEnabled = ref(false);
 
 // --- Состояние импорта ---
 const importFileDialog = ref(false);
@@ -422,7 +435,7 @@ watch([points, multilines, polygons], updateVectorSource)
 
 // Наблюдаем за выбором фичи и приближаемся к ней
 watch(selectedFeatureId, (newId) => {
-  if (!newId || !map) return;
+  if (!newId || !map || !autoExtentEnabled.value || !store.state.geodata.lastSelectionShouldZoom) return;
   const feature = vectorSource.getFeatureById(newId);
   if (feature) {
     const geometry = feature.getGeometry();

@@ -35,7 +35,18 @@
           <div class="mb-1 text-caption text-grey">
             MultiPoint: {{ fullFeatureData.geom.coordinates.length }} points
           </div>
-          <div style="max-height: 120px; overflow-y: auto;" class="coordinate-list border rounded pa-2 bg-grey-lighten-4">
+          
+          <v-btn
+            size="x-small"
+            variant="tonal"
+            :prepend-icon="showGeodata ? 'mdi-eye-off' : 'mdi-eye'"
+            @click="showGeodata = !showGeodata"
+            class="mb-2"
+          >
+            {{ showGeodata ? 'Hide' : 'Show' }} Coordinates
+          </v-btn>
+
+          <div v-if="showGeodata" style="max-height: 120px; overflow-y: auto;" class="coordinate-list border rounded pa-2 bg-grey-lighten-4">
             <div v-for="(coord, index) in (fullFeatureData.geom.coordinates as any[][])" :key="index" class="coordinate-item mb-1 pb-1 d-flex">
               <span class="text-caption font-weight-bold mr-2" style="min-width: 25px;">#{{ index + 1 }}</span>
               <div class="d-flex flex-wrap flex-grow-1">
@@ -72,7 +83,17 @@
           Vertices: {{ (fullFeatureData.geom.coordinates[0] as any[]).length }} points
         </div>
 
-        <div style="max-height: 120px; overflow-y: auto;" class="coordinate-list border rounded pa-2 bg-grey-lighten-4">
+        <v-btn
+          size="x-small"
+          variant="tonal"
+          :prepend-icon="showGeodata ? 'mdi-eye-off' : 'mdi-eye'"
+          @click="showGeodata = !showGeodata"
+          class="mb-2"
+        >
+          {{ showGeodata ? 'Hide' : 'Show' }} Geodata
+        </v-btn>
+
+        <div v-if="showGeodata" style="max-height: 120px; overflow-y: auto;" class="coordinate-list border rounded pa-2 bg-grey-lighten-4">
           <!-- MultiPolygon Case -->
           <template v-if="fullFeatureData.geom.type === 'MultiPolygon'">
             <div v-for="(poly, pIdx) in (fullFeatureData.geom.coordinates as any[][][])" :key="pIdx" class="mb-2">
@@ -361,6 +382,8 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const imageInput = ref<HTMLInputElement | null>(null); // For main image
 const iconInput = ref<HTMLInputElement | null>(null); // For icon
 
+const showGeodata = ref(false);
+
 const styleToEdit = ref({
   icon: { url: '', scale: 1.0 },
   line: { color: '#3399CC', width: 2 },
@@ -487,6 +510,7 @@ const availableFolders = computed(() => folders.value);
 
 // --- Наблюдатель за изменением ID ---
 watch(() => props.featureId, (newId) => {
+  showGeodata.value = false;
   if (newId) {
     store.dispatch('document/fetchDocumentsForObject', newId);
   }
