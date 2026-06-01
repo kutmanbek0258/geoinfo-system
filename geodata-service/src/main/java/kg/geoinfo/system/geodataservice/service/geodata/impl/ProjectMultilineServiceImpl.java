@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectMultilineDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineSummaryDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectMultilineDto;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectMultilineMapper;
 import kg.geoinfo.system.geodataservice.models.Project;
@@ -86,6 +87,14 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
         checkProjectAccess(currentUserEmail, projectId);
         return projectMultilineRepository.findAllByProjectId(pageable, projectId)
                 .map(projectMultilineMapper::toDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProjectMultilineSummaryDto> findSummaryByProjectId(String currentUserEmail, Pageable pageable, UUID projectId) {
+        checkProjectAccess(currentUserEmail, projectId);
+        return projectMultilineRepository.findAllByProjectId(pageable, projectId)
+                .map(projectMultilineMapper::toSummaryDto);
     }
 
     @Override

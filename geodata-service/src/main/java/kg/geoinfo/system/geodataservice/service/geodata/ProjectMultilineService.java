@@ -2,11 +2,10 @@ package kg.geoinfo.system.geodataservice.service.geodata;
 
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectMultilineDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineSummaryDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectMultilineDto;
-
 import java.util.List;
 import java.util.UUID;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,6 +18,8 @@ public interface ProjectMultilineService {
     Page<ProjectMultilineDto> findAll(String currentUserEmail, Pageable pageable);
 
     Page<ProjectMultilineDto> findAllByProjectId(String currentUserEmail, Pageable pageable, UUID projectId);
+
+    Page<ProjectMultilineSummaryDto> findSummaryByProjectId(String currentUserEmail, Pageable pageable, UUID projectId);
 
     ProjectMultilineDto update(String currentUserEmail, UUID id, UpdateProjectMultilineDto updateProjectMultilineDto);
 

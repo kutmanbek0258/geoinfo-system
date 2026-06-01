@@ -2,6 +2,7 @@ package kg.geoinfo.system.geodataservice.mapper.geodata;
 
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectMultilineDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineSummaryDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectMultilineDto;
 import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.models.ProjectMultiline;
@@ -16,6 +17,10 @@ public interface ProjectMultilineMapper {
     @Mapping(source = "project.id", target = "projectId")
     @Mapping(source = "folder.id", target = "folderId")
     ProjectMultilineDto toDto(ProjectMultiline projectMultiline);
+
+    @Mapping(source = "project.id", target = "projectId")
+    @Mapping(source = "folder.id", target = "folderId")
+    ProjectMultilineSummaryDto toSummaryDto(ProjectMultiline projectMultiline);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")
     @Mapping(target = "folder", source = "folderId", qualifiedByName = "mapFolder")

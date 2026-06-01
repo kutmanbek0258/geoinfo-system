@@ -2,6 +2,7 @@ package kg.geoinfo.system.geodataservice.controller.geodata;
 
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPointDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointSummaryDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPointDto;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPointService;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,12 @@ public class ProjectPointController {
     @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
     public ResponseEntity<Page<ProjectPointDto>> findAllByProjectId(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok(projectPointService.findByProjectId(principal.getName(), pageable, projectId));
+    }
+
+    @GetMapping("/by-project-id/{projectId}/summary")
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<Page<ProjectPointSummaryDto>> findAllSummaryByProjectId(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectPointService.findSummaryByProjectId(principal.getName(), pageable, projectId));
     }
 
     @PutMapping("/{id}")

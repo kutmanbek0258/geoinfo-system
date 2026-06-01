@@ -56,6 +56,8 @@ export interface ProjectPoint {
     characteristics?: Record<string, any>;
 }
 
+export interface ProjectPointSummary extends Omit<ProjectPoint, 'geom'> {}
+
 export interface ProjectMultiline {
     id: string;
     projectId: string;
@@ -69,6 +71,8 @@ export interface ProjectMultiline {
     characteristics?: Record<string, any>;
 }
 
+export interface ProjectMultilineSummary extends Omit<ProjectMultiline, 'geom'> {}
+
 export interface ProjectPolygon {
     id: string;
     projectId: string;
@@ -81,6 +85,8 @@ export interface ProjectPolygon {
     imageUrl?: string;
     characteristics?: Record<string, any>;
 }
+
+export interface ProjectPolygonSummary extends Omit<ProjectPolygon, 'geom'> {}
 
 export interface Document {
     id: string;

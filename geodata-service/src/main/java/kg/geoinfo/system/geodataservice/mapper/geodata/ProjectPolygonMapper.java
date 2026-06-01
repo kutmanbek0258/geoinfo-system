@@ -2,6 +2,7 @@ package kg.geoinfo.system.geodataservice.mapper.geodata;
 
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonSummaryDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.models.ProjectPolygon;
@@ -16,6 +17,10 @@ public interface ProjectPolygonMapper {
     @Mapping(source = "project.id", target = "projectId")
     @Mapping(source = "folder.id", target = "folderId")
     ProjectPolygonDto toDto(ProjectPolygon projectPolygon);
+
+    @Mapping(source = "project.id", target = "projectId")
+    @Mapping(source = "folder.id", target = "folderId")
+    ProjectPolygonSummaryDto toSummaryDto(ProjectPolygon projectPolygon);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")
     @Mapping(target = "folder", source = "folderId", qualifiedByName = "mapFolder")

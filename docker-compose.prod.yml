@@ -64,6 +64,16 @@ services:
     networks:
       - prod-net
 
+  pg_tileserv:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    networks:
+      - prod-net
+
   # ====== Config, Discovery, Gateway ======
   config-server:
     networks:

@@ -1,7 +1,7 @@
 import geodataService from "@/services/geodata.service";
 import streamService from "@/services/stream.service";
 import geoAbstractionService from "@/services/geo-abstraction.service";
-import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page, GeoFolder } from "@/types/api";
+import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary } from "@/types/api";
 import type { ActionContext } from "vuex";
 
 interface GeodataState {
@@ -10,9 +10,9 @@ interface GeodataState {
     imageryLayers: Page<ImageryLayer> | null;
     terrainLayers: Page<TerrainLayer> | null;
     terrainJobs: Page<TerrainJob> | null;
-    points: ProjectPoint[];
-    multilines: ProjectMultiline[];
-    polygons: ProjectPolygon[];
+    points: (ProjectPoint | ProjectPointSummary)[];
+    multilines: (ProjectMultiline | ProjectMultilineSummary)[];
+    polygons: (ProjectPolygon | ProjectPolygonSummary)[];
     selectedProjectId: string | null;
     selectedFeatureId: string | null;
     selectedFolderId: string | null;
@@ -247,11 +247,62 @@ const actions = {
     },
 
     // Feature Selection
-    selectFeature({ commit }: ActionContext<GeodataState, any>, payload: string | { id: string | null, shouldZoom?: boolean } | null) {
+    async selectFeature({ commit, state, dispatch }: ActionContext<GeodataState, any>, payload: string | { id: string | null, shouldZoom?: boolean } | null) {
+        let id: string | null;
+        let shouldZoom = true;
+
         if (typeof payload === 'string' || payload === null) {
-            commit('SET_SELECTED_FEATURE_ID', { id: payload, shouldZoom: true });
+            id = payload;
         } else {
-            commit('SET_SELECTED_FEATURE_ID', payload);
+            id = payload.id;
+            shouldZoom = payload.shouldZoom ?? true;
+        }
+
+        commit('SET_SELECTED_FEATURE_ID', { id, shouldZoom });
+
+        if (id) {
+            // Check if we have full geometry. If not, fetch full data.
+            const feature = [...state.points, ...state.multilines, ...state.polygons].find((f: any) => f.id === id);
+            if (feature && !(feature as any).geom) {
+                await dispatch('fetchFullFeature', { id, type: (feature as any).type || 'Point' }); // type might be missing in summary
+            }
+        }
+    },
+
+    async fetchFullFeature({ commit, state }: ActionContext<GeodataState, any>, { id, type }: { id: string, type: string }) {
+        try {
+            let response;
+            let typeForMutation: 'Point' | 'MultiLineString' | 'Polygon' = 'Point';
+            
+            // We might not know the type yet if it's from a generic summary
+            // Try to find it in summaries first to guess type
+            // Actually, DTOs for points/lines/polygons are different, so we should know from which array it came.
+            
+            // For now, let's assume we can try all 3 or the caller knows.
+            // If caller doesn't know, we can check which array it's in.
+            
+            // Better: GeodataService.getPointById etc.
+            // Let's try to detect type from state
+            const isPoint = state.points.some((f: any) => f.id === id);
+            const isLine = state.multilines.some((f: any) => f.id === id);
+            const isPoly = state.polygons.some((f: any) => f.id === id);
+
+            if (isPoint) {
+                response = await geodataService.getPointById(id);
+                typeForMutation = 'Point';
+            } else if (isLine) {
+                response = await geodataService.getMultilineById(id);
+                typeForMutation = 'MultiLineString';
+            } else if (isPoly) {
+                response = await geodataService.getPolygonById(id);
+                typeForMutation = 'Polygon';
+            }
+
+            if (response) {
+                commit('UPDATE_FEATURE', { type: typeForMutation, data: response.data });
+            }
+        } catch (err) {
+            console.error('Failed to fetch full feature data:', err);
         }
     },
 
@@ -271,6 +322,26 @@ const actions = {
             commit('SET_VECTOR_DATA', { type: 'polygons', data: polygonsRes.data.content });
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch vector data.');
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
+    async fetchVectorSummaryForProject({ commit, dispatch }: ActionContext<GeodataState, any>, projectId: string) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            await dispatch('fetchFolders', projectId);
+            const [pointsRes, multilinesRes, polygonsRes] = await Promise.all([
+                geodataService.getPointsSummaryByProjectId(projectId),
+                geodataService.getMultilinesSummaryByProjectId(projectId),
+                geodataService.getPolygonsSummaryByProjectId(projectId),
+            ]);
+            commit('SET_VECTOR_DATA', { type: 'points', data: pointsRes.data.content });
+            commit('SET_VECTOR_DATA', { type: 'multilines', data: multilinesRes.data.content });
+            commit('SET_VECTOR_DATA', { type: 'polygons', data: polygonsRes.data.content });
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to fetch vector summary data.');
         } finally {
             commit('SET_LOADING', false);
         }
@@ -384,13 +455,13 @@ const actions = {
 
         switch (type) {
             case 'Point':
-                feature = state.points.find((f: ProjectPoint) => f.id === id);
+                feature = state.points.find((f: any) => f.id === id);
                 break;
             case 'MultiLineString':
-                feature = state.multilines.find((f: ProjectMultiline) => f.id === id);
+                feature = state.multilines.find((f: any) => f.id === id);
                 break;
             case 'Polygon':
-                feature = state.polygons.find((f: ProjectPolygon) => f.id === id);
+                feature = state.polygons.find((f: any) => f.id === id);
                 break;
         }
 

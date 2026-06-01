@@ -2,6 +2,7 @@ package kg.geoinfo.system.geodataservice.controller.geodata;
 
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectMultilineDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineSummaryDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectMultilineDto;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectMultilineService;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,12 @@ public class ProjectMultilineController {
     @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
     public ResponseEntity<Page<ProjectMultilineDto>> findAllByProjectId(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok(projectMultilineService.findAllByProjectId(principal.getName(), pageable, projectId));
+    }
+
+    @GetMapping("/by-project-id/{projectId}/summary")
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<Page<ProjectMultilineSummaryDto>> findAllSummaryByProjectId(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID projectId, @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(projectMultilineService.findSummaryByProjectId(principal.getName(), pageable, projectId));
     }
 
     @PutMapping("/{id}")

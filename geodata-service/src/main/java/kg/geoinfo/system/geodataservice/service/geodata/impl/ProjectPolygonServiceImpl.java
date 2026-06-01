@@ -5,6 +5,7 @@ import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonSummaryDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPolygonDto;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectPolygonMapper;
 import kg.geoinfo.system.geodataservice.models.Project;
@@ -86,6 +87,14 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
         checkProjectAccess(currentUserEmail, projectId);
         return projectPolygonRepository.findAllByProjectId(pageable, projectId)
                 .map(projectPolygonMapper::toDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProjectPolygonSummaryDto> findSummaryByProjectId(String currentUserEmail, Pageable pageable, UUID projectId) {
+        checkProjectAccess(currentUserEmail, projectId);
+        return projectPolygonRepository.findAllByProjectId(pageable, projectId)
+                .map(projectPolygonMapper::toSummaryDto);
     }
 
     @Override

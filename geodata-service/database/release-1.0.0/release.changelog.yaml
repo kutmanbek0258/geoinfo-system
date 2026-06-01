@@ -25,3 +25,9 @@ databaseChangeLog:
   - include:
       file: object/add_folders_table.sql
       relativeToChangelogFile: true
+  - include:
+      file: object/create_mvt_views.sql
+      relativeToChangelogFile: true
+  - include:
+      file: object/create_mvt_functions.sql
+      relativeToChangelogFile: true

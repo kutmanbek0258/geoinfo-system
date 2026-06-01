@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPointDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointSummaryDto;
 import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPointDto;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectPointMapper;
 import kg.geoinfo.system.geodataservice.models.Project;
@@ -90,6 +91,14 @@ public class ProjectPointServiceImpl implements ProjectPointService {
         checkProjectAccess(currentUserEmail, projectId);
         return projectPointRepository.findAllByProjectId(pageable, projectId)
                 .map(projectPointMapper::toDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProjectPointSummaryDto> findSummaryByProjectId(String currentUserEmail, Pageable pageable, UUID projectId) {
+        checkProjectAccess(currentUserEmail, projectId);
+        return projectPointRepository.findAllByProjectId(pageable, projectId)
+                .map(projectPointMapper::toSummaryDto);
     }
 
     @Override

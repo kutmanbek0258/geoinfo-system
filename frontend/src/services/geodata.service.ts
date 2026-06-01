@@ -1,5 +1,5 @@
 import api from './api';
-import type { Page, Project, ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, GeoFolder } from '@/types/api';
+import type { Page, Project, ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary } from '@/types/api';
 
 class GeodataService {
     // --- Projects ---
@@ -53,6 +53,9 @@ class GeodataService {
     getPointsByProjectId(projectId: string, page = 0, size = 1000) {
         return api.get<Page<ProjectPoint>>(`/geodata/points/by-project-id/${projectId}`, { params: { page, size } });
     }
+    getPointsSummaryByProjectId(projectId: string, page = 0, size = 1000) {
+        return api.get<Page<ProjectPointSummary>>(`/geodata/points/by-project-id/${projectId}/summary`, { params: { page, size } });
+    }
     createPoint(point: Omit<ProjectPoint, 'id'>) {
         return api.post<ProjectPoint>('/geodata/points', point);
     }
@@ -70,6 +73,9 @@ class GeodataService {
     getMultilinesByProjectId(projectId: string, page = 0, size = 1000) {
         return api.get<Page<ProjectMultiline>>(`/geodata/multilines/by-project-id/${projectId}`, { params: { page, size } });
     }
+    getMultilinesSummaryByProjectId(projectId: string, page = 0, size = 1000) {
+        return api.get<Page<ProjectMultilineSummary>>(`/geodata/multilines/by-project-id/${projectId}/summary`, { params: { page, size } });
+    }
     createMultiline(multiline: Omit<ProjectMultiline, 'id'>) {
         return api.post<ProjectMultiline>('/geodata/multilines', multiline);
     }
@@ -86,6 +92,9 @@ class GeodataService {
     // --- Polygons ---
     getPolygonsByProjectId(projectId: string, page = 0, size = 1000) {
         return api.get<Page<ProjectPolygon>>(`/geodata/polygons/by-project-id/${projectId}`, { params: { page, size } });
+    }
+    getPolygonsSummaryByProjectId(projectId: string, page = 0, size = 1000) {
+        return api.get<Page<ProjectPolygonSummary>>(`/geodata/polygons/by-project-id/${projectId}/summary`, { params: { page, size } });
     }
     createPolygon(polygon: Omit<ProjectPolygon, 'id'>) {
         return api.post<ProjectPolygon>('/geodata/polygons', polygon);

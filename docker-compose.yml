@@ -213,6 +213,22 @@ services:
       timeout: 5s
       retries: 5
 
+  pg_tileserv:
+    image: pramsey/pg_tileserv:latest
+    container_name: pg_tileserv
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER_GEODATA:-postgres}:${POSTGRES_PASSWORD_GEODATA:-password}@${POSTGRES_HOST_GEODATA:-postgres-geodata}:${POSTGRES_PORT_GEODATA:-5432}/${POSTGRES_DB_GEODATA:-geodata_db}
+      TS_HTTPPORT: 7800
+      TS_CORS_ORIGINS: "*"
+      TS_MAX_CONNECTIONS: 20
+      TS_SCHEMAS: "geodata"
+      TS_BASEURL: "${TILES_BASE_URL:-http://localhost/tiles}"
+      TS_TRUST_PROXY: "true"
+    depends_on:
+      postgres-geodata:
+        condition: service_healthy
+    restart: always
+
   # ====== Config, Discovery, Gateway ======
   config-server:
     build:
@@ -496,6 +512,7 @@ services:
       - onlyoffice-doc-server
       - mediamtx
       - geoabstraction-service
+      - pg_tileserv
     restart: unless-stopped
 
 volumes:
