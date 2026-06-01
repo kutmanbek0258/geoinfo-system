@@ -267,6 +267,9 @@ const tempLayer = new VectorLayer({
   properties: { 'willReadFrequently': true }
 });
 
+// Кэш для распарсенных характеристик MVT-фич (RenderFeature не поддерживает .set())
+let characteristicsCache = new WeakMap();
+
 // --- Состояние компонента ---
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
 const isGeometryEditMode = ref(false);
@@ -325,6 +328,15 @@ const points = computed<ProjectPoint[]>(() => store.state.geodata.points);
 const multilines = computed<ProjectMultiline[]>(() => store.state.geodata.multilines);
 const polygons = computed<ProjectPolygon[]>(() => store.state.geodata.polygons);
 
+// Мгновенный фильтр видимости на основе данных из Vuex (до того, как обновятся тайлы в БД)
+const hiddenFeatureIds = computed(() => {
+  const hidden = new Set<string>();
+  points.value.forEach(p => { if (p.characteristics?.visible === false) hidden.add(p.id); });
+  multilines.value.forEach(l => { if (l.characteristics?.visible === false) hidden.add(l.id); });
+  polygons.value.forEach(p => { if (p.characteristics?.visible === false) hidden.add(p.id); });
+  return hidden;
+});
+
 // --- Обработка клика по MVT тайлам ---
 const handleMapClick = (event: any) => {
   if (isGeometryEditMode.value) return;
@@ -353,26 +365,55 @@ const vectorTileStyleFunction = (feature: any) => {
     return new Style();
   }
 
-  // 2. Достаем характеристики из JSON (поддерживаем как строку, так и распарсенный объект)
-  const charProp = feature.get('characteristics');
-  let characteristics: any = null;
-  if (charProp) {
-    if (typeof charProp === 'string') {
-      try {
-        characteristics = JSON.parse(charProp);
-      } catch (e) {
-        console.error('Failed to parse characteristics string', e);
+  // 2. Мгновенный фильтр видимости на основе состояния Vuex
+  if (id && hiddenFeatureIds.value.has(id)) {
+    return new Style();
+  }
+
+  // 3. Достаем характеристики из кэша
+  let characteristics = characteristicsCache.get(feature);
+  
+  if (!characteristics) {
+    const charProp = feature.get('characteristics');
+    if (charProp) {
+      if (typeof charProp === 'string' && (charProp.startsWith('{') || charProp.startsWith('['))) {
+        try {
+          characteristics = JSON.parse(charProp);
+        } catch (e) {
+          // Если не парсится, используем плоские свойства фичи
+          characteristics = feature.getProperties();
+        }
+      } else {
+        characteristics = charProp;
       }
     } else {
-      characteristics = charProp;
+      characteristics = feature.getProperties();
     }
+    
+    // Сохраняем в WeakMap для этого инстанса фичи
+    if (characteristics && typeof characteristics === 'object') {
+      characteristicsCache.set(feature, characteristics);
+    }
+  }
+
+  // 4. Проверка видимости из данных самого тайла (как запасной вариант)
+  const isVisibleInTile = characteristics?.visible !== false && characteristics?.isVisible !== false;
+  if (!isVisibleInTile) {
+    return new Style();
   }
 
   const name = feature.get('name');
   
-  // 3. Вызываем существующий парсер стилей
+  // 5. Вызываем существующий парсер стилей
   return parseStyle(characteristics, name);
 };
+
+// При изменении списка скрытых объектов принудительно перерисовываем MVT слои
+watch(hiddenFeatureIds, () => {
+  if (pointsTileLayer) pointsTileLayer.changed();
+  if (linesTileLayer) linesTileLayer.changed();
+  if (polygonsTileLayer) polygonsTileLayer.changed();
+}, { deep: true });
 
 // --- Инициализация MVT источников и слоев ---
 const initMvtLayers = (projectId: string) => {
@@ -384,7 +425,6 @@ const initMvtLayers = (projectId: string) => {
   if (polygonsTileLayer) map.removeLayer(polygonsTileLayer);
 
   // Создаем MVT источники с использованием специализированных функций PostGIS (Function Layers)
-  // Это позволяет выполнять фильтрацию и оптимизацию геометрии на стороне БД.
   pointsTileSource = new VectorTileSource({
     format: new MVT(),
     url: `/tiles/geodata.mvt_project_points/{z}/{x}/{y}.pbf?project_id_param=${projectId}`,
@@ -432,6 +472,7 @@ const initMvtLayers = (projectId: string) => {
 };
 
 const refreshMvtSources = () => {
+  characteristicsCache = new WeakMap();
   if (pointsTileSource) pointsTileSource.refresh();
   if (linesTileSource) linesTileSource.refresh();
   if (polygonsTileSource) polygonsTileSource.refresh();
@@ -513,9 +554,10 @@ watch(() => props.projectId, (newProjectId) => {
   }
 }, { immediate: true });
 
-// Наблюдаем за обновлением данных в Vuex для зумирования на общий экстент проекта
+// Наблюдаем за обновлением данных в Vuex для зумирования и обновления тайлов
 watch([points, multilines, polygons], () => {
   zoomToExtent();
+  refreshMvtSources();
 });
 
 // При изменении выбранного объекта зумируемся к нему

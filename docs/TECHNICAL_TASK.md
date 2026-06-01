@@ -344,7 +344,7 @@ API Gateway: Spring Cloud Gateway (Java)
 
 Картографический сервис: OpenLayers
 
-Сервер геоданных: GeoServer (отдельный Docker-контейнер со своим хранилищем)
+Сервер геоданных: GeoServer (растры WMS/WMTS) и pg_tileserv (векторы MVT).
 
 Бэкенд-сервисы (Микросервисы на Spring Boot):
 

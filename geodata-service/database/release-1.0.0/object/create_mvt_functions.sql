@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset admin:create_mvt_functions splitStatements:false
+--changeset admin:create_mvt_functions splitStatements:false runOnChange:true
 -- Function for Project Points MVT
 CREATE OR REPLACE FUNCTION geodata.mvt_project_points(z integer, x integer, y integer, project_id_param uuid)
 RETURNS bytea
@@ -14,7 +14,7 @@ BEGIN
     ),
     mvtgeom AS (
       SELECT ST_AsMVTGeom(ST_Transform(t.geom, 3857), bounds.geom) AS geom,
-             t.id, t.name, t.status, t.characteristics
+             t.id, t.name, t.status, t.characteristics::text AS characteristics
       FROM geodata.project_points t, bounds
       WHERE t.project_id = project_id_param
         AND ST_Intersects(ST_Transform(t.geom, 3857), bounds.geom)
@@ -40,7 +40,7 @@ BEGIN
     ),
     mvtgeom AS (
       SELECT ST_AsMVTGeom(ST_Transform(t.geom, 3857), bounds.geom) AS geom,
-             t.id, t.name, t.status, t.characteristics
+             t.id, t.name, t.status, t.characteristics::text AS characteristics
       FROM geodata.project_multilines t, bounds
       WHERE t.project_id = project_id_param
         AND ST_Intersects(ST_Transform(t.geom, 3857), bounds.geom)
@@ -66,7 +66,7 @@ BEGIN
     ),
     mvtgeom AS (
       SELECT ST_AsMVTGeom(ST_Transform(t.geom, 3857), bounds.geom) AS geom,
-             t.id, t.name, t.status, t.characteristics
+             t.id, t.name, t.status, t.characteristics::text AS characteristics
       FROM geodata.project_polygons t, bounds
       WHERE t.project_id = project_id_param
         AND ST_Intersects(ST_Transform(t.geom, 3857), bounds.geom)

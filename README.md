@@ -82,8 +82,9 @@
 - **Frontend:** Vue.js 3, Vite, TypeScript, Vuetify 3, OpenLayers, Vuex
 - **Backend:** Java 17, Spring Boot 3, Spring Cloud
 - **Базы данных:** PostgreSQL, PostGIS, Elasticsearch, Redis
+- **Гео-сервисы:** GeoServer (WMS/WMTS), pg_tileserv (MVT)
 - **Хранилище файлов:** MinIO
-- **Инфраструктура:** Docker, Docker Compose, Nginx, nginx-proxy, Kafka, GeoServer, OnlyOffice
+- **Инфраструктура:** Docker, Docker Compose, Nginx, nginx-proxy, Kafka, OnlyOffice
 
 ## Быстрый старт (режим разработки)
 
@@ -119,13 +120,13 @@
 - **[<code>config-server/</code>](./config-server/README.md):** Сервер конфигураций.
 - **[<code>discovery-server/</code>](./discovery-server/README.md):** Сервер обнаружения (Eureka).
 - **[<code>document-service/</code>](./document-service/README.md):** Сервис управления документами.
-- **[<code>frontend/</code>](./frontend/README.md):** Клиентское приложение на Vue.js.
+- **[<code>frontend/</code>](./frontend/README.md):** Клиентское приложение на Vue.js (OpenLayers + MVT).
 - **[<code>geoabstraction-service/</code>](./geoabstraction-service/README.md):** Центральный сервис управления растровыми данными, рельефом и интеграцией с GeoServer.
 - **[<code>terrain-worker/</code>](./terrain-worker/README.md):** Python-воркер для генерации 3D-рельефа.
-- **[<code>geoabstract-worker/</code>](./geoabstract-worker/README.md):** Python-воркер для генерации COG, расчета индексов (NDVI, NDWI и др.) и оптимизации GeoTIFF. Сохраняет данные в Float32 для точной визуализации через SLD.
+- **[<code>geoabstract-worker/</code>](./geoabstract-worker/README.md):** Python-воркер для генерации COG, расчета индексов (NDVI, NDWI и др.).
 - **[<code>geodata-service/</code>](./geodata-service/README.md):** Сервис управления векторными геоданными.
 - **[<code>search-service/</code>](./search-service/README.md):** Сервис поиска.
-- **[<code>nginx-proxy/</code>](./nginx-proxy/README.md):** Обратный прокси, балансировщик нагрузки и кэширующий слой.
+- **[<code>nginx-proxy/</code>](./nginx-proxy/README.md):** Обратный прокси и кэширующий слой (MVT кэширование).
 - **`docs/`:** Техническая и архитектурная документация.
 
 ## Дополнительная документация

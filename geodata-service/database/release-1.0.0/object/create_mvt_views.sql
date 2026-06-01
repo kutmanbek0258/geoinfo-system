@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset admin:create_mvt_views
+--changeset admin:create_mvt_views runOnChange:true
 -- View for Points
 CREATE OR REPLACE VIEW geodata.v_project_points_mvt AS
 SELECT
