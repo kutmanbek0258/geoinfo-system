@@ -106,6 +106,36 @@
         @click="openImportFileDialog"
         title="Import KML/KMZ to this project"
       ></v-btn>
+
+      <!-- Инструменты измерения -->
+      <v-sheet class="mb-2 pa-1 d-flex flex-column align-center" elevation="2" rounded>
+        <v-btn-toggle v-model="measureMode" variant="flat" density="compact" color="primary">
+          <v-btn value="length" title="Measure distance">
+            <v-icon>mdi-ruler</v-icon>
+          </v-btn>
+          <v-btn value="area" title="Measure area">
+            <v-icon>mdi-vector-square</v-icon>
+          </v-btn>
+        </v-btn-toggle>
+        <v-divider class="my-1 w-100"></v-divider>
+        <v-checkbox
+          v-model="useAltitudeInMeasure"
+          label="Z-axis"
+          hide-details
+          density="compact"
+          class="altitude-checkbox"
+          title="Consider altitude (3D distance)"
+        ></v-checkbox>
+        <v-btn
+          icon="mdi-trash-can-outline"
+          variant="text"
+          density="compact"
+          @click="clearMeasurements"
+          title="Clear measurements"
+        >
+          <v-icon color="error">mdi-trash-can-outline</v-icon>
+        </v-btn>
+      </v-sheet>
       
       <v-btn-toggle v-model="drawMode" variant="elevated" density="comfortable">
         <v-btn value="Point" title="Add Point">
@@ -221,19 +251,21 @@ import VectorSource from 'ol/source/Vector';
 import VectorTileLayer from 'ol/layer/VectorTile';
 import VectorTileSource from 'ol/source/VectorTile';
 import MVT from 'ol/format/MVT';
-import { Draw, Modify } from 'ol/interaction';
-import { Collection } from 'ol';
+import { Draw, Modify, Snap } from 'ol/interaction';
+import { Collection, Overlay } from 'ol';
 import { createEmpty, extend } from 'ol/extent';
-import { Style } from 'ol/style';
+import { Style, Stroke, Fill, Circle as CircleStyle } from 'ol/style';
 import type { ImageryLayer, TerrainLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import { FullScreen } from 'ol/control';
 import GeodataService from '@/services/geodata.service';
+import geoCalcService from '@/services/geo-calc.service';
 import GeoObjectTree from './GeoObjectTree.vue';
 import { parseStyle } from '@/util/style.util';
 import { ensureMultiType } from '@/util/geo.util';
 import { GeoJSON } from 'ol/format';
+import { LineString, Polygon as OLPolygon } from 'ol/geom';
 
 // --- Props & Store ---
 const props = defineProps({
@@ -267,13 +299,53 @@ const tempLayer = new VectorLayer({
   properties: { 'willReadFrequently': true }
 });
 
+// --- Слой для измерений ---
+const measureSource = new VectorSource();
+const measureLayer = new VectorLayer({
+  source: measureSource,
+  zIndex: 200,
+  style: new Style({
+    fill: new Fill({
+      color: 'rgba(255, 171, 0, 0.2)',
+    }),
+    stroke: new Stroke({
+      color: '#ffab00',
+      lineDash: [10, 10],
+      width: 2,
+    }),
+    image: new CircleStyle({
+      radius: 5,
+      stroke: new Stroke({
+        color: '#ffab00',
+      }),
+      fill: new Fill({
+        color: 'rgba(255, 255, 255, 0.7)',
+      }),
+    }),
+  }),
+});
+
+// --- Источник для снаппинга (собирает фичи из MVT в текущем вью) ---
+const snapSource = new VectorSource();
+
 // Кэш для распарсенных характеристик MVT-фич (RenderFeature не поддерживает .set())
 let characteristicsCache = new WeakMap();
 
 // --- Состояние компонента ---
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
+const measureMode = ref<'length' | 'area' | null>(null);
+const useAltitudeInMeasure = ref(false);
 const isGeometryEditMode = ref(false);
 let modifyInteraction: Modify | null = null;
+let measureDraw: Draw | null = null;
+let snapInteraction: Snap | null = null;
+
+// Тултипы для измерений
+let measureTooltipElement: HTMLElement | null = null;
+let measureTooltip: Overlay | null = null;
+const helpTooltipElement = ref<HTMLElement | null>(null);
+let helpTooltip: Overlay | null = null;
+const activeMeasureTooltips = shallowRef<Overlay[]>([]);
 const visibleLayerIds = ref<string[]>([]);
 const selectedTerrainLayerId = ref<string | null>(null);
 const activeImageLayers = shallowRef<Record<string, TileLayer<TileWMS>>>({});
@@ -478,6 +550,137 @@ const refreshMvtSources = () => {
   if (polygonsTileSource) polygonsTileSource.refresh();
 };
 
+// --- Обновление источника снаппинга из данных Vuex ---
+const updateSnapSource = () => {
+  if (!map) return;
+  snapSource.clear();
+  
+  // Используем объекты из стора для снаппинга, так как они уже загружены в память
+  const allObjects = [...points.value, ...multilines.value, ...polygons.value];
+  const features: Feature[] = [];
+  
+  allObjects.forEach(obj => {
+    if (obj.geom) {
+      const read = geoJsonFormat.readFeatures(obj.geom, {
+        dataProjection: 'EPSG:4326',
+        featureProjection: 'EPSG:3857'
+      });
+      if (Array.isArray(read)) {
+        features.push(...read);
+      } else if (read) {
+        features.push(read);
+      }
+    }
+  });
+  
+  snapSource.addFeatures(features);
+};
+
+// --- Логика измерений ---
+const createMeasureTooltip = () => {
+  if (measureTooltipElement) {
+    measureTooltipElement.parentNode?.removeChild(measureTooltipElement);
+  }
+  measureTooltipElement = document.createElement('div');
+  measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
+  measureTooltip = new Overlay({
+    element: measureTooltipElement,
+    offset: [0, -15],
+    positioning: 'bottom-center',
+    stopEvent: false,
+    insertFirst: false,
+  });
+  map?.addOverlay(measureTooltip);
+  activeMeasureTooltips.value = [...activeMeasureTooltips.value, measureTooltip];
+};
+
+const clearMeasurements = () => {
+  measureSource.clear();
+  activeMeasureTooltips.value.forEach(ov => map?.removeOverlay(ov));
+  activeMeasureTooltips.value = [];
+};
+
+watch(measureMode, (newMode) => {
+  if (!map) return;
+
+  if (measureDraw) map.removeInteraction(measureDraw);
+  if (snapInteraction) map.removeInteraction(snapInteraction);
+
+  if (!newMode) {
+    helpTooltipElement.value?.classList.add('d-none');
+    return;
+  }
+
+  updateSnapSource();
+
+  const type = newMode === 'area' ? 'Polygon' : 'LineString';
+  measureDraw = new Draw({
+    source: measureSource,
+    type: type,
+    style: new Style({
+      fill: new Fill({
+        color: 'rgba(255, 255, 255, 0.2)',
+      }),
+      stroke: new Stroke({
+        color: 'rgba(0, 0, 0, 0.5)',
+        lineDash: [10, 10],
+        width: 2,
+      }),
+      image: new CircleStyle({
+        radius: 5,
+        stroke: new Stroke({
+          color: 'rgba(0, 0, 0, 0.7)',
+        }),
+        fill: new Fill({
+          color: 'rgba(255, 255, 255, 0.2)',
+        }),
+      }),
+    }),
+  });
+  map.addInteraction(measureDraw);
+
+  // Снаппинг к объектам
+  snapInteraction = new Snap({ source: snapSource });
+  map.addInteraction(snapInteraction);
+
+  createMeasureTooltip();
+
+  let listener: any;
+  measureDraw.on('drawstart', (evt) => {
+    const sketch = evt.feature;
+    let tooltipCoord: any;
+
+    listener = sketch.getGeometry()?.on('change', (ev) => {
+      const geom = ev.target;
+      let output: string = '';
+      if (geom instanceof OLPolygon) {
+        output = geoCalcService.formatArea(geom);
+        tooltipCoord = geom.getInteriorPoint().getCoordinates();
+      } else if (geom instanceof LineString) {
+        output = geoCalcService.formatLength(geom, useAltitudeInMeasure.value);
+        tooltipCoord = geom.getLastCoordinate();
+      }
+      if (measureTooltipElement) {
+        measureTooltipElement.innerHTML = output;
+      }
+      measureTooltip?.setPosition(tooltipCoord);
+    });
+  });
+
+  measureDraw.on('drawend', () => {
+    if (measureTooltipElement) {
+      measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
+      measureTooltip?.setOffset([0, -7]);
+    }
+    // unset sketch
+    measureTooltipElement = null;
+    measureTooltip = null;
+    createMeasureTooltip();
+    // remove listener
+    // Note: in drawend listener is removed by OL automatically? No, but here we just stop using it.
+  });
+});
+
 // --- Инициализация карты ---
 onMounted(() => {
   if (!mapContainer.value || !mapParent.value) return;
@@ -486,6 +689,7 @@ onMounted(() => {
     layers: [
       new TileLayer({ source: new OSM() }),
       tempLayer, // Слой для временного рисования/редактирования
+      measureLayer, // Слой для измерений
     ],
     view: new View({
       center: [0, 0],
@@ -558,6 +762,9 @@ watch(() => props.projectId, (newProjectId) => {
 watch([points, multilines, polygons], () => {
   zoomToExtent();
   refreshMvtSources();
+  if (measureMode.value) {
+    updateSnapSource();
+  }
 });
 
 // При изменении выбранного объекта зумируемся к нему
@@ -918,5 +1125,47 @@ const executeFileImport = async () => {
   bottom: 80px;
   right: 10px;
   background-color: transparent !important;
+}
+
+/* Styles for OpenLayers Tooltips */
+:deep(.ol-tooltip) {
+  position: relative;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  opacity: 0.7;
+  white-space: nowrap;
+  font-size: 12px;
+  cursor: default;
+  user-select: none;
+}
+:deep(.ol-tooltip-measure) {
+  opacity: 1;
+  font-weight: bold;
+}
+:deep(.ol-tooltip-static) {
+  background-color: #ffab00;
+  color: black;
+  border: 1px solid white;
+  opacity: 1;
+}
+:deep(.ol-tooltip-measure:before),
+:deep(.ol-tooltip-static:before) {
+  border-top: 6px solid rgba(0, 0, 0, 0.7);
+  border-right: 6px solid transparent;
+  border-left: 6px solid transparent;
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  margin-left: -7px;
+  left: 50%;
+}
+:deep(.ol-tooltip-static:before) {
+  border-top-color: #ffab00;
+}
+
+.altitude-checkbox :deep(.v-label) {
+  font-size: 0.75rem;
 }
 </style>
