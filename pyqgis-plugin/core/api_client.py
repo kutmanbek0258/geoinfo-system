@@ -120,13 +120,86 @@ class GeoInfoAPIClient:
         except Exception:
             return None
 
-    def get_presigned_url(self, filename):
-        """Requests a presigned URL for direct S3 upload/download."""
+    def get_upload_url_info(self, filename):
+        """Requests a presigned URL and object key for direct S3 upload."""
         url = f"{self.gateway_url}/geo-abstraction/upload/presigned-url"
         params = {'filename': filename}
         try:
             response = self._request('GET', url, params=params)
-            return response.json().get('url')
+            return response.json() # returns {'url': '...', 'objectKey': '...'}
+        except Exception:
+            return None
+
+    def upload_file(self, url, file_path, progress_callback=None):
+        """Uploads a file using PUT method with progress tracking and io.BufferedReader."""
+        import io
+        import os
+        
+        # Build full URL if relative
+        if url.startswith('/'):
+            base_url = self.gateway_url
+            # gateway_url might be http://localhost/api or http://sso.localhost/api
+            if 'sso.localhost' in base_url:
+                base_url = base_url.replace('sso.localhost', 'localhost')
+            
+            # Extract protocol and host
+            if base_url.endswith('/api'):
+                base_url = base_url[:-4]
+            elif '/api/' in base_url:
+                base_url = base_url.split('/api/')[0]
+            
+            url = base_url.rstrip('/') + url
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Reconstructed absolute upload URL: {url}", "GeoInfoSystem", Qgis.Info)
+
+        file_size = os.path.getsize(file_path)
+        
+        class ProgressFileWrapper:
+            def __init__(self, fileobj, callback, total):
+                self.fileobj = fileobj
+                self.callback = callback
+                self.total = total
+                self.current = 0
+
+            def read(self, size=-1):
+                data = self.fileobj.read(size)
+                if data:
+                    self.current += len(data)
+                    if self.callback:
+                        self.callback(self.current, self.total)
+                return data
+
+            def __len__(self):
+                return self.total
+
+        try:
+            # Using io.open with buffering for high performance
+            with io.open(file_path, 'rb', buffering=1024*1024) as f:
+                wrapped_file = ProgressFileWrapper(f, progress_callback, file_size)
+                # Direct PUT to MinIO (Presigned URL)
+                # Note: Content-Type is OMITTED because it must match the signature 
+                # from MinioClient.getPresignedObjectUrl which currently doesn't include it.
+                response = requests.put(url, data=wrapped_file)
+                response.raise_for_status()
+                return True
+        except Exception as e:
+            error_details = str(e)
+            if hasattr(e, 'response') and e.response is not None:
+                error_details += f" (Status: {e.response.status_code}, Body: {e.response.text})"
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Upload failed: {error_details}", "GeoInfoSystem", Qgis.Critical)
+            return False
+
+    def confirm_raster_upload(self, name, object_key, file_size, task_type="RAW_GEOTIFF_OPTIMIZE"):
+        """Confirms the upload to trigger backend processing."""
+        url = f"{self.gateway_url}/geo-abstraction/jobs/confirm"
+        params = {
+            'name': name,
+            'objectKey': object_key,
+            'fileSize': file_size,
+            'taskType': task_type
+        }
+        try:
+            response = self._request('POST', url, params=params)
+            return response.json()
         except Exception:
             return None
 

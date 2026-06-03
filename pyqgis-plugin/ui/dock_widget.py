@@ -11,6 +11,7 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
 from qgis.core import QgsMessageLog, Qgis, NULL, QgsProject, QgsVectorLayer, QgsField
+from .raster_upload_dialog import RasterUploadDialog
 # from .create_dialog import CreateObjectDialog
 
 class GeoInfoDockWidget(QDockWidget):
@@ -61,14 +62,28 @@ class GeoInfoDockWidget(QDockWidget):
         
         self.btn_layout.addLayout(main_btns)
 
-        # Add to Project Button
-        self.bind_btn = QPushButton("Add to Project")
+        # Raster/Vector Import Buttons
+        import_btns = QHBoxLayout()
+        self.bind_btn = QPushButton("Import Vectors")
         self.bind_btn.setToolTip("Bind selected QGIS vector layers to the selected folder/project in the tree.")
         self.bind_btn.clicked.connect(self.bind_layers_to_project)
-        self.btn_layout.addWidget(self.bind_btn)
+        import_btns.addWidget(self.bind_btn)
+
+        self.upload_raster_btn = QPushButton("Upload Raster")
+        self.upload_raster_btn.setToolTip("Upload a GeoTIFF raster layer from QGIS to the system.")
+        self.upload_raster_btn.clicked.connect(self.show_raster_upload_dialog)
+        import_btns.addWidget(self.upload_raster_btn)
+        
+        self.btn_layout.addLayout(import_btns)
 
         self.layout.addLayout(self.btn_layout)
         self.setWidget(self.content_widget)
+
+    def show_raster_upload_dialog(self):
+        """Opens the dialog to upload a raster layer."""
+        dialog = RasterUploadDialog(self.iface, self.api, self)
+        if dialog.exec_():
+            self.refresh_data()
 
     def get_or_create_external_id_field(self, layer):
         """Finds or creates a string field capable of holding a UUID."""
