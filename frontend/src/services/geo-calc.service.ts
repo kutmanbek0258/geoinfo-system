@@ -1,65 +1,67 @@
-import { getLength, getArea, getDistance } from 'ol/sphere';
+import { getArea, getDistance } from 'ol/sphere';
 import type { LineString, Polygon } from 'ol/geom';
+import { toLonLat } from 'ol/proj';
 
 /**
  * Service for geospatial calculations and formatting.
+ * Handles explicit transformation from map projection to WGS84 for accuracy.
  */
 class GeoCalcService {
   /**
-   * Format length of a LineString.
-   * @param line The line geometry.
-   * @param useAltitude Whether to take altitude (Z coordinate) into account for 3D distance.
-   * @returns Formatted string (e.g., "1.5 km" or "500 m").
+   * Calculates the 3D distance between two points in EPSG:3857.
    */
-  formatLength(line: LineString, useAltitude: boolean = false): string {
-    let length = 0;
-    const coordinates = line.getCoordinates();
+  calculateDistance(c1: number[], c2: number[], useAltitude: boolean = false): number {
+    if (!c1 || !c2) return 0;
+    const p1 = toLonLat([c1[0], c1[1]]);
+    const p2 = toLonLat([c2[0], c2[1]]);
+    const d_h = getDistance(p1, p2);
     
-    if (useAltitude) {
-      // Calculate 3D distance
-      for (let i = 0; i < coordinates.length - 1; i++) {
-        const c1 = coordinates[i];
-        const c2 = coordinates[i + 1];
-        
-        // Horizontal distance (geodesic)
-        const d_h = getDistance(c1, c2);
-        
-        // Vertical distance
-        const z1 = c1[2] || 0;
-        const z2 = c2[2] || 0;
-        const d_v = z2 - z1;
-        
-        // 3D distance using Pythagorean theorem
-        length += Math.sqrt(d_h * d_h + d_v * d_v);
-      }
-    } else {
-      // Standard 2D geodesic distance
-      length = getLength(line);
+    if (!useAltitude || c1.length < 3 || c2.length < 3) {
+      return d_h;
     }
-
-    let output: string;
-    if (length > 1000) {
-      output = Math.round((length / 1000) * 100) / 100 + ' ' + 'km';
-    } else {
-      output = Math.round(length * 100) / 100 + ' ' + 'm';
-    }
-    return output;
+    const z1 = c1[2] || 0;
+    const z2 = c2[2] || 0;
+    const d_v = z2 - z1;
+    return Math.sqrt(d_h * d_h + d_v * d_v);
   }
 
   /**
-   * Format area of a Polygon.
-   * @param polygon The polygon geometry.
-   * @returns Formatted string (e.g., "1.5 km²" or "500 m²").
+   * Format length of a LineString.
+   */
+  formatLength(line: LineString, useAltitude: boolean = false): string {
+    const coords = line.getCoordinates();
+    let totalLength = 0;
+    for (let i = 0; i < coords.length - 1; i++) {
+      totalLength += this.calculateDistance(coords[i], coords[i + 1], useAltitude);
+    }
+    return this.formatDistance(totalLength);
+  }
+
+  /**
+   * Formats a raw distance value into a readable string.
+   */
+  formatDistance(length: number): string {
+    if (length >= 1000) {
+      return (length / 1000).toFixed(2) + ' ' + 'km';
+    }
+    return length.toFixed(2) + ' ' + 'm';
+  }
+
+  /**
+   * Format area of a Polygon using geodesic calculation.
+   * Switches units: m² -> ha -> km² for better readability.
    */
   formatArea(polygon: Polygon): string {
-    const area = getArea(polygon);
-    let output: string;
-    if (area > 1000000) {
-      output = Math.round((area / 1000000) * 100) / 100 + ' ' + 'km²';
-    } else {
-      output = Math.round(area * 100) / 100 + ' ' + 'm²';
+    // getArea with projection calculates geodesic area in square meters
+    const area = Math.abs(getArea(polygon, { projection: 'EPSG:3857' }));
+    
+    if (area >= 1000000) {
+      return (area / 1000000).toFixed(2) + ' ' + 'km²';
     }
-    return output;
+    if (area >= 10000) {
+      return (area / 10000).toFixed(2) + ' ' + 'ha';
+    }
+    return area.toFixed(2) + ' ' + 'm²';
   }
 }
 

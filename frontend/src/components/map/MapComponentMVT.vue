@@ -118,14 +118,18 @@
           </v-btn>
         </v-btn-toggle>
         <v-divider class="my-1 w-100"></v-divider>
-        <v-checkbox
-          v-model="useAltitudeInMeasure"
-          label="Z-axis"
-          hide-details
+        <v-btn
+          :color="isBufferMode ? 'primary' : 'default'"
+          icon="mdi-radius-outline"
+          variant="text"
           density="compact"
-          class="altitude-checkbox"
-          title="Consider altitude (3D distance)"
-        ></v-checkbox>
+          @click="toggleBufferMode"
+          title="Create buffer zone"
+          class="mb-1"
+        >
+          <v-icon>mdi-radius-outline</v-icon>
+        </v-btn>
+        <v-divider class="my-1 w-100"></v-divider>
         <v-btn
           icon="mdi-trash-can-outline"
           variant="text"
@@ -136,6 +140,47 @@
           <v-icon color="error">mdi-trash-can-outline</v-icon>
         </v-btn>
       </v-sheet>
+
+    <!-- Оверлей 6: Панель настройки буфера -->
+    <v-fade-transition>
+      <div v-if="isBufferMode" class="map-overlay buffer-panel">
+        <div class="d-flex align-center justify-space-between mb-2">
+          <span class="text-subtitle-2 font-weight-bold">Buffer Zone</span>
+          <v-btn icon="mdi-close" size="x-small" variant="text" @click="isBufferMode = false"></v-btn>
+        </div>
+        
+        <div v-if="!bufferSourceFeature" class="text-caption text-grey mb-2">
+          Click on a map object to create a buffer
+        </div>
+        
+        <template v-else>
+          <div class="text-caption mb-1">Center: [{{ bufferCenterCoords[0].toFixed(4) }}, {{ bufferCenterCoords[1].toFixed(4) }}]</div>
+          <v-slider
+            v-model="bufferDistance"
+            min="1"
+            max="10000"
+            step="1"
+            hide-details
+            thumb-label
+            color="primary"
+            label="Radius (m)"
+            class="mb-2"
+          ></v-slider>
+          <v-text-field
+            v-model.number="bufferDistance"
+            type="number"
+            density="compact"
+            hide-details
+            suffix="meters"
+            variant="outlined"
+            class="mb-1"
+          ></v-text-field>
+          <div class="text-caption text-grey text-center mt-1">
+            Drag mouse to change radius
+          </div>
+        </template>
+      </div>
+    </v-fade-transition>
       
       <v-btn-toggle v-model="drawMode" variant="elevated" density="comfortable">
         <v-btn value="Point" title="Add Point">
@@ -265,7 +310,9 @@ import GeoObjectTree from './GeoObjectTree.vue';
 import { parseStyle } from '@/util/style.util';
 import { ensureMultiType } from '@/util/geo.util';
 import { GeoJSON } from 'ol/format';
-import { LineString, Polygon as OLPolygon } from 'ol/geom';
+import * as turf from '@turf/turf';
+import { LineString, Polygon as OLPolygon, Point } from 'ol/geom';
+import { toLonLat } from 'ol/proj';
 
 // --- Props & Store ---
 const props = defineProps({
@@ -334,7 +381,13 @@ let characteristicsCache = new WeakMap();
 // --- Состояние компонента ---
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
 const measureMode = ref<'length' | 'area' | null>(null);
-const useAltitudeInMeasure = ref(false);
+const isBufferMode = ref(false);
+const bufferDistance = ref(100);
+const bufferCenterCoords = ref<number[]>([0, 0]);
+const bufferSourceFeature = ref<any>(null); // Acts as a flag if center is set
+let bufferDrawInteraction: Draw | null = null;
+let bufferPreviewFeature: Feature | null = null;
+
 const isGeometryEditMode = ref(false);
 let modifyInteraction: Modify | null = null;
 let measureDraw: Draw | null = null;
@@ -411,7 +464,7 @@ const hiddenFeatureIds = computed(() => {
 
 // --- Обработка клика по MVT тайлам ---
 const handleMapClick = (event: any) => {
-  if (isGeometryEditMode.value) return;
+  if (isGeometryEditMode.value || measureMode.value || isBufferMode.value) return;
 
   // Ограничиваем клик только нашими MVT слоями тайлов
   const feature = map?.forEachFeatureAtPixel(event.pixel, (f, layer) => {
@@ -425,6 +478,164 @@ const handleMapClick = (event: any) => {
     store.dispatch('geodata/selectFeature', feature.get('id'));
   } else {
     store.dispatch('geodata/selectFeature', null);
+  }
+};
+
+// --- Логика буфера ---
+const toggleBufferMode = () => {
+  isBufferMode.value = !isBufferMode.value;
+};
+
+// Следим за режимом буфера для активации/деактивации инструментов
+watch(isBufferMode, (active) => {
+  if (active) {
+    // Выключаем другие инструменты
+    measureMode.value = null;
+    drawMode.value = null;
+    bufferSourceFeature.value = null;
+    clearMeasurements();
+    startBufferDrawing();
+  } else {
+    stopBufferDrawing();
+    // При выключении режима буфера очищаем только временные замеры, 
+    // если пользователь хочет оставить результат - он должен был зафиксировать его (уже реализовано в drawend)
+    bufferSourceFeature.value = null;
+    bufferCenterCoords.value = [0, 0];
+  }
+});
+
+const startBufferDrawing = () => {
+  if (!map) return;
+  updateSnapSource();
+
+  bufferDrawInteraction = new Draw({
+    source: new VectorSource(),
+    type: 'LineString',
+    maxPoints: 2,
+    style: new Style({
+      image: new CircleStyle({
+        radius: 5,
+        stroke: new Stroke({ color: '#ffab00', width: 2 }),
+        fill: new Fill({ color: 'rgba(255, 255, 255, 0.7)' }),
+      }),
+      stroke: new Stroke({ color: 'transparent' }) 
+    }),
+  });
+
+  bufferDrawInteraction.on('drawstart', (evt) => {
+    const sketch = evt.feature;
+    const coords = (sketch.getGeometry() as LineString).getCoordinates();
+    bufferCenterCoords.value = coords[0];
+    
+    bufferSourceFeature.value = new Feature({
+      geometry: new Point(bufferCenterCoords.value)
+    });
+
+    map?.on('pointermove', handleBufferPointerMove);
+  });
+
+  bufferDrawInteraction.on('drawend', () => {
+    map?.un('pointermove', handleBufferPointerMove);
+    
+    if (bufferPreviewFeature) {
+      const finalBuffer = bufferPreviewFeature.clone();
+      const finalCenter = new Feature(new Point(bufferCenterCoords.value));
+      measureSource.addFeature(finalCenter);
+      measureSource.addFeature(finalBuffer);
+    }
+    
+    bufferPreviewFeature = null;
+    bufferCenterCoords.value = [0, 0];
+    bufferSourceFeature.value = null; 
+  });
+
+  map.addInteraction(bufferDrawInteraction);
+
+  snapInteraction = new Snap({ source: snapSource });
+  map.addInteraction(snapInteraction);
+};
+
+const stopBufferDrawing = () => {
+  if (map) {
+    if (bufferDrawInteraction) {
+      map.removeInteraction(bufferDrawInteraction);
+      bufferDrawInteraction = null;
+    }
+    if (snapInteraction) {
+      map.removeInteraction(snapInteraction);
+      snapInteraction = null;
+    }
+    map.un('pointermove', handleBufferPointerMove);
+  }
+  
+  // Удаляем активное превью, если оно было
+  if (bufferPreviewFeature) {
+    measureSource.removeFeature(bufferPreviewFeature);
+    bufferPreviewFeature = null;
+  }
+};
+
+const handleBufferPointerMove = (event: any) => {
+  if (!bufferSourceFeature.value || !bufferCenterCoords.value) return;
+
+  const center = bufferCenterCoords.value;
+  const current = event.coordinate;
+  
+  const distance = geoCalcService.calculateDistance(center, current);
+  bufferDistance.value = Math.max(1, Math.round(distance));
+};
+
+const updateBufferPreview = () => {
+  if (!bufferSourceFeature.value || !bufferCenterCoords.value || !isBufferMode.value) return;
+  
+  try {
+    const point = turf.point(toLonLat(bufferCenterCoords.value));
+    const buffered = turf.buffer(point, bufferDistance.value, { units: 'meters' });
+
+    const bufferedFeatures = geoJsonFormat.readFeatures(buffered, {
+      dataProjection: 'EPSG:4326',
+      featureProjection: 'EPSG:3857'
+    });
+
+    // Удаляем старое превью перед добавлением нового
+    if (bufferPreviewFeature) {
+      measureSource.removeFeature(bufferPreviewFeature);
+    }
+    
+    bufferPreviewFeature = bufferedFeatures[0];
+    measureSource.addFeature(bufferPreviewFeature);
+
+  } catch (err) {
+    console.error("Buffer calculation failed", err);
+  }
+};
+
+watch([bufferDistance, bufferSourceFeature, isBufferMode], () => {
+  if (isBufferMode.value) {
+    updateBufferPreview();
+  }
+});
+
+const prepareSaveBuffer = () => {
+  if (!bufferPreviewFeature) return;
+  
+  const geometry = bufferPreviewFeature.getGeometry();
+  if (geometry) {
+    newObjectGeometry.value = geoJsonFormat.writeGeometryObject(geometry, {
+      featureProjection: 'EPSG:3857',
+      dataProjection: 'EPSG:4326'
+    });
+    
+    drawingType.value = 'Polygon';
+    newObjectMetadata.value = { 
+      name: `Buffer of ${bufferSourceFeature.value.get('name') || 'Object'} (${bufferDistance.value}m)`, 
+      description: `Automatically generated buffer zone with radius ${bufferDistance.value} meters.`, 
+      status: 'IN_PROCESS' as Status, 
+      type: 'other', 
+      characteristics: {} 
+    };
+    metadataDialog.value = true;
+    isBufferMode.value = false;
   }
 };
 
@@ -657,7 +868,7 @@ watch(measureMode, (newMode) => {
         output = geoCalcService.formatArea(geom);
         tooltipCoord = geom.getInteriorPoint().getCoordinates();
       } else if (geom instanceof LineString) {
-        output = geoCalcService.formatLength(geom, useAltitudeInMeasure.value);
+        output = geoCalcService.formatLength(geom);
         tooltipCoord = geom.getLastCoordinate();
       }
       if (measureTooltipElement) {
@@ -1125,6 +1336,13 @@ const executeFileImport = async () => {
   bottom: 80px;
   right: 10px;
   background-color: transparent !important;
+}
+
+.buffer-panel {
+  bottom: 20px;
+  right: 60px; /* Position to the left of the bottom-right tools */
+  width: 200px;
+  z-index: 1000;
 }
 
 /* Styles for OpenLayers Tooltips */

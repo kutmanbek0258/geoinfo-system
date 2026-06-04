@@ -340,6 +340,7 @@ import { useRouter } from 'vue-router';
 import imageCompression from 'browser-image-compression';
 import type { Document, ProjectPoint } from '@/types/api';
 import documentService from '@/services/document.service';
+import geoCalcService from '@/services/geo-calc.service';
 import StreamPlayer from '../player/StreamPlayer.vue';
 
 const videoEl = ref<HTMLVideoElement | null>(null)
@@ -786,18 +787,16 @@ const getFileIcon = (mimeType: string) => {
 }
 
 const formatLength = (meters: number) => {
-  if (meters < 1000) {
-    return `${meters.toFixed(2)} m`;
-  }
-  return `${(meters / 1000).toFixed(2)} km`;
+  return geoCalcService.formatDistance(meters);
 };
 
 const formatArea = (sqMeters: number) => {
-  if (sqMeters < 10000) {
-    return `${sqMeters.toFixed(2)} m²`;
-  } else if (sqMeters < 1000000) {
+  if (sqMeters >= 1000000) {
+    return `${(sqMeters / 1000000).toFixed(2)} km²`;
+  }
+  if (sqMeters >= 10000) {
     return `${(sqMeters / 10000).toFixed(2)} ha`;
   }
-  return `${(sqMeters / 1000000).toFixed(2)} km²`;
+  return `${sqMeters.toFixed(2)} m²`;
 };
 </script>
