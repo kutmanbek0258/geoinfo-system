@@ -99,6 +99,21 @@
 
     <!-- Оверлей 3: Кнопки добавления -->
     <div class="map-overlay bottom-right d-flex flex-column align-end">
+      <!-- Кнопка деактивации (только когда что-то активно) -->
+      <v-fade-transition>
+        <v-btn
+          v-if="measureMode || isBufferMode || drawMode"
+          icon="mdi-close"
+          color="error"
+          class="mb-2"
+          elevation="4"
+          @click="stopActiveTool"
+          title="Stop tool"
+        >
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-fade-transition>
+
       <v-btn
         icon="mdi-file-import"
         color="primary"
@@ -107,39 +122,62 @@
         title="Import KML/KMZ to this project"
       ></v-btn>
 
-      <!-- Инструменты измерения -->
-      <v-sheet class="mb-2 pa-1 d-flex flex-column align-center" elevation="2" rounded>
-        <v-btn-toggle v-model="measureMode" variant="flat" density="compact" color="primary">
-          <v-btn value="length" title="Measure distance">
-            <v-icon>mdi-ruler</v-icon>
+      <!-- Инструменты измерения (Dropdown) -->
+      <v-menu location="left">
+        <template v-slot:activator="{ props }">
+          <v-btn
+            v-bind="props"
+            icon="mdi-ruler"
+            :color="measureMode || isBufferMode ? 'primary' : 'white'"
+            class="mb-2"
+            elevation="2"
+            title="Measurement Tools"
+          >
+            <v-icon :color="measureMode || isBufferMode ? 'white' : 'primary'">mdi-ruler</v-icon>
           </v-btn>
-          <v-btn value="area" title="Measure area">
-            <v-icon>mdi-vector-square</v-icon>
-          </v-btn>
-        </v-btn-toggle>
-        <v-divider class="my-1 w-100"></v-divider>
-        <v-btn
-          :color="isBufferMode ? 'primary' : 'default'"
-          icon="mdi-radius-outline"
-          variant="text"
-          density="compact"
-          @click="toggleBufferMode"
-          title="Create buffer zone"
-          class="mb-1"
-        >
-          <v-icon>mdi-radius-outline</v-icon>
-        </v-btn>
-        <v-divider class="my-1 w-100"></v-divider>
-        <v-btn
-          icon="mdi-trash-can-outline"
-          variant="text"
-          density="compact"
-          @click="clearMeasurements"
-          title="Clear measurements"
-        >
-          <v-icon color="error">mdi-trash-can-outline</v-icon>
-        </v-btn>
-      </v-sheet>
+        </template>
+        <v-list density="compact">
+          <v-list-item 
+            prepend-icon="mdi-ruler" 
+            title="Distance" 
+            @click="measureMode = (measureMode === 'length' ? null : 'length')"
+            :active="measureMode === 'length'"
+            color="primary"
+          ></v-list-item>
+          <v-list-item 
+            prepend-icon="mdi-vector-square" 
+            title="Area" 
+            @click="measureMode = (measureMode === 'area' ? null : 'area')"
+            :active="measureMode === 'area'"
+            color="primary"
+          ></v-list-item>
+          <v-list-item 
+            prepend-icon="mdi-radius-outline" 
+            title="Buffer Zone" 
+            @click="toggleBufferMode"
+            :active="isBufferMode"
+            color="primary"
+          ></v-list-item>
+          <v-divider></v-divider>
+          <v-list-item 
+            prepend-icon="mdi-trash-can-outline" 
+            title="Clear Measurements" 
+            @click="clearMeasurements"
+            color="error"
+          ></v-list-item>
+        </v-list>
+      </v-menu>
+
+      <v-btn
+        icon="mdi-compare"
+        color="white"
+        class="mb-2"
+        elevation="2"
+        @click="swipeMapVisible = true"
+        title="Swipe Tool (Compare Layers)"
+      >
+        <v-icon color="primary">mdi-compare</v-icon>
+      </v-btn>
 
     <!-- Оверлей 6: Панель настройки буфера -->
     <v-fade-transition>
@@ -279,6 +317,8 @@
             </v-card-actions>
         </v-card>
     </v-dialog>
+
+    <SwipeMapDialog v-model="swipeMapVisible" />
   </div>
 </template>
 
@@ -309,6 +349,7 @@ import geoCalcService from '@/services/geo-calc.service';
 import GeoObjectTree from './GeoObjectTree.vue';
 import { parseStyle } from '@/util/style.util';
 import { ensureMultiType } from '@/util/geo.util';
+import SwipeMapDialog from './SwipeMapDialog.vue';
 import { GeoJSON } from 'ol/format';
 import * as turf from '@turf/turf';
 import { LineString, Polygon as OLPolygon, Point } from 'ol/geom';
@@ -405,6 +446,7 @@ const activeImageLayers = shallowRef<Record<string, TileLayer<TileWMS>>>({});
 const layerOpacities = ref<Record<string, number>>({});
 const imageryMenuOpen = ref(false);
 const autoExtentEnabled = ref(false);
+const swipeMapVisible = ref(false);
 
 // --- Состояние импорта ---
 const importFileDialog = ref(false);
@@ -809,6 +851,13 @@ const clearMeasurements = () => {
   measureSource.clear();
   activeMeasureTooltips.value.forEach(ov => map?.removeOverlay(ov));
   activeMeasureTooltips.value = [];
+};
+
+const stopActiveTool = () => {
+  measureMode.value = null;
+  isBufferMode.value = false;
+  drawMode.value = null;
+  clearMeasurements();
 };
 
 watch(measureMode, (newMode) => {

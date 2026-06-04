@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.locationtech.jts.geom.MultiPolygon;
 
 import java.util.Date;
 import java.util.Map;
@@ -66,4 +67,7 @@ public class ImageryLayer extends AuditableCustom<String> {
 
     @Column(name = "cog_object_key", length = 512)
     private String cogObjectKey;
+
+    @Column(name = "bbox", columnDefinition = "geometry(MultiPolygon, 4326)")
+    private MultiPolygon bbox;
 }

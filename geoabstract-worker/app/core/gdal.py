@@ -2,7 +2,7 @@ import os
 import json
 import subprocess
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 from .config import logger, GDAL_CACHEMAX, DEFAULT_WEB_RGB_MAX
 
 def run_command(cmd: List[str], cwd: Optional[str] = None) -> str:
@@ -125,3 +125,12 @@ def build_final_cog(
         run_command(["gdal_edit.py", "-stats", output_path])
     except Exception as e:
         logger.warning("Could not write stats for %s: %s", output_path, e)
+
+def get_wgs84_extent(path: str) -> Optional[Dict[str, Any]]:
+    try:
+        out = run_command(["gdalinfo", "-json", path])
+        info = json.loads(out)
+        return info.get("wgs84Extent")
+    except Exception as e:
+        logger.warning("Could not get WGS84 extent for %s: %s", path, e)
+        return None

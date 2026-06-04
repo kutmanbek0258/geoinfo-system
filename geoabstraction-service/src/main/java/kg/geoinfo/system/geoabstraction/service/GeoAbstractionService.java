@@ -5,6 +5,7 @@ import kg.geoinfo.system.geoabstraction.dto.TerrainLayerDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
+import org.locationtech.jts.geom.MultiPolygon;
 
 import java.util.List;
 import java.util.UUID;
@@ -23,7 +24,7 @@ public interface GeoAbstractionService {
     GeoAbstractJobDto getJob(UUID jobId);
     Page<GeoAbstractJobDto> getJobs(Pageable pageable);
     Page<TerrainLayerDto> getLayers(Pageable pageable);
-    void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType);
+    void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType, MultiPolygon bbox);
     String generateTerrainPresignedUrl(UUID layerId);
     void deleteLayer(UUID id);
 }

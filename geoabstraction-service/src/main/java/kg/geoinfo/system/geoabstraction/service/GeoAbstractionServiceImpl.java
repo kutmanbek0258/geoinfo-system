@@ -16,8 +16,10 @@ import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
 import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
 import kg.geoinfo.system.geoabstraction.service.geoserver.GeoServerClient;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.MultiPolygon;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -45,6 +47,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     private final GeoServerProperties geoServerProperties;
     private final ImageryLayerService imageryLayerService;
     private final ImageryLayerRepository imageryLayerRepository;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -243,7 +246,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
     @Override
     @Transactional
-    public void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType) {
+    public void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType, MultiPolygon bbox) {
         log.info("Updating job {} status to {} (Task: {})", jobId, status, taskType);
 
         // Handle TERRAIN_COG separately as it targets an existing layer created by TERRAIN_MESH
@@ -277,6 +280,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         job.setErrorMessage(errorMessage);
         job.setMinHeight(minHeight);
         job.setMaxHeight(maxHeight);
+        job.setBbox(bbox);
         jobRepository.save(job);
 
         if (jobStatus == GeoAbstractJobStatus.READY && "TERRAIN_MESH".equals(job.getTaskType())) {
@@ -355,6 +359,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             imageryLayer.setCrs(job.getCrs() != null ? job.getCrs() : "EPSG:4326");
             imageryLayer.setCharacteristics(job.getCharacteristics());
             imageryLayer.setCogObjectKey(cogObjectKey);
+            imageryLayer.setBbox(bbox);
             
             imageryLayerService.save(imageryLayer);
         }

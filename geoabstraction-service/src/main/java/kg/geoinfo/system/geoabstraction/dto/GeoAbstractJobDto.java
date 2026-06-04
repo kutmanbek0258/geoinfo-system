@@ -3,6 +3,8 @@ package kg.geoinfo.system.geoabstraction.dto;
 import kg.geoinfo.system.geoabstraction.models.enums.GeoAbstractJobStatus;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.locationtech.jts.geom.MultiPolygon;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -20,6 +22,7 @@ public class GeoAbstractJobDto extends AbstractDto {
     private String outputBucket;
     private String outputPrefix;
     private String crs;
+    private MultiPolygon bbox;
     private Double minHeight;
     private Double maxHeight;
     private Long fileSize;

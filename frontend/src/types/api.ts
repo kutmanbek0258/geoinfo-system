@@ -34,6 +34,9 @@ export interface ImageryLayer {
     style?: string;
     dateCaptured: string; // Date -> string
     crs: string;
+    characteristics?: Record<string, any>;
+    cogObjectKey?: string;
+    bbox?: GeoGeometry;
 }
 
 export type GeoGeometry = 

@@ -20,22 +20,29 @@
 | date_captured | TIMESTAMP | Дата съемки |
 | crs | VARCHAR(32) | Система координат |
 | characteristics | JSONB | Доп. метаданные (индекс, каналы и др.) |
+| cog_object_key | VARCHAR(512) | Ключ COG-файла в MinIO |
+| bbox | GEOMETRY(MultiPolygon, 4326) | Пространственные границы слоя |
 
-### **2. Таблица terrain_jobs (Задачи по рельефу)**
+### **2. Таблица geo_abstract_jobs (Задачи обработки)**
+
+Хранит информацию о задачах обработки растров и рельефа.
 
 | Колонка | Тип данных | Описание |
 | :--- | :--- | :--- |
 | id | UUID | Primary Key |
 | name | VARCHAR(255) | Имя задачи |
 | status | VARCHAR(50) | Статус (QUEUED, PROCESSING, READY, FAILED) |
-| source_bucket | VARCHAR(255) | Бакет MinIO с исходным DEM |
+| task_type | VARCHAR(50) | Тип задачи (TERRAIN_MESH, SENTINEL_COG и др.) |
+| source_bucket | VARCHAR(255) | Бакет MinIO с исходным файлом |
 | source_object_key | VARCHAR(255) | Ключ исходного файла |
 | output_prefix | VARCHAR(255) | Префикс для выходных файлов |
 | crs | VARCHAR(50) | CRS исходного файла |
-| bbox | GEOMETRY | Экстент данных |
-| min_height | DOUBLE | Минимальная высота |
-| max_height | DOUBLE | Максимальная высота |
+| bbox | GEOMETRY(MultiPolygon, 4326) | Экстент данных |
+| min_height | DOUBLE | Минимальная высота (для рельефа) |
+| max_height | DOUBLE | Максимальная высота (для рельефа) |
+| characteristics | JSONB | Параметры обработки (каналы, индексы) |
 | error_message | TEXT | Текст ошибки при сбое |
+| file_size | BIGINT | Размер исходного файла |
 
 ### **3. Таблица terrain_layers (3D Слои рельефа)**
 

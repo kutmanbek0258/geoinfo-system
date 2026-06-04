@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .base import BaseProcessor
 from ..core.config import logger, GDAL_STORE
 from ..core.clients import minio_client
-from ..core.gdal import run_command, get_band_stats, safe_scale_range, build_final_cog
+from ..core.gdal import run_command, get_band_stats, safe_scale_range, build_final_cog, get_wgs84_extent
 
 class RawRasterProcessor(BaseProcessor):
     def process(self, job_data: Dict[str, Any]) -> None:
@@ -47,17 +47,20 @@ class RawRasterProcessor(BaseProcessor):
             # but user said they want original values for SLD.
             
             build_final_cog(input_file, final_output_file, render_mode="analytic")
+            
+            # Extract BBox
+            bbox = get_wgs84_extent(final_output_file)
 
             if task_type == "TERRAIN_COG":
                 cog_object_key = "{0}.tif".format(output_prefix)
                 logger.info("Uploading Terrain COG to MinIO: %s/%s", source_bucket, cog_object_key)
                 minio_client.fput_object(source_bucket, cog_object_key, final_output_file)
-                self.send_status(job_id, "READY", task_type, output_prefix=output_prefix, cogObjectKey=cog_object_key)
+                self.send_status(job_id, "READY", task_type, output_prefix=output_prefix, cogObjectKey=cog_object_key, bbox=bbox)
             else:
                 cog_object_key = "imagery-cog/{0}.tif".format(output_prefix)
                 logger.info("Uploading optimized Raw COG to MinIO: %s/%s", source_bucket, cog_object_key)
                 minio_client.fput_object(source_bucket, cog_object_key, final_output_file)
-                self.send_status(job_id, "READY", task_type, output_prefix=output_prefix, cogObjectKey=cog_object_key)
+                self.send_status(job_id, "READY", task_type, output_prefix=output_prefix, cogObjectKey=cog_object_key, bbox=bbox)
 
             logger.info("Raw raster job %s completed successfully", job_id)
 

@@ -4,6 +4,7 @@ import kg.geoinfo.system.geoabstraction.models.enums.Status;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.locationtech.jts.geom.MultiPolygon;
 
 import java.util.Date;
 import java.util.Map;
@@ -26,4 +27,5 @@ public class ImageryLayerDto extends AbstractDto<UUID> {
     private String crs;
     private Map<String, Object> characteristics;
     private String cogObjectKey;
+    private MultiPolygon bbox;
 }

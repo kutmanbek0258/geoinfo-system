@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .base import BaseProcessor
 from ..core.config import logger, GDAL_STORE
 from ..core.clients import minio_client
-from ..core.gdal import run_command, get_band_stats, safe_scale_range, build_final_cog
+from ..core.gdal import run_command, get_band_stats, safe_scale_range, build_final_cog, get_wgs84_extent
 from ..registry import get_formula_and_bands, build_gdal_calc_formula
 
 class Landsat8Processor(BaseProcessor):
@@ -105,11 +105,14 @@ class Landsat8Processor(BaseProcessor):
             else:
                 build_final_cog(processed_tif, final_output_file, render_mode="analytic")
 
+            # Extract BBox
+            bbox = get_wgs84_extent(final_output_file)
+
             cog_object_key = "imagery-cog/{0}.tif".format(output_prefix)
             logger.info("Uploading Landsat 8 COG to MinIO: %s/%s", source_bucket, cog_object_key)
             minio_client.fput_object(source_bucket, cog_object_key, final_output_file)
 
-            self.send_status(job_id, "READY", "LANDSAT_COG", output_prefix=output_prefix, cogObjectKey=cog_object_key)
+            self.send_status(job_id, "READY", "LANDSAT_COG", output_prefix=output_prefix, cogObjectKey=cog_object_key, bbox=bbox)
             logger.info("Landsat 8 job %s completed successfully", job_id)
 
         except Exception as e:

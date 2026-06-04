@@ -2,8 +2,12 @@ package kg.geoinfo.system.geoabstraction.service.kafka;
 
 import kg.geoinfo.system.common.GeoAbstractJobEvent;
 import kg.geoinfo.system.geoabstraction.service.GeoAbstractionService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Polygon;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +19,7 @@ public class KafkaConsumerService {
     private final GeoAbstractionService geoAbstractionService;
     private final kg.geoinfo.system.geoabstraction.service.ImageryLayerService imageryLayerService;
     private final kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository imageryLayerRepository;
+    private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = {"geoabstraction.terrain.events", "geoabstraction.raster.events"}, 
                    groupId = "${spring.kafka.consumer.group-id:geoabstraction-service-group}")
@@ -28,6 +33,20 @@ public class KafkaConsumerService {
                 terrainUrl = "/terrain/" + event.getOutputPrefix() + "/";
             }
 
+            MultiPolygon bbox = null;
+            if (event.getBbox() != null) {
+                try {
+                    Geometry geom = objectMapper.convertValue(event.getBbox(), Geometry.class);
+                    if (geom instanceof MultiPolygon) {
+                        bbox = (MultiPolygon) geom;
+                    } else if (geom instanceof Polygon) {
+                        bbox = geom.getFactory().createMultiPolygon(new Polygon[]{(Polygon) geom});
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to convert bbox for job {}: {}", event.getJobId(), e.getMessage());
+                }
+            }
+
             geoAbstractionService.updateJobStatus(
                     event.getJobId(),
                     event.getEventType().name(),
@@ -36,7 +55,8 @@ public class KafkaConsumerService {
                     null,
                     terrainUrl,
                     event.getCogObjectKey(),
-                    event.getTaskType()
+                    event.getTaskType(),
+                    bbox
             );
         } else if (event.getEventType() == GeoAbstractJobEvent.EventType.DELETED) {
             // Confirmation from worker that files are deleted
