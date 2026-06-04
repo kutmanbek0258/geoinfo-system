@@ -362,7 +362,7 @@ import { ensureMultiType } from '@/util/geo.util';
 import SwipeMapDialog from './SwipeMapDialog.vue';
 import { GeoJSON } from 'ol/format';
 import * as turf from '@turf/turf';
-import { LineString, Polygon as OLPolygon, Point } from 'ol/geom';
+import { LineString, Polygon as OLPolygon, Point, MultiPoint } from 'ol/geom';
 import { toLonLat } from 'ol/proj';
 
 // --- Props & Store ---
@@ -389,11 +389,73 @@ let pointsTileLayer: VectorTileLayer | null = null;
 let linesTileLayer: VectorTileLayer | null = null;
 let polygonsTileLayer: VectorTileLayer | null = null;
 
+// --- Style Function для временного слоя (редактирование/рисование) ---
+const tempLayerStyleFunction = (feature: any) => {
+  const styles = [
+    new Style({
+      stroke: new Stroke({
+        color: '#ffcc33',
+        width: 3,
+      }),
+      fill: new Fill({
+        color: 'rgba(255, 204, 51, 0.2)',
+      }),
+      image: new CircleStyle({
+        radius: 7,
+        fill: new Fill({ color: '#ffcc33' }),
+        stroke: new Stroke({ color: '#fff', width: 2 })
+      }),
+    }),
+  ];
+
+  if (isGeometryEditMode.value) {
+    const geometry = feature.getGeometry();
+    if (geometry) {
+      const type = geometry.getType();
+      let coords: any[] = [];
+      
+      // Извлекаем все вершины для отрисовки красных точек
+      if (type === 'Point') {
+        coords = [geometry.getCoordinates()];
+      } else if (type === 'LineString' || type === 'MultiPoint') {
+        coords = geometry.getCoordinates();
+      } else if (type === 'Polygon') {
+        // Для полигона берем все координаты всех колец
+        geometry.getCoordinates().forEach((ring: any) => coords.push(...ring));
+      } else if (type === 'MultiLineString') {
+        geometry.getLineStrings().forEach((ls: any) => coords.push(...ls.getCoordinates()));
+      } else if (type === 'MultiPolygon') {
+        geometry.getPolygons().forEach((poly: any) => {
+            poly.getCoordinates().forEach((ring: any) => coords.push(...ring));
+        });
+      }
+
+      if (coords.length > 0) {
+        styles.push(new Style({
+          image: new CircleStyle({
+            radius: 5,
+            fill: new Fill({
+              color: '#ff0000', // Красные вершины
+            }),
+            stroke: new Stroke({
+              color: '#ffffff',
+              width: 1
+            })
+          }),
+          geometry: new MultiPoint(coords),
+        }));
+      }
+    }
+  }
+  return styles;
+};
+
 // --- Временный слой для операций редактирования/рисования (GeoJSON) ---
 const tempSource = new VectorSource();
 const tempLayer = new VectorLayer({
   source: tempSource,
   zIndex: 150,
+  style: tempLayerStyleFunction,
   properties: { 'willReadFrequently': true }
 });
 
@@ -1262,6 +1324,7 @@ const enterGeometryEditMode = () => {
     }
 
     isGeometryEditMode.value = true;
+    tempLayer.changed();
     modifiedSubIds.value.clear();
     tempSource.clear();
 
@@ -1366,6 +1429,7 @@ const exitGeometryEditMode = () => {
         map.un('moveend', handleMapMoveForShotFrame);
     }
     isGeometryEditMode.value = false;
+    tempLayer.changed();
     modifiedSubIds.value.clear();
     
     // Восстанавливаем отрисовку MVT слоев

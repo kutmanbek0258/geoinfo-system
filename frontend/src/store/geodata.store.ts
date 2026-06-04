@@ -99,6 +99,29 @@ const mutations = {
         }
     },
 
+    PATCH_FEATURE_VISIBILITY(state: GeodataState, { type, id, visible }: { type: 'Point' | 'MultiLineString' | 'Polygon', id: string, visible: boolean }) {
+        let targetArrayName: 'points' | 'multilines' | 'polygons';
+        if (type === 'Point') {
+            targetArrayName = 'points';
+        } else if (type === 'MultiLineString') {
+            targetArrayName = 'multilines';
+        } else if (type === 'Polygon') {
+            targetArrayName = 'polygons';
+        } else {
+            return;
+        }
+        const targetArray = state[targetArrayName];
+        const index = targetArray.findIndex((f: any) => f.id === id);
+        if (index !== -1) {
+            const feature = targetArray[index] as any;
+            const updated = {
+                ...feature,
+                characteristics: { ...feature.characteristics, visible }
+            };
+            state[targetArrayName] = [...targetArray.slice(0, index), updated, ...targetArray.slice(index + 1)];
+        }
+    },
+
     DELETE_FEATURE(state: GeodataState, { type, id }: { type: 'Point' | 'MultiLineString' | 'Polygon', id: string }) {
         let targetArrayName: 'points' | 'multilines' | 'polygons';
         if (type === 'Point') {
@@ -484,6 +507,45 @@ const actions = {
                 break;
         }
         commit('UPDATE_FEATURE', { type, data: updatedFeature });
+    },
+
+    // Optimistic visibility toggle — updates local store instantly, then syncs with server
+    async toggleFeatureVisibility({ commit, state }: ActionContext<GeodataState, any>, { id, type }: { id: string, type: string }) {
+        let targetArrayName: 'points' | 'multilines' | 'polygons';
+        if (type === 'Point') targetArrayName = 'points';
+        else if (type === 'MultiLineString') targetArrayName = 'multilines';
+        else if (type === 'Polygon') targetArrayName = 'polygons';
+        else return;
+
+        const feature = (state[targetArrayName] as any[]).find((f: any) => f.id === id);
+        if (!feature) return;
+
+        const currentVisible = feature.characteristics?.visible !== false;
+        const newVisible = !currentVisible;
+
+        // 1. Мгновенно обновляем стор (оптимистично)
+        commit('PATCH_FEATURE_VISIBILITY', { type: type as 'Point' | 'MultiLineString' | 'Polygon', id, visible: newVisible });
+
+        // 2. Отправляем запрос на сервер в фоне
+        try {
+            const newCharacteristics = { ...feature.characteristics, visible: newVisible };
+            const payload = { ...feature, characteristics: newCharacteristics };
+            switch (type) {
+                case 'Point':
+                    await geodataService.updatePoint(id, payload as ProjectPoint);
+                    break;
+                case 'MultiLineString':
+                    await geodataService.updateMultiline(id, payload as ProjectMultiline);
+                    break;
+                case 'Polygon':
+                    await geodataService.updatePolygon(id, payload as ProjectPolygon);
+                    break;
+            }
+        } catch (err) {
+            // Откат при ошибке
+            commit('PATCH_FEATURE_VISIBILITY', { type: type as 'Point' | 'MultiLineString' | 'Polygon', id, visible: currentVisible });
+            console.error('Failed to toggle feature visibility, reverting:', err);
+        }
     },
 
     async deleteFeature({ commit, state }: ActionContext<GeodataState, any>, { id, type }: { id: string, type: string }) {

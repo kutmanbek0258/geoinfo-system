@@ -152,13 +152,7 @@ const isVisible = (obj: any) => {
 };
 
 const toggleVisibility = (obj: any) => {
-  const visible = !isVisible(obj);
-  const characteristics = { ...obj.characteristics, visible };
-  store.dispatch('geodata/updateFeature', {
-    id: obj.id,
-    type: obj.type,
-    data: { characteristics }
-  });
+  store.dispatch('geodata/toggleFeatureVisibility', { id: obj.id, type: obj.type });
 };
 
 const toggleFolderVisibility = async () => {
@@ -170,19 +164,25 @@ const toggleFolderVisibility = async () => {
     characteristics
   });
   
+  // Обновляем видимость дочерних объектов оптимистично (без await)
   updateChildrenVisibility(props.folder.id, visible);
 };
 
 const updateChildrenVisibility = (folderId: string, visible: boolean) => {
-    props.objects.filter((obj: any) => obj.folderId === folderId).forEach((obj: any) => {
-        if (isVisible(obj) !== visible) {
-            toggleVisibility(obj);
-        }
-    });
+    props.objects
+        .filter((obj: any) => obj.folderId === folderId)
+        .forEach((obj: any) => {
+            const currentVisible = obj.characteristics?.visible !== false;
+            if (currentVisible !== visible) {
+                store.dispatch('geodata/toggleFeatureVisibility', { id: obj.id, type: obj.type });
+            }
+        });
     
-    props.allFolders.filter((f: GeoFolder) => f.parentId === folderId).forEach((sf: GeoFolder) => {
-        updateChildrenVisibility(sf.id, visible);
-    });
+    props.allFolders
+        .filter((f: GeoFolder) => f.parentId === folderId)
+        .forEach((sf: GeoFolder) => {
+            updateChildrenVisibility(sf.id, visible);
+        });
 };
 
 // --- Folder Actions ---

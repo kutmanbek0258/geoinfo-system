@@ -164,6 +164,15 @@
       </v-btn-toggle>
     </div>
 
+    <!-- Оверлей Shot Frame (Визуальная рамка для редактирования) -->
+    <v-fade-transition>
+      <div v-if="isGeometryEditMode && isZoomHighEnough" class="shot-frame-overlay">
+        <div class="shot-frame-content">
+          <div class="shot-frame-label">SHOT FRAME ACTIVE (3D)</div>
+        </div>
+      </div>
+    </v-fade-transition>
+
     <!-- Import File Dialog -->
     <v-dialog v-model="importFileDialog" max-width="500px">
       <v-card>
@@ -254,6 +263,9 @@
 import { onMounted, onUnmounted, ref, watch, computed, toRaw, shallowRef } from 'vue';
 import { useStore } from 'vuex';
 import * as Cesium from 'cesium';
+// @ts-ignore
+import CesiumMVTImageryProvider from 'cesium-mvt-imagery-provider';
+import { debounce } from 'lodash';
 import type { ImageryLayer, TerrainLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Status } from '@/types/api';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
@@ -261,6 +273,7 @@ import GeodataService from '@/services/geodata.service';
 import GeoObjectTree from './GeoObjectTree.vue';
 import { parseStyle } from '@/util/style.util';
 import { ensureMultiType } from '@/util/geo.util';
+import { GeoJSON } from 'ol/format';
 
 const props = defineProps<{
   projectId: string;
@@ -270,10 +283,19 @@ const store = useStore();
 const cesiumContainer = ref<HTMLElement | null>(null);
 const cesiumParent = ref<HTMLElement | null>(null);
 let viewer: Cesium.Viewer | null = null;
+const geoJsonFormat = new GeoJSON();
 
 // --- Состояние компонента ---
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
 const isGeometryEditMode = ref(false);
+
+// --- Shot Frame Editing ---
+const SHOT_FRAME_MIN_ZOOM = Number(import.meta.env.VITE_SHOT_FRAME_MIN_ZOOM || 16);
+const isZoomHighEnough = ref(false);
+const modifiedSubIds = ref(new Set<number>());
+const isLoadingParts = ref(false);
+const cacheBuster = ref(Date.now());
+
 const visibleLayerIds = ref<string[]>([]);
 const activeImageryLayers = shallowRef<Record<string, Cesium.ImageryLayer>>({});
 const layerOpacities = ref<Record<string, number>>({});
@@ -314,6 +336,14 @@ const multilines = computed<ProjectMultiline[]>(() => store.state.geodata.multil
 const polygons = computed<ProjectPolygon[]>(() => store.state.geodata.polygons);
 const selectedFeatureId = computed(() => store.state.geodata.selectedFeatureId);
 
+const hiddenFeatureIds = computed(() => {
+  const hidden = new Set<string>();
+  points.value.forEach(p => { if (p.characteristics?.visible === false) hidden.add(p.id); });
+  multilines.value.forEach(l => { if (l.characteristics?.visible === false) hidden.add(l.id); });
+  polygons.value.forEach(p => { if (p.characteristics?.visible === false) hidden.add(p.id); });
+  return hidden;
+});
+
 const selectedFeature = computed(() => {
   if (!selectedFeatureId.value) return null;
   const p = points.value.find(f => f.id === selectedFeatureId.value);
@@ -325,6 +355,31 @@ const selectedFeature = computed(() => {
   return null;
 });
 
+// --- Стилизация MVT для Cesium ---
+const cesiumMvtStyleFunction = (feature: any) => {
+  // Пытаемся распарсить характеристики для кастомных стилей
+  const charProp = feature.properties.characteristics;
+  let characteristics = charProp;
+  if (typeof charProp === 'string' && charProp.startsWith('{')) {
+    try {
+      characteristics = JSON.parse(charProp);
+    } catch (e) {
+      characteristics = feature.properties;
+    }
+  } else if (!characteristics) {
+    characteristics = feature.properties;
+  }
+
+  const style = characteristics?.style || {};
+  
+  // Возвращаем стиль в формате Canvas (strokeStyle, fillStyle)
+  return {
+    strokeStyle: style.line?.color || '#00FF00', // Зеленый для линий
+    fillStyle: style.poly?.fillColor || 'rgba(0, 255, 0, 0.3)', // Полупрозрачный зеленый для полигонов
+    lineWidth: style.line?.width || 2
+  };
+};
+
 const selectAndZoomToFeature = (id: string) => {
   store.dispatch('geodata/selectFeature', id);
   const v = viewer;
@@ -332,6 +387,107 @@ const selectAndZoomToFeature = (id: string) => {
   const entity = v.entities.getById(id);
   if (entity) {
     v.zoomTo(entity);
+  }
+};
+
+// --- MVT Векторные слои тайлов для Cesium ---
+let pointsMvtLayer: Cesium.ImageryLayer | null = null;
+let linesMvtLayer: Cesium.ImageryLayer | null = null;
+let polygonsMvtLayer: Cesium.ImageryLayer | null = null;
+
+const initMvtLayers = (projectId: string) => {
+  const v = viewer;
+  if (!v) return;
+
+  // Удаляем старые слои
+  if (pointsMvtLayer) v.imageryLayers.remove(pointsMvtLayer);
+  if (linesMvtLayer) v.imageryLayers.remove(linesMvtLayer);
+  if (polygonsMvtLayer) v.imageryLayers.remove(polygonsMvtLayer);
+
+  const baseUrl = window.location.origin;
+  const mvtOptions = {
+    onRenderFeature: (feature: any) => {
+      // 1. Скрываем объект, если он редактируется
+      if (isGeometryEditMode.value && feature.properties.id === selectedFeatureId.value) {
+        return false;
+      }
+
+      // 2. Мгновенный фильтр видимости на основе состояния Vuex
+      if (feature.properties.id && hiddenFeatureIds.value.has(feature.properties.id)) {
+        return false;
+      }
+
+      // Пытаемся распарсить характеристики для кастомных стилей
+      const charProp = feature.properties.characteristics;
+      let characteristics = charProp;
+      if (typeof charProp === 'string' && charProp.startsWith('{')) {
+        try {
+          characteristics = JSON.parse(charProp);
+        } catch (e) {
+          characteristics = feature.properties;
+        }
+      } else if (!characteristics) {
+        characteristics = feature.properties;
+      }
+
+      // 3. Проверка видимости из данных самого тайла (как запасной вариант)
+      const isVisibleInTile = characteristics?.visible !== false && characteristics?.isVisible !== false;
+      if (!isVisibleInTile) {
+        return false;
+      }
+
+      return true;
+    },
+    style: cesiumMvtStyleFunction,
+    tilingScheme: new Cesium.WebMercatorTilingScheme(),
+    tileWidth: 512,
+    tileHeight: 512,
+    onSelectFeature: (feature: any) => {
+        if (feature && feature.properties.id) {
+            store.dispatch('geodata/selectFeature', feature.properties.id);
+        }
+    }
+  };
+
+  polygonsMvtLayer = v.imageryLayers.addImageryProvider(new CesiumMVTImageryProvider({
+    ...mvtOptions,
+    urlTemplate: `${baseUrl}/tiles/geodata.mvt_project_polygons/{z}/{x}/{y}.pbf?project_id_param=${projectId}&t=${cacheBuster.value}`,
+    layerName: 'geodata.mvt_project_polygons'
+  }));
+
+  linesMvtLayer = v.imageryLayers.addImageryProvider(new CesiumMVTImageryProvider({
+    ...mvtOptions,
+    urlTemplate: `${baseUrl}/tiles/geodata.mvt_project_multilines/{z}/{x}/{y}.pbf?project_id_param=${projectId}&t=${cacheBuster.value}`,
+    layerName: 'geodata.mvt_project_multilines'
+  }));
+
+  pointsMvtLayer = v.imageryLayers.addImageryProvider(new CesiumMVTImageryProvider({
+    ...mvtOptions,
+    urlTemplate: `${baseUrl}/tiles/geodata.mvt_project_points/{z}/{x}/{y}.pbf?project_id_param=${projectId}&t=${cacheBuster.value}`,
+    layerName: 'geodata.mvt_project_points'
+  }));
+
+  raiseMvtLayersToTop();
+};
+
+const raiseMvtLayersToTop = () => {
+  const v = viewer;
+  if (!v) return;
+  if (polygonsMvtLayer && v.imageryLayers.contains(polygonsMvtLayer)) {
+    v.imageryLayers.raiseToTop(polygonsMvtLayer);
+  }
+  if (linesMvtLayer && v.imageryLayers.contains(linesMvtLayer)) {
+    v.imageryLayers.raiseToTop(linesMvtLayer);
+  }
+  if (pointsMvtLayer && v.imageryLayers.contains(pointsMvtLayer)) {
+    v.imageryLayers.raiseToTop(pointsMvtLayer);
+  }
+};
+
+const refreshMvtSources = () => {
+  cacheBuster.value = Date.now();
+  if (props.projectId) {
+    initMvtLayers(props.projectId);
   }
 };
 
@@ -376,6 +532,8 @@ const toggleImageryLayer = (layerInfo: ImageryLayer) => {
     if (layerOpacities.value[layerInfo.id] === undefined) {
       layerOpacities.value[layerInfo.id] = 100;
     }
+
+    raiseMvtLayersToTop();
   } else {
     const layer = activeImageryLayers.value[layerInfo.id];
     if (layer) {
@@ -420,159 +578,147 @@ const executeFileImport = async () => {
   }
 };
 
-const updateVectorSource = () => {
-  const v = viewer;
-  if (!v) return;
-  v.entities.removeAll();
-
-  const allObjects = [...points.value, ...multilines.value, ...polygons.value];
-
-  const hasZHeight = (geom: any): boolean => {
-    if (!geom || !geom.coordinates) return false;
-    const coords = geom.coordinates;
-    
-    const checkArray = (arr: any[]): boolean => {
-      if (arr.length === 0) return false;
-      if (typeof arr[0] === 'number') {
-        return arr.length >= 3 && arr[2] !== 0;
-      }
-      return arr.some(item => Array.isArray(item) && checkArray(item));
-    };
-
-    return checkArray(coords);
-  };
-
-  const getFlattened = (coords: any[], includeZ: boolean) => {
-    const flat: number[] = [];
-    coords.forEach(p => {
-      flat.push(p[0]);
-      flat.push(p[1]);
-      if (includeZ) flat.push(p[2] || 0);
-    });
-    return flat;
-  };
-
-  allObjects.forEach(obj => {
-    const isVisible = obj.characteristics?.visible !== false;
-    const style = obj.characteristics?.style || {};
-    let entityOptions: Cesium.Entity.ConstructorOptions = {
-      id: obj.id,
-      name: obj.name,
-      description: obj.description,
-      show: isVisible,
-    };
-
-    const is3D = hasZHeight(obj.geom);
-
-    if (obj.geom.type === 'Point' || obj.geom.type === 'MultiPoint') {
-      const allCoords = obj.geom.type === 'MultiPoint' ? obj.geom.coordinates : [obj.geom.coordinates];
-      allCoords.forEach((coords: any, idx: number) => {
-        if (!coords || coords.length < 2) return;
-        let position = is3D 
-          ? Cesium.Cartesian3.fromDegrees(coords[0], coords[1], coords[2])
-          : Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
-        
-        const heightReference = is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND;
-        const eOptions = { 
-          ...entityOptions, 
-          id: allCoords.length > 1 ? `${obj.id}-${idx}` : obj.id, 
-          position 
-        };
-
-        if (style.icon?.url) {
-          v.entities.add({
-            ...eOptions,
-            billboard: {
-              image: style.icon.url,
-              scale: style.icon.scale || 1.0,
-              heightReference: heightReference,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            }
-          });
-        } else {
-          v.entities.add({
-            ...eOptions,
-            point: {
-              pixelSize: 10,
-              color: Cesium.Color.fromCssColorString(style.poly?.fillColor || '#3399CC'),
-              outlineColor: Cesium.Color.WHITE,
-              outlineWidth: 2,
-              heightReference: heightReference,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            }
-          });
-        }
-      });
-    } else if (obj.geom.type === 'MultiLineString' || obj.geom.type === 'LineString') {
-      const allLineCoords = obj.geom.type === 'MultiLineString' ? obj.geom.coordinates : [obj.geom.coordinates];
-      allLineCoords.forEach((lineCoords: any, idx: number) => {
-        if (lineCoords && lineCoords.length >= 2) {
-          const flattened = getFlattened(lineCoords, is3D);
-          const positions = is3D 
-            ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
-            : Cesium.Cartesian3.fromDegreesArray(flattened);
-
-          v.entities.add({
-            ...entityOptions,
-            id: allLineCoords.length > 1 ? `${obj.id}-${idx}` : obj.id,
-            polyline: {
-              positions: positions,
-              width: style.line?.width || 2,
-              material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
-              clampToGround: !is3D,
-            }
-          });
-        }
-      });
-    } else if (obj.geom.type === 'Polygon' || obj.geom.type === 'MultiPolygon') {
-      const allPolygons = obj.geom.type === 'MultiPolygon' ? obj.geom.coordinates : [obj.geom.coordinates];
-      allPolygons.forEach((polygonCoords: any, idx: number) => {
-        const outerRing = polygonCoords[0];
-        if (outerRing && outerRing.length >= 3) {
-          const flattened = getFlattened(outerRing, is3D);
-          const positions = is3D
-            ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
-            : Cesium.Cartesian3.fromDegreesArray(flattened);
-
-          const holes = [];
-          if (polygonCoords.length > 1) {
-            for (let i = 1; i < polygonCoords.length; i++) {
-              const holeFlattened = getFlattened(polygonCoords[i], is3D);
-              const holePositions = is3D
-                ? Cesium.Cartesian3.fromDegreesArrayHeights(holeFlattened)
-                : Cesium.Cartesian3.fromDegreesArray(holeFlattened);
-              holes.push(new Cesium.PolygonHierarchy(holePositions));
-            }
-          }
-
-          const polyId = allPolygons.length > 1 ? `${obj.id}-${idx}` : obj.id;
-
-          v.entities.add({
-            ...entityOptions,
-            id: polyId,
-            polygon: {
-              hierarchy: new Cesium.PolygonHierarchy(positions, holes),
-              material: Cesium.Color.fromCssColorString(style.poly?.fillColor || 'rgba(51, 153, 204, 0.4)'),
-              heightReference: is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND,
-              perPositionHeight: is3D,
-            }
-          });
-          
-          v.entities.add({
-            id: `${polyId}-outline`,
-            name: obj.name,
-            show: isVisible,
-            polyline: {
-              positions: [...positions, positions[0]],
-              width: (style.line?.width || 2) + 1,
-              material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
-              clampToGround: !is3D,
-            }
-          });
-        }
-      });
+const hasZHeight = (geom: any): boolean => {
+  if (!geom || !geom.coordinates) return false;
+  const coords = geom.coordinates;
+  
+  const checkArray = (arr: any[]): boolean => {
+    if (arr.length === 0) return false;
+    if (typeof arr[0] === 'number') {
+      return arr.length >= 3 && arr[2] !== 0;
     }
+    return arr.some(item => Array.isArray(item) && checkArray(item));
+  };
+
+  return checkArray(coords);
+};
+
+const getFlattened = (coords: any[], includeZ: boolean) => {
+  const flat: number[] = [];
+  coords.forEach(p => {
+    flat.push(p[0]);
+    flat.push(p[1]);
+    if (includeZ) flat.push(p[2] || 0);
   });
+  return flat;
+};
+
+const createEntitiesFromGeoJSON = (v: Cesium.Viewer, geom: any, options: any) => {
+  const is3D = hasZHeight(geom);
+  const style = options.style || {};
+  const isVisible = options.show !== false;
+
+  const entities: Cesium.Entity[] = [];
+
+  if (geom.type === 'Point' || geom.type === 'MultiPoint') {
+    const allCoords = geom.type === 'MultiPoint' ? geom.coordinates : [geom.coordinates];
+    allCoords.forEach((coords: any, idx: number) => {
+      if (!coords || coords.length < 2) return;
+      let position = is3D 
+        ? Cesium.Cartesian3.fromDegrees(coords[0], coords[1], coords[2])
+        : Cesium.Cartesian3.fromDegrees(coords[0], coords[1]);
+      
+      const heightReference = is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND;
+      const eOptions = { 
+        ...options, 
+        id: allCoords.length > 1 ? `${options.id}-${idx}` : options.id, 
+        position 
+      };
+
+      if (style.icon?.url) {
+        entities.push(v.entities.add({
+          ...eOptions,
+          billboard: {
+            image: style.icon.url,
+            scale: style.icon.scale || 1.0,
+            heightReference: heightReference,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          }
+        }));
+      } else {
+        entities.push(v.entities.add({
+          ...eOptions,
+          point: {
+            pixelSize: 10,
+            color: Cesium.Color.fromCssColorString(style.poly?.fillColor || '#3399CC'),
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+            heightReference: heightReference,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          }
+        }));
+      }
+    });
+  } else if (geom.type === 'MultiLineString' || geom.type === 'LineString') {
+    const allLineCoords = geom.type === 'MultiLineString' ? geom.coordinates : [geom.coordinates];
+    allLineCoords.forEach((lineCoords: any, idx: number) => {
+      if (lineCoords && lineCoords.length >= 2) {
+        const flattened = getFlattened(lineCoords, is3D);
+        const positions = is3D 
+          ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
+          : Cesium.Cartesian3.fromDegreesArray(flattened);
+
+        entities.push(v.entities.add({
+          ...options,
+          id: allLineCoords.length > 1 ? `${options.id}-${idx}` : options.id,
+          polyline: {
+            positions: positions,
+            width: style.line?.width || 2,
+            material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
+            clampToGround: !is3D,
+          }
+        }));
+      }
+    });
+  } else if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+    const allPolygons = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+    allPolygons.forEach((polygonCoords: any, idx: number) => {
+      const outerRing = polygonCoords[0];
+      if (outerRing && outerRing.length >= 3) {
+        const flattened = getFlattened(outerRing, is3D);
+        const positions = is3D
+          ? Cesium.Cartesian3.fromDegreesArrayHeights(flattened)
+          : Cesium.Cartesian3.fromDegreesArray(flattened);
+
+        const holes = [];
+        if (polygonCoords.length > 1) {
+          for (let i = 1; i < polygonCoords.length; i++) {
+            const holeFlattened = getFlattened(polygonCoords[i], is3D);
+            const holePositions = is3D
+              ? Cesium.Cartesian3.fromDegreesArrayHeights(holeFlattened)
+              : Cesium.Cartesian3.fromDegreesArray(holeFlattened);
+            holes.push(new Cesium.PolygonHierarchy(holePositions));
+          }
+        }
+
+        const polyId = allPolygons.length > 1 ? `${options.id}-${idx}` : options.id;
+
+        entities.push(v.entities.add({
+          ...options,
+          id: polyId,
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions, holes),
+            material: Cesium.Color.fromCssColorString(style.poly?.fillColor || 'rgba(51, 153, 204, 0.4)'),
+            heightReference: is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND,
+            perPositionHeight: is3D,
+          }
+        }));
+        
+        entities.push(v.entities.add({
+          id: `${polyId}-outline`,
+          name: options.name,
+          show: isVisible,
+          polyline: {
+            positions: [...positions, positions[0]],
+            width: (style.line?.width || 2) + 1,
+            material: Cesium.Color.fromCssColorString(style.line?.color || '#3399CC'),
+            clampToGround: !is3D,
+          }
+        }));
+      }
+    });
+  }
+  return entities;
 };
 
 const saveNewFeature = async () => {
@@ -603,10 +749,119 @@ const cancelNewFeature = () => {
   newObjectCameraDetails.value = { ip_address: '', port: 8000, login: '', password: '' };
 };
 
-const editPoints = ref<Cesium.Cartesian3[]>([]);
+const editPoints = ref<{subId: number, points: Cesium.Cartesian3[]}[]>([]);
 const draggerEntities = ref<Cesium.Entity[]>([]);
 let activeDragger: Cesium.Entity | null = null;
 let editHandler: Cesium.ScreenSpaceEventHandler | null = null;
+
+const addDraggersForEntity = (v: Cesium.Viewer, entity: Cesium.Entity, subId: number) => {
+    let positions: Cesium.Cartesian3[] = [];
+    if (entity.position) {
+        const pos = entity.position.getValue(Cesium.JulianDate.now());
+        if (pos) positions = [pos];
+    } else if (entity.polyline?.positions) {
+        const pos = entity.polyline.positions.getValue(Cesium.JulianDate.now()) as Cesium.Cartesian3[];
+        if (pos) positions = [...pos];
+    } else if (entity.polygon?.hierarchy) {
+        const hierarchy = entity.polygon.hierarchy.getValue(Cesium.JulianDate.now()) as Cesium.PolygonHierarchy;
+        if (hierarchy) positions = [...hierarchy.positions];
+    }
+
+    positions.forEach((pos, index) => {
+        const dragger = v.entities.add({
+            position: new Cesium.CallbackPositionProperty(() => {
+                const group = editPoints.value.find(g => g.subId === subId);
+                return group?.points[index] || pos;
+            }, false) as any,
+            point: {
+                pixelSize: 12,
+                color: Cesium.Color.RED,
+                outlineColor: Cesium.Color.WHITE,
+                outlineWidth: 2,
+                disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            },
+        });
+        (dragger as any).userData = { subId, index };
+        draggerEntities.value.push(dragger);
+    });
+    
+    // Add to our reactive edit state if not present
+    let group = editPoints.value.find(g => g.subId === subId);
+    if (!group) {
+        group = { subId, points: [...positions] };
+        editPoints.value.push(group);
+    }
+};
+
+const fetchParts = debounce(async () => {
+  if (!isGeometryEditMode.value || !isZoomHighEnough.value || !selectedFeatureId.value || !selectedFeature.value) return;
+
+  const v = viewer;
+  if (!v) return;
+  
+  const rect = v.camera.computeViewRectangle();
+  if (!rect) return;
+
+  const minX = Cesium.Math.toDegrees(rect.west);
+  const minY = Cesium.Math.toDegrees(rect.south);
+  const maxX = Cesium.Math.toDegrees(rect.east);
+  const maxY = Cesium.Math.toDegrees(rect.north);
+
+  const typeMap: Record<string, 'points' | 'multilines' | 'polygons'> = {
+    'Point': 'points',
+    'MultiLineString': 'multilines',
+    'Polygon': 'polygons'
+  };
+
+  const apiType = typeMap[selectedFeature.value.type];
+  if (!apiType) return;
+
+  isLoadingParts.value = true;
+  try {
+    const response = await GeodataService.getGeometryParts(
+      apiType,
+      selectedFeatureId.value,
+      minX, minY, maxX, maxY
+    );
+    
+    const parts = response.data;
+    
+    parts.forEach((part: any) => {
+        const partId = `edit_${selectedFeatureId.value}_${part.subId}`;
+        if (v.entities.getById(partId)) return;
+
+        const geom = JSON.parse(part.geojson);
+        const createdEntities = createEntitiesFromGeoJSON(v, geom, {
+            id: partId,
+            name: `${selectedFeature.value?.name} (Part ${part.subId})`,
+            sub_id: part.subId,
+            show: true,
+            style: selectedFeature.value?.characteristics?.style
+        });
+        
+        createdEntities.forEach(entity => {
+            if (!entity.id.endsWith('-outline')) {
+                addDraggersForEntity(v, entity, part.subId);
+            }
+        });
+    });
+
+  } catch (err) {
+    console.error("Failed to fetch geometry parts:", err);
+  } finally {
+    isLoadingParts.value = false;
+  }
+}, 1000);
+
+const handleCameraMoveForShotFrame = () => {
+    if (!isGeometryEditMode.value || !viewer) return;
+    const height = viewer.camera.positionCartographic.height;
+    isZoomHighEnough.value = height < 5000; 
+    
+    if (isZoomHighEnough.value) {
+        fetchParts();
+    }
+};
 
 const sampleHeights = async (cartesianPoints: Cesium.Cartesian3[]) => {
   const v = viewer;
@@ -617,7 +872,6 @@ const sampleHeights = async (cartesianPoints: Cesium.Cartesian3[]) => {
 
   const cartographics = cartesianPoints.map(p => Cesium.Cartographic.fromCartesian(p));
   
-  // If we have a terrain provider (not the default ellipsoid), sample the height accurately
   if (v.terrainProvider && !(v.terrainProvider instanceof Cesium.EllipsoidTerrainProvider)) {
     try {
       const sampled = await Cesium.sampleTerrainMostDetailed(v.terrainProvider, cartographics);
@@ -638,39 +892,36 @@ const sampleHeights = async (cartesianPoints: Cesium.Cartesian3[]) => {
   ]);
 };
 
+const sampleHeightsForEditPoints = async () => {
+    const results: {subId: number, coords: number[][]}[] = [];
+    for (const group of editPoints.value) {
+        if (modifiedSubIds.value.has(group.subId)) {
+            const sampled = await sampleHeights(group.points);
+            results.push({ subId: group.subId, coords: sampled });
+        }
+    }
+    return results;
+};
+
 const enterGeometryEditMode = () => {
   const v = viewer;
   if (!v || !selectedFeature.value) return;
 
-  isGeometryEditMode.value = true;
-  const entity = v.entities.getById(selectedFeature.value.id);
-  if (entity) entity.show = false; // Hide original
+  const height = v.camera.positionCartographic.height;
+  isZoomHighEnough.value = height < 5000;
 
-  if (selectedFeature.value.type === 'Point' && entity?.position) {
-    const pos = entity.position.getValue(Cesium.JulianDate.now());
-    if (pos) editPoints.value = [pos];
-  } else if (selectedFeature.value.type === 'MultiLineString' && entity?.polyline?.positions) {
-    const positions = entity.polyline.positions.getValue(Cesium.JulianDate.now()) as Cesium.Cartesian3[];
-    if (positions) editPoints.value = [...positions];
-  } else if (selectedFeature.value.type === 'Polygon' && entity?.polygon?.hierarchy) {
-    const hierarchy = entity.polygon.hierarchy.getValue(Cesium.JulianDate.now()) as Cesium.PolygonHierarchy;
-    if (hierarchy) editPoints.value = [...hierarchy.positions];
+  if (!isZoomHighEnough.value) {
+      alert(`Please zoom in closer to edit this complex object in 3D.`);
+      return;
   }
 
-  editPoints.value.forEach((pos, index) => {
-    const dragger = v.entities.add({
-      position: new Cesium.CallbackPositionProperty(() => editPoints.value[index], false) as any,
-      point: {
-        pixelSize: 12,
-        color: Cesium.Color.RED,
-        outlineColor: Cesium.Color.WHITE,
-        outlineWidth: 2,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-      },
-    });
-    (dragger as any).userData = { index };
-    draggerEntities.value.push(dragger);
-  });
+  isGeometryEditMode.value = true;
+  editPoints.value = [];
+  draggerEntities.value = [];
+  modifiedSubIds.value.clear();
+
+  // Refresh MVT to hide selected object
+  refreshMvtSources();
 
   editHandler = new Cesium.ScreenSpaceEventHandler(v.canvas);
   
@@ -686,8 +937,12 @@ const enterGeometryEditMode = () => {
     if (activeDragger) {
       const position = v.scene.pickPosition(movement.endPosition);
       if (Cesium.defined(position)) {
-        const index = (activeDragger as any).userData.index;
-        editPoints.value[index] = position;
+        const { subId, index } = (activeDragger as any).userData;
+        const group = editPoints.value.find(g => g.subId === subId);
+        if (group) {
+            group.points[index] = position;
+            modifiedSubIds.value.add(subId);
+        }
       }
     }
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
@@ -696,50 +951,71 @@ const enterGeometryEditMode = () => {
     activeDragger = null;
     v.scene.screenSpaceCameraController.enableRotate = true;
   }, Cesium.ScreenSpaceEventType.LEFT_UP);
+
+  v.camera.moveEnd.addEventListener(handleCameraMoveForShotFrame);
+  fetchParts();
 };
 
 const exitEditMode = () => {
   const v = viewer;
+  if (!v) return;
+  
   if (editHandler) {
     editHandler.destroy();
     editHandler = null;
   }
-  if (v) {
-    draggerEntities.value.forEach(e => v.entities.remove(e));
-  }
+  
+  // Remove all edit-related entities
+  draggerEntities.value.forEach(e => v.entities.remove(e));
   draggerEntities.value = [];
-  if (selectedFeature.value && v) {
-    const entity = v.entities.getById(selectedFeature.value.id);
-    if (entity) entity.show = true;
-  }
+  
+  // Remove all part entities
+  const editEntities = v.entities.values.filter(e => e.id.startsWith('edit_'));
+  editEntities.forEach(e => v.entities.remove(e));
+  
+  v.camera.moveEnd.removeEventListener(handleCameraMoveForShotFrame);
+  
   isGeometryEditMode.value = false;
+  modifiedSubIds.value.clear();
+  editPoints.value = [];
+  
+  refreshMvtSources();
 };
 
 const confirmGeometryEdit = async () => {
-  if (!selectedFeature.value) return;
+  if (!selectedFeature.value || !selectedFeatureId.value) return;
 
-  const coords = await sampleHeights(editPoints.value);
+  const typeMap: Record<string, 'points' | 'multilines' | 'polygons'> = {
+    'Point': 'points',
+    'MultiLineString': 'multilines',
+    'Polygon': 'polygons'
+  };
+  const apiType = typeMap[selectedFeature.value.type];
 
-  let newGeomAsGeoJSON;
-  if (selectedFeature.value.type === 'Point') {
-    newGeomAsGeoJSON = { type: 'Point', coordinates: coords[0] };
-  } else if (selectedFeature.value.type === 'MultiLineString') {
-    newGeomAsGeoJSON = { type: 'MultiLineString', coordinates: [coords] };
-  } else {
-    newGeomAsGeoJSON = { type: 'Polygon', coordinates: [[...coords, coords[0]]] };
+  if (modifiedSubIds.value.size > 0) {
+    const updatedPartsData = await sampleHeightsForEditPoints();
+    const partsToUpdate = updatedPartsData.map(partData => {
+        let geojson;
+        if (selectedFeature.value?.type === 'Point') {
+            geojson = JSON.stringify({ type: 'Point', coordinates: partData.coords[0] });
+        } else if (selectedFeature.value?.type === 'MultiLineString') {
+            geojson = JSON.stringify({ type: 'LineString', coordinates: partData.coords });
+        } else {
+            geojson = JSON.stringify({ type: 'Polygon', coordinates: [[...partData.coords, partData.coords[0]]] });
+        }
+        return { subId: partData.subId, geojson };
+    });
+
+    if (partsToUpdate.length > 0) {
+        await GeodataService.updateGeometryParts(apiType, selectedFeatureId.value, partsToUpdate);
+    }
   }
 
-  await store.dispatch('geodata/updateFeature', {
-    id: selectedFeature.value.id,
-    type: selectedFeature.value.type,
-    data: {
-      name: selectedFeature.value.name,
-      description: selectedFeature.value.description,
-      geom: ensureMultiType(newGeomAsGeoJSON)
-    }
-  });
-
   exitEditMode();
+  
+  if (props.projectId) {
+    store.dispatch('geodata/fetchVectorSummaryForProject', props.projectId);
+  }
 };
 
 const cancelGeometryEdit = () => {
@@ -752,7 +1028,11 @@ watch(() => props.projectId, (newId) => {
   if (newId) {
     clearImageryLayers();
     store.commit('geodata/SET_SELECTED_PROJECT_ID', newId);
-    store.dispatch('geodata/fetchVectorDataForProject', newId);
+    
+    // Инициализируем MVT слои для нового проекта
+    initMvtLayers(newId);
+
+    store.dispatch('geodata/fetchVectorSummaryForProject', newId);
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });
   }
@@ -771,7 +1051,12 @@ watch(selectedTerrainId, async (newId) => {
   }
 });
 
-watch([points, multilines, polygons], updateVectorSource);
+watch([points, multilines, polygons], refreshMvtSources);
+
+// При изменении видимости объектов принудительно обновляем MVT слои
+watch(hiddenFeatureIds, () => {
+  refreshMvtSources();
+}, { deep: true });
 
 watch(selectedFeatureId, (newId) => {
   const v = viewer;
@@ -884,9 +1169,12 @@ onMounted(async () => {
 
   const v = new Cesium.Viewer(cesiumContainer.value, {
     terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+    baseLayer: new Cesium.ImageryLayer(new Cesium.OpenStreetMapImageryProvider({
+      url: 'https://a.tile.openstreetmap.org/'
+    })),
     animation: false,
     timeline: false,
-    baseLayerPicker: true,
+    baseLayerPicker: false,
     navigationHelpButton: false,
     homeButton: true,
     geocoder: false,
@@ -916,6 +1204,10 @@ onMounted(async () => {
         store.dispatch('geodata/selectFeature', null);
     }
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+  if (props.projectId) {
+    initMvtLayers(props.projectId);
+  }
 });
 
 onUnmounted(() => {
@@ -992,5 +1284,30 @@ onUnmounted(() => {
   bottom: 80px;
   right: 10px;
   background-color: transparent !important;
+}
+
+.shot-frame-overlay {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  right: 15px;
+  bottom: 15px;
+  border: 2px dashed #ff5252;
+  background-color: rgba(255, 82, 82, 0.05);
+  pointer-events: none;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shot-frame-label {
+  background-color: rgba(255, 82, 82, 0.8);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
+  letter-spacing: 1px;
 }
 </style>

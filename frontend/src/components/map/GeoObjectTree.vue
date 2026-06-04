@@ -109,13 +109,7 @@ const isVisible = (obj: any) => {
 };
 
 const toggleVisibility = (obj: any) => {
-  const visible = !isVisible(obj);
-  const characteristics = { ...obj.characteristics, visible };
-  store.dispatch('geodata/updateFeature', {
-    id: obj.id,
-    type: obj.type,
-    data: { characteristics }
-  });
+  store.dispatch('geodata/toggleFeatureVisibility', { id: obj.id, type: obj.type });
 };
 
 // --- Folder Management ---
