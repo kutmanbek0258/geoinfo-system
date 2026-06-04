@@ -1,12 +1,10 @@
 package kg.geoinfo.system.geodataservice.service.geodata.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPolygonDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonSummaryDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPolygonDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.*;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectPolygonMapper;
 import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.models.ProjectPolygon;
@@ -17,6 +15,8 @@ import kg.geoinfo.system.geodataservice.service.geodata.ProjectPolygonService;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
 import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,9 +25,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProjectPolygonServiceImpl implements ProjectPolygonService {
@@ -136,5 +139,41 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
         projectPolygon = projectPolygonRepository.save(projectPolygon);
 
         return projectPolygonMapper.toDto(projectPolygon);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GeometryPartDto> getParts(String currentUserEmail, UUID id, double minX, double minY, double maxX, double maxY) {
+        ProjectPolygon projectPolygon = projectPolygonRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectPolygon not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectPolygon.getProject().getId());
+
+        return projectPolygonRepository.findPartsInBBox(id, minX, minY, maxX, maxY).stream()
+                .map(p -> new GeometryPartDto(p.getSubId(), p.getGeojson()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void updateParts(String currentUserEmail, UUID id, UpdateGeometryPartsDto updateGeometryPartsDto) {
+        ProjectPolygon projectPolygon = projectPolygonRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectPolygon not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectPolygon.getProject().getId());
+
+        updateGeometryPartsDto.getParts().forEach(part -> {
+            try {
+                Geometry geom = objectMapper.readValue(part.getGeojson(), Geometry.class);
+                projectPolygonRepository.updatePart(id, part.getSubId(), geom.toText());
+            } catch (JsonProcessingException e) {
+                log.error("Error parsing GeoJSON part for polygon {}: {}", id, e.getMessage());
+                throw new RuntimeException("Invalid GeoJSON part", e);
+            }
+        });
+
+        // Fetch updated object to send event
+        ProjectPolygon updated = projectPolygonRepository.findById(id).orElseThrow();
+        Map<String, Object> payload = objectMapper.convertValue(projectPolygonMapper.toDto(updated), Map.class);
+        payload.put("type", "polygon");
+        kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
     }
 }

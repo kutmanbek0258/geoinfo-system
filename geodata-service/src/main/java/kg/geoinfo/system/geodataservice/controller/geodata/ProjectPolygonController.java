@@ -1,9 +1,6 @@
 package kg.geoinfo.system.geodataservice.controller.geodata;
 
-import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPolygonDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPolygonSummaryDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPolygonDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.*;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPolygonService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,6 +15,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -74,5 +72,27 @@ public class ProjectPolygonController {
     @PreAuthorize("hasAuthority('GEO_FEATURE_UPDATE')")
     public ResponseEntity<ProjectPolygonDto> uploadMainImage(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable UUID id, @RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(projectPolygonService.uploadMainImage(principal.getName(), id, file));
+    }
+
+    @GetMapping("/{id}/parts")
+    @PreAuthorize("hasAuthority('GEO_FEATURE_READ')")
+    public ResponseEntity<List<GeometryPartDto>> getParts(
+            @AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal,
+            @PathVariable UUID id,
+            @RequestParam double minX,
+            @RequestParam double minY,
+            @RequestParam double maxX,
+            @RequestParam double maxY) {
+        return ResponseEntity.ok(projectPolygonService.getParts(principal.getName(), id, minX, minY, maxX, maxY));
+    }
+
+    @PatchMapping("/{id}/parts")
+    @PreAuthorize("hasAuthority('GEO_FEATURE_UPDATE')")
+    public ResponseEntity<Void> updateParts(
+            @AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal,
+            @PathVariable UUID id,
+            @RequestBody UpdateGeometryPartsDto updateGeometryPartsDto) {
+        projectPolygonService.updateParts(principal.getName(), id, updateGeometryPartsDto);
+        return ResponseEntity.noContent().build();
     }
 }

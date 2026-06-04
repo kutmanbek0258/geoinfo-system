@@ -1,9 +1,6 @@
 package kg.geoinfo.system.geodataservice.service.geodata;
 
-import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPointDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointSummaryDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPointDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.*;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -26,4 +23,8 @@ public interface ProjectPointService {
     void delete(String currentUserEmail, UUID id);
 
     ProjectPointDto uploadMainImage(String currentUserEmail, UUID id, MultipartFile file);
+
+    List<GeometryPartDto> getParts(String currentUserEmail, UUID id, double minX, double minY, double maxX, double maxY);
+
+    void updateParts(String currentUserEmail, UUID id, UpdateGeometryPartsDto updateGeometryPartsDto);
 }

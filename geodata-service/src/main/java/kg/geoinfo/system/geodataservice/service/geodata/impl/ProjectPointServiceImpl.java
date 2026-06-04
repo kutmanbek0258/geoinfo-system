@@ -1,11 +1,9 @@
 package kg.geoinfo.system.geodataservice.service.geodata.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.common.GeoObjectEvent;
-import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectPointDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectPointSummaryDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectPointDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.*;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectPointMapper;
 import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.models.ProjectPoint;
@@ -18,6 +16,7 @@ import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
 import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiPoint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,8 +25,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -59,7 +60,7 @@ public class ProjectPointServiceImpl implements ProjectPointService {
     public ProjectPointDto create(String currentUserEmail, CreateProjectPointDto createProjectPointDto) {
         log.info("Creating point for user: {}", currentUserEmail);
         checkProjectAccess(currentUserEmail, createProjectPointDto.getProjectId());
-        
+
         ProjectPoint projectPoint = projectPointMapper.toEntity(createProjectPointDto);
         projectPoint.setGeom(GeometryUtils.ensureMultiPoint3D(projectPoint.getGeom()));
         projectPoint = projectPointRepository.save(projectPoint);
@@ -141,5 +142,41 @@ public class ProjectPointServiceImpl implements ProjectPointService {
         projectPoint = projectPointRepository.save(projectPoint);
 
         return projectPointMapper.toDto(projectPoint);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GeometryPartDto> getParts(String currentUserEmail, UUID id, double minX, double minY, double maxX, double maxY) {
+        ProjectPoint projectPoint = projectPointRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectPoint not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectPoint.getProject().getId());
+
+        return projectPointRepository.findPartsInBBox(id, minX, minY, maxX, maxY).stream()
+                .map(p -> new GeometryPartDto(p.getSubId(), p.getGeojson()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void updateParts(String currentUserEmail, UUID id, UpdateGeometryPartsDto updateGeometryPartsDto) {
+        ProjectPoint projectPoint = projectPointRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectPoint not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectPoint.getProject().getId());
+
+        updateGeometryPartsDto.getParts().forEach(part -> {
+            try {
+                Geometry geom = objectMapper.readValue(part.getGeojson(), Geometry.class);
+                projectPointRepository.updatePart(id, part.getSubId(), geom.toText());
+            } catch (JsonProcessingException e) {
+                log.error("Error parsing GeoJSON part for point {}: {}", id, e.getMessage());
+                throw new RuntimeException("Invalid GeoJSON part", e);
+            }
+        });
+
+        // Fetch updated object to send event
+        ProjectPoint updated = projectPointRepository.findById(id).orElseThrow();
+        Map<String, Object> payload = objectMapper.convertValue(projectPointMapper.toDto(updated), Map.class);
+        payload.put("type", "point");
+        kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
     }
 }

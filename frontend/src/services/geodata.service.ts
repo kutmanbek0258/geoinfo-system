@@ -133,6 +133,15 @@ class GeodataService {
     deleteFolder(id: string) {
         return api.delete(`/geodata/folders/${id}`);
     }
+
+    // --- Shot Frame Editing ---
+    getGeometryParts(type: 'points' | 'multilines' | 'polygons', id: string, minX: number, minY: number, maxX: number, maxY: number) {
+        return api.get<any[]>(`/geodata/${type}/${id}/parts`, { params: { minX, minY, maxX, maxY } });
+    }
+
+    updateGeometryParts(type: 'points' | 'multilines' | 'polygons', id: string, parts: { subId: number, geojson: string }[]) {
+        return api.patch(`/geodata/${type}/${id}/parts`, { parts });
+    }
 }
 
 export default new GeodataService();

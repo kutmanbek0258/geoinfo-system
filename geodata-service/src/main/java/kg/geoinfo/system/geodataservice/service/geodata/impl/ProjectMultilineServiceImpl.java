@@ -1,11 +1,9 @@
 package kg.geoinfo.system.geodataservice.service.geodata.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kg.geoinfo.system.common.GeoObjectEvent;
-import kg.geoinfo.system.geodataservice.dto.geodata.CreateProjectMultilineDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.ProjectMultilineSummaryDto;
-import kg.geoinfo.system.geodataservice.dto.geodata.UpdateProjectMultilineDto;
+import kg.geoinfo.system.geodataservice.dto.geodata.*;
 import kg.geoinfo.system.geodataservice.mapper.geodata.ProjectMultilineMapper;
 import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.models.ProjectMultiline;
@@ -17,6 +15,8 @@ import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
 import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
 import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiLineString;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,9 +25,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProjectMultilineServiceImpl implements ProjectMultilineService {
@@ -137,5 +140,41 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
         projectMultiline = projectMultilineRepository.save(projectMultiline);
 
         return projectMultilineMapper.toDto(projectMultiline);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GeometryPartDto> getParts(String currentUserEmail, UUID id, double minX, double minY, double maxX, double maxY) {
+        ProjectMultiline projectMultiline = projectMultilineRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectMultiline not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectMultiline.getProject().getId());
+
+        return projectMultilineRepository.findPartsInBBox(id, minX, minY, maxX, maxY).stream()
+                .map(p -> new GeometryPartDto(p.getSubId(), p.getGeojson()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void updateParts(String currentUserEmail, UUID id, UpdateGeometryPartsDto updateGeometryPartsDto) {
+        ProjectMultiline projectMultiline = projectMultilineRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectMultiline not found with id: " + id));
+        checkProjectAccess(currentUserEmail, projectMultiline.getProject().getId());
+
+        updateGeometryPartsDto.getParts().forEach(part -> {
+            try {
+                Geometry geom = objectMapper.readValue(part.getGeojson(), Geometry.class);
+                projectMultilineRepository.updatePart(id, part.getSubId(), geom.toText());
+            } catch (JsonProcessingException e) {
+                log.error("Error parsing GeoJSON part for multiline {}: {}", id, e.getMessage());
+                throw new RuntimeException("Invalid GeoJSON part", e);
+            }
+        });
+
+        // Fetch updated object to send event
+        ProjectMultiline updated = projectMultilineRepository.findById(id).orElseThrow();
+        Map<String, Object> payload = objectMapper.convertValue(projectMultilineMapper.toDto(updated), Map.class);
+        payload.put("type", "multiline");
+        kafkaProducerService.sendGeoObjectEvent(payload, GeoObjectEvent.EventType.UPDATED);
     }
 }

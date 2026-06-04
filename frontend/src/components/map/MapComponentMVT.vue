@@ -233,6 +233,15 @@
       </v-btn-toggle>
     </div>
 
+    <!-- Оверлей Shot Frame (Визуальная рамка для редактирования) -->
+    <v-fade-transition>
+      <div v-if="isGeometryEditMode && isZoomHighEnough" class="shot-frame-overlay">
+        <div class="shot-frame-content">
+          <div class="shot-frame-label">SHOT FRAME ACTIVE</div>
+        </div>
+      </div>
+    </v-fade-transition>
+
     <!-- Import File Dialog -->
     <v-dialog v-model="importFileDialog" max-width="500px">
       <v-card>
@@ -324,6 +333,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed, toRaw, shallowRef } from 'vue';
+import { debounce } from 'lodash';
 import PrintDialog from '@/components/print/PrintDialog.vue';
 import { useStore } from 'vuex';
 import 'ol/ol.css';
@@ -433,6 +443,13 @@ const isGeometryEditMode = ref(false);
 let modifyInteraction: Modify | null = null;
 let measureDraw: Draw | null = null;
 let snapInteraction: Snap | null = null;
+
+// --- Shot Frame Editing ---
+const SHOT_FRAME_MIN_ZOOM = Number(import.meta.env.VITE_SHOT_FRAME_MIN_ZOOM || 16);
+const isZoomHighEnough = ref(false);
+const modifiedSubIds = ref(new Set<number>());
+const isLoadingParts = ref(false);
+const cacheBuster = ref(Date.now());
 
 // Тултипы для измерений
 let measureTooltipElement: HTMLElement | null = null;
@@ -752,20 +769,29 @@ const initMvtLayers = (projectId: string) => {
   // Создаем MVT источники с использованием специализированных функций PostGIS (Function Layers)
   pointsTileSource = new VectorTileSource({
     format: new MVT(),
-    url: `/tiles/geodata.mvt_project_points/{z}/{x}/{y}.pbf?project_id_param=${projectId}`,
-    maxZoom: 20
+    url: `/tiles/geodata.mvt_project_points/{z}/{x}/{y}.pbf?project_id_param=${projectId}&t={cacheBuster}`,
+    maxZoom: 20,
+    tileUrlFunction: (tileCoord) => {
+      return `/tiles/geodata.mvt_project_points/${tileCoord[0]}/${tileCoord[1]}/${tileCoord[2]}.pbf?project_id_param=${projectId}&t=${cacheBuster.value}`;
+    }
   });
 
   linesTileSource = new VectorTileSource({
     format: new MVT(),
-    url: `/tiles/geodata.mvt_project_multilines/{z}/{x}/{y}.pbf?project_id_param=${projectId}`,
-    maxZoom: 20
+    url: `/tiles/geodata.mvt_project_multilines/{z}/{x}/{y}.pbf?project_id_param=${projectId}&t={cacheBuster}`,
+    maxZoom: 20,
+    tileUrlFunction: (tileCoord) => {
+      return `/tiles/geodata.mvt_project_multilines/${tileCoord[0]}/${tileCoord[1]}/${tileCoord[2]}.pbf?project_id_param=${projectId}&t=${cacheBuster.value}`;
+    }
   });
 
   polygonsTileSource = new VectorTileSource({
     format: new MVT(),
-    url: `/tiles/geodata.mvt_project_polygons/{z}/{x}/{y}.pbf?project_id_param=${projectId}`,
-    maxZoom: 20
+    url: `/tiles/geodata.mvt_project_polygons/{z}/{x}/{y}.pbf?project_id_param=${projectId}&t={cacheBuster}`,
+    maxZoom: 20,
+    tileUrlFunction: (tileCoord) => {
+      return `/tiles/geodata.mvt_project_polygons/${tileCoord[0]}/${tileCoord[1]}/${tileCoord[2]}.pbf?project_id_param=${projectId}&t=${cacheBuster.value}`;
+    }
   });
 
   // Создаем слои
@@ -1167,28 +1193,77 @@ const saveNewFeature = async () => {
     refreshMvtSources();
 };
 
-// --- Логика редактирования геометрии (с извлечением полноценного GeoJSON) ---
+// --- Логика редактирования геометрии (Shot Frame Оптимизация) ---
+
+const fetchParts = debounce(async () => {
+  if (!isGeometryEditMode.value || !isZoomHighEnough.value || !selectedFeatureId.value || !selectedFeature.value) return;
+
+  const view = map?.getView();
+  if (!view) return;
+  
+  const extent = view.calculateExtent(map!.getSize());
+  const minXminY = toLonLat([extent[0], extent[1]]);
+  const maxXmaxY = toLonLat([extent[2], extent[3]]);
+
+  const typeMap: Record<string, 'points' | 'multilines' | 'polygons'> = {
+    'Point': 'points',
+    'MultiLineString': 'multilines',
+    'Polygon': 'polygons'
+  };
+
+  const apiType = typeMap[selectedFeature.value.type];
+  if (!apiType) return;
+
+  isLoadingParts.value = true;
+  try {
+    const response = await GeodataService.getGeometryParts(
+      apiType,
+      selectedFeatureId.value,
+      minXminY[0], minXminY[1], maxXmaxY[0], maxXmaxY[1]
+    );
+    
+    const parts = response.data;
+    
+    const features = parts.map((part: any) => {
+        const result = geoJsonFormat.readFeature(part.geojson, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+        });
+        const feature = Array.isArray(result) ? result[0] : result;
+        if (feature) {
+            (feature as any).set('sub_id', part.subId);
+            (feature as any).setId(`${selectedFeatureId.value}_${part.subId}`);
+        }
+        return feature;
+    }).filter((f: any) => !!f);
+
+    features.forEach((f: any) => {
+        if (!tempSource.getFeatureById(f.getId() as string)) {
+            tempSource.addFeature(f);
+        }
+    });
+
+  } catch (err) {
+    console.error("Failed to fetch geometry parts:", err);
+  } finally {
+    isLoadingParts.value = false;
+  }
+}, 1000);
+
 const enterGeometryEditMode = () => {
     if (!map || !selectedFeatureId.value || !selectedFeature.value) return;
 
-    isGeometryEditMode.value = true;
+    const currentZoom = map.getView().getZoom() || 0;
+    isZoomHighEnough.value = currentZoom >= SHOT_FRAME_MIN_ZOOM;
 
-    // Считываем полноценную некорректированную геометрию из Vuex во временный GeoJSON источник
-    const parsedFeatures = geoJsonFormat.readFeatures(selectedFeature.value.geom, {
-      dataProjection: 'EPSG:4326',
-      featureProjection: 'EPSG:3857'
-    });
-    const featureToModify = Array.isArray(parsedFeatures) ? parsedFeatures[0] : parsedFeatures;
-
-    if (!featureToModify) {
-        console.error("Failed to parse selected feature for modification.");
-        isGeometryEditMode.value = false;
+    if (!isZoomHighEnough.value) {
+        alert(`Please zoom in to at least level ${SHOT_FRAME_MIN_ZOOM} to edit this complex object.`);
         return;
     }
 
-    featureToModify.setId(selectedFeature.value.id);
+    isGeometryEditMode.value = true;
+    modifiedSubIds.value.clear();
     tempSource.clear();
-    tempSource.addFeature(featureToModify);
 
     // Принудительно инвалидируем стиль MVT слоев, чтобы скрыть дубликат на время редактирования
     if (pointsTileLayer) pointsTileLayer.setStyle(vectorTileStyleFunction);
@@ -1201,43 +1276,77 @@ const enterGeometryEditMode = () => {
     drawMode.value = null;
 
     modifyInteraction = new Modify({
-        features: new Collection([featureToModify]),
+        source: tempSource,
     });
+    
+    modifyInteraction.on('modifyend', (evt) => {
+        evt.features.forEach((f: any) => {
+            const subId = f.get('sub_id');
+            if (subId !== undefined) {
+                modifiedSubIds.value.add(subId);
+            }
+        });
+    });
+
     map.addInteraction(modifyInteraction);
+    
+    // Подписываемся на перемещение карты для подгрузки новых частей
+    map.on('moveend', handleMapMoveForShotFrame);
+    
+    // Initial fetch
+    fetchParts();
+};
+
+const handleMapMoveForShotFrame = () => {
+    if (!isGeometryEditMode.value || !map) return;
+    
+    const currentZoom = map.getView().getZoom() || 0;
+    isZoomHighEnough.value = currentZoom >= SHOT_FRAME_MIN_ZOOM;
+    
+    if (isZoomHighEnough.value) {
+        fetchParts();
+    }
 };
 
 const confirmGeometryEdit = async () => {
-    if (!selectedFeature.value) return;
+    if (!selectedFeature.value || !selectedFeatureId.value) return;
 
-    const modifiedFeature = tempSource.getFeatureById(selectedFeature.value.id);
-    if (!modifiedFeature) {
-        console.error("Could not find the feature in the temporary source to confirm edit.");
-        exitGeometryEditMode();
-        return;
-    }
+    const apiTypeMap: Record<string, 'points' | 'multilines' | 'polygons'> = {
+        'Point': 'points',
+        'MultiLineString': 'multilines',
+        'Polygon': 'polygons'
+    };
+    const apiType = apiTypeMap[selectedFeature.value.type];
 
-    const newGeometry = modifiedFeature.getGeometry();
+    if (modifiedSubIds.value.size > 0) {
+        const partsToUpdate = Array.from(modifiedSubIds.value).map(subId => {
+            const feature = tempSource.getFeatureById(`${selectedFeatureId.value}_${subId}`);
+            if (!feature) return null;
+            
+            const geom = feature.getGeometry();
+            if (!geom) return null;
+            
+            const geojson = geoJsonFormat.writeGeometry(geom, {
+                featureProjection: 'EPSG:3857',
+                dataProjection: 'EPSG:4326'
+            });
+            
+            return { subId, geojson };
+        }).filter(p => p !== null) as { subId: number, geojson: string }[];
 
-    if (newGeometry) {
-        const newGeomAsGeoJSON = geoJsonFormat.writeGeometryObject(newGeometry, {
-            featureProjection: 'EPSG:3857',
-            dataProjection: 'EPSG:4326'
-        });
-
-        await store.dispatch('geodata/updateFeature', {
-            id: selectedFeature.value.id,
-            type: selectedFeature.value.type,
-            data: {
-                name: selectedFeature.value.name,
-                description: selectedFeature.value.description,
-                geom: ensureMultiType(newGeomAsGeoJSON)
-            }
-        });
+        if (partsToUpdate.length > 0) {
+            await GeodataService.updateGeometryParts(apiType, selectedFeatureId.value, partsToUpdate);
+        }
     }
 
     exitGeometryEditMode();
     tempSource.clear();
     refreshMvtSources();
+    
+    // Update data in store to reflect changes in details panel
+    if (props.projectId) {
+        store.dispatch('geodata/fetchVectorDataForProject', props.projectId);
+    }
 };
 
 const cancelGeometryEdit = () => {
@@ -1249,11 +1358,15 @@ const cancelGeometryEdit = () => {
 };
 
 const exitGeometryEditMode = () => {
-    if (map && modifyInteraction) {
-        map.removeInteraction(modifyInteraction);
-        modifyInteraction = null;
+    if (map) {
+        if (modifyInteraction) {
+            map.removeInteraction(modifyInteraction);
+            modifyInteraction = null;
+        }
+        map.un('moveend', handleMapMoveForShotFrame);
     }
     isGeometryEditMode.value = false;
+    modifiedSubIds.value.clear();
     
     // Восстанавливаем отрисовку MVT слоев
     if (pointsTileLayer) pointsTileLayer.setStyle(vectorTileStyleFunction);
@@ -1392,6 +1505,31 @@ const executeFileImport = async () => {
   right: 60px; /* Position to the left of the bottom-right tools */
   width: 200px;
   z-index: 1000;
+}
+
+.shot-frame-overlay {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  right: 15px;
+  bottom: 15px;
+  border: 2px dashed #ff5252;
+  background-color: rgba(255, 82, 82, 0.05);
+  pointer-events: none;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shot-frame-label {
+  background-color: rgba(255, 82, 82, 0.8);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
+  letter-spacing: 1px;
 }
 
 /* Styles for OpenLayers Tooltips */
