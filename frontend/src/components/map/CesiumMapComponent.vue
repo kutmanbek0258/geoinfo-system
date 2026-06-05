@@ -143,6 +143,32 @@
 
     <!-- Оверлей 3: Кнопки добавления -->
     <div class="map-overlay bottom-right d-flex flex-column align-end">
+      <!-- Кнопка деактивации (только когда что-то активно) -->
+      <v-fade-transition>
+        <v-btn
+          v-if="measureMode || isBufferMode || drawMode"
+          icon="mdi-close"
+          color="error"
+          class="mb-2"
+          elevation="4"
+          @click="stopActiveTool"
+          title="Stop tool"
+        >
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-fade-transition>
+
+      <v-btn
+        icon="mdi-compare"
+        color="white"
+        class="mb-2"
+        elevation="2"
+        @click="swipeActive = true"
+        title="Swipe Tool (Compare Layers)"
+      >
+        <v-icon color="primary">mdi-compare</v-icon>
+      </v-btn>
+
       <v-btn
         icon="mdi-file-import"
         color="primary"
@@ -151,6 +177,52 @@
         title="Import KML/KMZ to this project"
       ></v-btn>
       
+      <!-- Инструменты измерения (Dropdown) -->
+      <v-menu location="left">
+        <template v-slot:activator="{ props }">
+          <v-btn
+            v-bind="props"
+            icon="mdi-ruler"
+            :color="measureMode || isBufferMode ? 'primary' : 'white'"
+            class="mb-2"
+            elevation="2"
+            title="Measurement Tools"
+          >
+            <v-icon :color="measureMode || isBufferMode ? 'white' : 'primary'">mdi-ruler</v-icon>
+          </v-btn>
+        </template>
+        <v-list density="compact">
+          <v-list-item 
+            prepend-icon="mdi-ruler" 
+            title="Distance" 
+            @click="measureMode = (measureMode === 'length' ? null : 'length')"
+            :active="measureMode === 'length'"
+            color="primary"
+          ></v-list-item>
+          <v-list-item 
+            prepend-icon="mdi-vector-square" 
+            title="Area" 
+            @click="measureMode = (measureMode === 'area' ? null : 'area')"
+            :active="measureMode === 'area'"
+            color="primary"
+          ></v-list-item>
+          <v-list-item 
+            prepend-icon="mdi-radius-outline" 
+            title="Buffer Zone" 
+            @click="isBufferMode = !isBufferMode"
+            :active="isBufferMode"
+            color="primary"
+          ></v-list-item>
+          <v-divider></v-divider>
+          <v-list-item 
+            prepend-icon="mdi-trash-can-outline" 
+            title="Clear Measurements" 
+            @click="clearMeasurements"
+            color="error"
+          ></v-list-item>
+        </v-list>
+      </v-menu>
+
       <v-btn-toggle v-model="drawMode" variant="elevated" density="comfortable">
         <v-btn value="Point" title="Add Point">
           <v-icon>mdi-map-marker</v-icon>
@@ -162,6 +234,51 @@
           <v-icon>mdi-vector-polygon</v-icon>
         </v-btn>
       </v-btn-toggle>
+    </div>
+
+    <!-- Оверлей 6: Панель настройки буфера -->
+    <v-fade-transition>
+      <div v-if="isBufferMode" class="map-overlay buffer-panel">
+        <div class="d-flex align-center justify-space-between mb-2">
+          <span class="text-subtitle-2 font-weight-bold">Buffer Zone (3D)</span>
+          <v-btn icon="mdi-close" size="x-small" variant="text" @click="isBufferMode = false"></v-btn>
+        </div>
+        
+        <div v-if="!bufferSourceEntity" class="text-caption text-grey mb-2">
+          Click on map to set center
+        </div>
+        
+        <template v-else>
+          <div class="text-caption mb-1">Center: [{{ bufferCenterCoords[0].toFixed(4) }}, {{ bufferCenterCoords[1].toFixed(4) }}]</div>
+          <v-slider
+            v-model="bufferDistance"
+            min="1"
+            max="10000"
+            step="1"
+            hide-details
+            thumb-label
+            color="primary"
+            label="Radius (m)"
+            class="mb-2"
+          ></v-slider>
+          <v-text-field
+            v-model.number="bufferDistance"
+            type="number"
+            density="compact"
+            hide-details
+            suffix="meters"
+            variant="outlined"
+            class="mb-1"
+          ></v-text-field>
+        </template>
+      </div>
+    </v-fade-transition>
+
+    <!-- Measurement Tooltips -->
+    <div v-for="(tooltip, idx) in measureTooltips" :key="idx" 
+         class="cesium-tooltip" 
+         :style="getTooltipStyle(tooltip.position)">
+      {{ tooltip.text }}
     </div>
 
     <!-- Оверлей Shot Frame (Визуальная рамка для редактирования) -->
@@ -256,6 +373,8 @@
         </v-card>
     </v-dialog>
 
+    <CesiumSwipeDialog v-model="swipeActive" />
+
   </div>
 </template>
 
@@ -271,9 +390,13 @@ import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeodataService from '@/services/geodata.service';
 import GeoObjectTree from './GeoObjectTree.vue';
+import CesiumSwipeDialog from './CesiumSwipeDialog.vue';
 import { parseStyle } from '@/util/style.util';
 import { ensureMultiType } from '@/util/geo.util';
 import { GeoJSON } from 'ol/format';
+import { Polygon as OLPolygon } from 'ol/geom';
+import * as turf from '@turf/turf';
+import geoCalcService from '@/services/geo-calc.service';
 
 const props = defineProps<{
   projectId: string;
@@ -287,7 +410,237 @@ const geoJsonFormat = new GeoJSON();
 
 // --- Состояние компонента ---
 const drawMode = ref<'Point' | 'MultiLineString' | 'Polygon' | null>(null);
+const measureMode = ref<'length' | 'area' | null>(null);
+const isBufferMode = ref(false);
+const bufferDistance = ref(100);
+const bufferCenterCoords = ref<number[]>([0, 0]);
+const bufferSourceEntity = ref<Cesium.Entity | null>(null);
+const bufferPreviewEntity = ref<Cesium.Entity | null>(null);
+let bufferHandler: Cesium.ScreenSpaceEventHandler | null = null;
+
 const isGeometryEditMode = ref(false);
+const swipeActive = ref(false);
+
+// --- Measurement State ---
+const measurePoints = ref<Cesium.Cartesian3[]>([]);
+const measureEntities = ref<Cesium.Entity[]>([]);
+const measureTooltips = ref<{ position: Cesium.Cartesian3, text: string }[]>([]);
+let measureHandler: Cesium.ScreenSpaceEventHandler | null = null;
+
+const stopActiveTool = () => {
+  drawMode.value = null;
+  measureMode.value = null;
+  isBufferMode.value = false;
+  clearMeasurements();
+};
+
+const clearMeasurements = () => {
+  const v = viewer;
+  if (!v) return;
+
+  measureEntities.value.forEach(e => v.entities.remove(e));
+  measureEntities.value = [];
+  measurePoints.value = [];
+  measureTooltips.value = [];
+
+  if (bufferSourceEntity.value) {
+    v.entities.remove(bufferSourceEntity.value);
+    bufferSourceEntity.value = null;
+  }
+  if (bufferPreviewEntity.value) {
+    v.entities.remove(bufferPreviewEntity.value);
+    bufferPreviewEntity.value = null;
+  }
+  bufferCenterCoords.value = [0, 0];
+};
+
+const getTooltipStyle = (position: Cesium.Cartesian3) => {
+  if (!viewer) return { display: 'none' };
+  const canvasPosition = Cesium.SceneTransforms.worldToWindowCoordinates(viewer.scene, position);
+  if (!canvasPosition) return { display: 'none' };
+  
+  return {
+    left: canvasPosition.x + 'px',
+    top: (canvasPosition.y - 15) + 'px',
+    display: 'block'
+  };
+};
+
+// --- Measurement Logic ---
+watch(measureMode, (newMode) => {
+  const v = viewer;
+  if (!v) return;
+
+  if (measureHandler) {
+    measureHandler.destroy();
+    measureHandler = null;
+  }
+  
+  clearMeasurements();
+  if (!newMode) return;
+
+  isBufferMode.value = false;
+  drawMode.value = null;
+
+  measureHandler = new Cesium.ScreenSpaceEventHandler(v.canvas);
+  
+  measureHandler.setInputAction(async (click: any) => {
+    const position = v.scene.pickPosition(click.position);
+    if (Cesium.defined(position)) {
+      measurePoints.value.push(position);
+      
+      // Add point entity
+      const pointEntity = v.entities.add({
+        position: position,
+        point: {
+          pixelSize: 8,
+          color: Cesium.Color.YELLOW,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }
+      });
+      measureEntities.value.push(pointEntity);
+
+      if (newMode === 'length' && measurePoints.value.length > 1) {
+        const p1 = measurePoints.value[measurePoints.value.length - 2];
+        const p2 = measurePoints.value[measurePoints.value.length - 1];
+        
+        const carto1 = Cesium.Cartographic.fromCartesian(p1);
+        const carto2 = Cesium.Cartographic.fromCartesian(p2);
+        
+        const dist = geoCalcService.calculateDistance(
+          [Cesium.Math.toDegrees(carto1.longitude), Cesium.Math.toDegrees(carto1.latitude), carto1.height],
+          [Cesium.Math.toDegrees(carto2.longitude), Cesium.Math.toDegrees(carto2.latitude), carto2.height],
+          true
+        );
+
+        measureTooltips.value.push({
+          position: position,
+          text: geoCalcService.formatDistance(dist)
+        });
+      }
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+  // Preview Line/Polygon
+  const previewEntity = v.entities.add({
+    polyline: {
+      positions: new Cesium.CallbackProperty(() => {
+        if (measurePoints.value.length === 0) return [];
+        return [...measurePoints.value];
+      }, false),
+      width: 2,
+      material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.YELLOW }),
+      clampToGround: true
+    },
+    polygon: newMode === 'area' ? {
+      hierarchy: new Cesium.CallbackProperty(() => {
+        if (measurePoints.value.length < 3) return new Cesium.PolygonHierarchy([]);
+        return new Cesium.PolygonHierarchy(measurePoints.value);
+      }, false),
+      material: Cesium.Color.YELLOW.withAlpha(0.3)
+    } : undefined
+  });
+  measureEntities.value.push(previewEntity);
+
+  if (newMode === 'area') {
+    measureHandler.setInputAction(async (movement: any) => {
+        if (measurePoints.value.length < 2) return;
+        
+        const position = v.scene.pickPosition(movement.endPosition);
+        if (Cesium.defined(position)) {
+            // Dynamic area calculation could be added here
+        }
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+  }
+
+  measureHandler.setInputAction(async () => {
+    if (newMode === 'area' && measurePoints.value.length >= 3) {
+      const coords = await sampleHeights(measurePoints.value);
+      const polygon = new OLPolygon([coords.map(c => [c[0], c[1]])]);
+      const areaText = geoCalcService.formatArea(polygon);
+      
+      const center = Cesium.BoundingSphere.fromPoints(measurePoints.value).center;
+      measureTooltips.value.push({
+        position: center,
+        text: `Total Area: ${areaText}`
+      });
+    }
+    
+    if (measureHandler) {
+      measureHandler.destroy();
+      measureHandler = null;
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+});
+
+// --- Buffer Logic ---
+watch(isBufferMode, (active) => {
+  const v = viewer;
+  if (!v) return;
+
+  if (bufferHandler) {
+    bufferHandler.destroy();
+    bufferHandler = null;
+  }
+
+  clearMeasurements();
+  if (!active) return;
+
+  measureMode.value = null;
+  drawMode.value = null;
+
+  bufferHandler = new Cesium.ScreenSpaceEventHandler(v.canvas);
+  
+  bufferHandler.setInputAction((click: any) => {
+    const position = v.scene.pickPosition(click.position);
+    if (Cesium.defined(position)) {
+      const carto = Cesium.Cartographic.fromCartesian(position);
+      bufferCenterCoords.value = [Cesium.Math.toDegrees(carto.longitude), Cesium.Math.toDegrees(carto.latitude)];
+      
+      if (bufferSourceEntity.value) v.entities.remove(bufferSourceEntity.value);
+      
+      bufferSourceEntity.value = v.entities.add({
+        position: position,
+        point: {
+          pixelSize: 10,
+          color: Cesium.Color.BLUE,
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }
+      });
+
+      updateBufferPreview();
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+});
+
+const updateBufferPreview = () => {
+  const v = viewer;
+  if (!v || !bufferCenterCoords.value[0]) return;
+
+  if (bufferPreviewEntity.value) v.entities.remove(bufferPreviewEntity.value);
+
+  const center = bufferCenterCoords.value;
+  const radius = bufferDistance.value;
+
+  bufferPreviewEntity.value = v.entities.add({
+    position: Cesium.Cartesian3.fromDegrees(center[0], center[1]),
+    ellipse: {
+      semiMinorAxis: radius,
+      semiMajorAxis: radius,
+      material: Cesium.Color.BLUE.withAlpha(0.2),
+      outline: true,
+      outlineColor: Cesium.Color.BLUE,
+      outlineWidth: 2,
+      heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND
+    }
+  });
+};
+
+watch(bufferDistance, updateBufferPreview);
 
 // --- Shot Frame Editing ---
 const SHOT_FRAME_MIN_ZOOM = Number(import.meta.env.VITE_SHOT_FRAME_MIN_ZOOM || 16);
@@ -1309,5 +1662,24 @@ onUnmounted(() => {
   font-weight: bold;
   font-size: 12px;
   letter-spacing: 1px;
+}
+
+.cesium-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 1002;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.buffer-panel {
+  bottom: 20px;
+  right: 60px;
+  width: 220px;
 }
 </style>
