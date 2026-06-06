@@ -202,13 +202,13 @@ const getFlattened = (coords: any[], includeZ: boolean) => {
 
 const createEntitiesFromGeoJSON = (v: Cesium.Viewer, geom: any, options: any) => {
   const is3D = hasZHeight(geom);
-  const style = options.style || {};
+  const style = options.style ?? {};
   const isVisible = options.show !== false;
   const entities: Cesium.Entity[] = [];
 
-  const getColor = (css: string | undefined, fallback: string): Cesium.Color => {
+  const getColor = (css: any, fallback: string): Cesium.Color => {
     try {
-      if (css) {
+      if (typeof css === 'string' && css.length > 0) {
         const color = Cesium.Color.fromCssColorString(css);
         if (Cesium.defined(color)) return color;
       }
@@ -263,7 +263,7 @@ const createEntitiesFromGeoJSON = (v: Cesium.Viewer, geom: any, options: any) =>
           polyline: {
             positions: pos,
             width: style.line?.width || 2,
-            material: new Cesium.ColorMaterialProperty(getColor(style.line?.color, '#3399CC')),
+            material: getColor(style.line?.color, '#3399CC'),
             clampToGround: !is3D
           }
         }));
@@ -289,7 +289,7 @@ const createEntitiesFromGeoJSON = (v: Cesium.Viewer, geom: any, options: any) =>
           id: pId,
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(pos, holes),
-            material: new Cesium.ColorMaterialProperty(getColor(style.poly?.fillColor, 'rgba(51, 153, 204, 0.4)')),
+            material: getColor(style.poly?.fillColor, 'rgba(51, 153, 204, 0.4)'),
             heightReference: is3D ? Cesium.HeightReference.NONE : Cesium.HeightReference.RELATIVE_TO_GROUND,
             perPositionHeight: is3D
           }
@@ -301,7 +301,7 @@ const createEntitiesFromGeoJSON = (v: Cesium.Viewer, geom: any, options: any) =>
           polyline: {
             positions: [...pos, pos[0]],
             width: (style.line?.width || 2) + 1,
-            material: new Cesium.ColorMaterialProperty(getColor(style.line?.color, '#3399CC')),
+            material: getColor(style.line?.color, '#3399CC'),
             clampToGround: !is3D
           }
         }));
