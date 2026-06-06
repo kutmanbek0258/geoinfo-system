@@ -655,6 +655,7 @@ const layerOpacities = ref<Record<string, number>>({});
 const imageryMenuOpen = ref(false);
 const terrainMenuOpen = ref(false);
 const autoExtentEnabled = ref(false);
+const hasInitialZoomDone = ref(false);
 
 // --- Состояние импорта ---
 const importFileDialog = ref(false);
@@ -908,8 +909,55 @@ const setLayerOpacity = (layerId: string, opacity: number) => {
 
 const zoomToExtent = () => {
   const v = viewer;
-  if (!v || v.entities.values.length === 0) return;
-  v.zoomTo(v.entities);
+  if (!v) return;
+
+  console.log("zoomToExtent started. Points:", points.value.length, "Lines:", multilines.value.length, "Polygons:", polygons.value.length);
+
+  // Собираем все геометрии. В summary версиях geom может отсутствовать, 
+  // но в store.state.geodata обычно лежат полные объекты для текущего проекта.
+  const allGeoms = [
+    ...points.value.map(p => p.geom),
+    ...multilines.value.map(l => l.geom),
+    ...polygons.value.map(p => p.geom)
+  ].map(g => {
+    if (!g) return null;
+    if (typeof g === 'string') {
+      try { return JSON.parse(g); } catch(e) { return null; }
+    }
+    return g;
+  }).filter(g => g && g.type && g.coordinates);
+
+  if (allGeoms.length > 0) {
+    try {
+      const collection = turf.featureCollection(allGeoms.map(g => turf.feature(g)));
+      const bbox = turf.bbox(collection); // [minX, minY, maxX, maxY]
+      console.log("Calculated BBOX:", bbox);
+      
+      const rectangle = Cesium.Rectangle.fromDegrees(bbox[0], bbox[1], bbox[2], bbox[3]);
+      
+      // Добавляем отступ
+      const margin = Math.max(rectangle.width, rectangle.height, 0.01) * 0.3;
+      const paddedRectangle = new Cesium.Rectangle(
+        rectangle.west - margin,
+        rectangle.south - margin,
+        rectangle.east + margin,
+        rectangle.north + margin
+      );
+
+      v.camera.flyTo({
+        destination: paddedRectangle,
+        duration: 2.0
+      });
+      return;
+    } catch (e) {
+      console.warn("Turf bbox calculation failed", e);
+    }
+  }
+
+  // Fallback к сущностям
+  if (v.entities.values.length > 0) {
+    v.zoomTo(v.entities);
+  }
 };
 
 const openImportFileDialog = () => {
@@ -1379,6 +1427,7 @@ const cancelGeometryEdit = () => {
 
 watch(() => props.projectId, (newId) => {
   if (newId) {
+    hasInitialZoomDone.value = false;
     clearImageryLayers();
     store.commit('geodata/SET_SELECTED_PROJECT_ID', newId);
     
@@ -1404,7 +1453,21 @@ watch(selectedTerrainId, async (newId) => {
   }
 });
 
-watch([points, multilines, polygons], refreshMvtSources);
+// Автоматический зум при загрузке данных проекта
+watch([points, multilines, polygons], (newData) => {
+  const [newPoints, newLines, newPolys] = newData;
+  const hasData = newPoints.length > 0 || newLines.length > 0 || newPolys.length > 0;
+  
+  if (hasData && viewer && !hasInitialZoomDone.value) {
+    // Небольшая задержка, чтобы MVT успели начать подгружаться
+    setTimeout(() => {
+        zoomToExtent();
+        hasInitialZoomDone.value = true;
+    }, 800);
+  }
+
+  refreshMvtSources();
+});
 
 // При изменении видимости объектов принудительно обновляем MVT слои
 watch(hiddenFeatureIds, () => {
@@ -1539,27 +1602,66 @@ onMounted(async () => {
 
   v.scene.globe.depthTestAgainstTerrain = true;
 
-  v.screenSpaceEventHandler.setInputAction((click: any) => {
+  v.screenSpaceEventHandler.setInputAction(async (click: any) => {
+    // 1. Сначала пробуем выбрать стандартные сущности (точки-маркеры, редактируемые части)
     const pickedObject = v.scene.pick(click.position);
     if (Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.id) {
         let actualId = pickedObject.id.id;
-        // Strip suffixes like -outline or -0, -1 to get the base object ID
-        if (actualId.endsWith('-outline')) {
-            actualId = actualId.replace('-outline', '');
-        }
-        // Match -0, -1, -2 etc at the end
+        if (actualId.endsWith('-outline')) actualId = actualId.replace('-outline', '');
         const partMatch = actualId.match(/(.*)-[0-9]+$/);
-        if (partMatch) {
-            actualId = partMatch[1];
-        }
+        if (partMatch) actualId = partMatch[1];
+        
+        console.log("Picked Entity ID:", actualId);
         store.dispatch('geodata/selectFeature', actualId);
-    } else {
-        store.dispatch('geodata/selectFeature', null);
+        return;
     }
+
+    // 2. Если сущность не найдена, пробуем выбрать из MVT тайлов
+    const ray = v.camera.getPickRay(click.position);
+    if (ray) {
+      try {
+        // Пробуем нативный метод Cesium для Imagery Layers
+        let features = await (v.imageryLayers as any).pickImageryLayerFeatures(ray, v.scene);
+        
+        // Если ничего не найдено нативно, пробуем перебрать слои вручную (fallback)
+        if (!features || features.length === 0) {
+          for (let i = 0; i < v.imageryLayers.length; i++) {
+            const layer = v.imageryLayers.get(i);
+            const picked = await (layer as any).pickFeatures(ray, v.scene);
+            if (picked && picked.length > 0) {
+              features = picked;
+              break;
+            }
+          }
+        }
+
+        if (features && features.length > 0) {
+          const feature = features[0];
+          const featureId = feature.data?.id || (feature as any).properties?.id || (feature as any).id;
+          if (featureId) {
+            console.log("Picked MVT Feature ID:", featureId);
+            store.dispatch('geodata/selectFeature', featureId);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Selection error:", e);
+      }
+    }
+    
+    // 3. Если ничего не выбрано - сбрасываем
+    store.dispatch('geodata/selectFeature', null);
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
   if (props.projectId) {
     initMvtLayers(props.projectId);
+    // Auto zoom on mount if data is already there
+    setTimeout(() => {
+      if (!hasInitialZoomDone.value) {
+        zoomToExtent();
+        hasInitialZoomDone.value = true;
+      }
+    }, 1000);
   }
 });
 

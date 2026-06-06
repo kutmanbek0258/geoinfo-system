@@ -1,18 +1,15 @@
 <template>
   <div style="height: calc(100vh - 64px); width: 100%; position: relative;">
     <div v-if="projectId" class="h-100 w-100">
-      <template v-if="mode === '2D'">
-        <MapComponentMVT v-if="useMvt" :project-id="projectId" />
-        <MapComponent v-else :project-id="projectId" />
-      </template>
+      <MapComponentMVT v-if="mode === '2D'" :project-id="projectId" />
       <CesiumMapComponent v-else :project-id="projectId" />
     </div>
 
-    <!-- Переключатель режимов рендеринга (MVT / GeoJSON) -->
-    <div v-if="mode === '2D' && projectId" class="rendering-mode-toggle">
-      <v-btn-toggle v-model="renderingMode" mandatory color="primary" density="compact">
-        <v-btn value="geojson" title="GeoJSON Rendering">GeoJSON</v-btn>
-        <v-btn value="mvt" title="MVT Rendering">MVT (Тайлы)</v-btn>
+    <!-- Переключатель режимов (2D / 3D) -->
+    <div v-if="projectId" class="map-mode-toggle">
+      <v-btn-toggle v-model="mode" mandatory color="primary" density="compact">
+        <v-btn value="2D" title="2D View (OpenLayers)">2D</v-btn>
+        <v-btn value="3D" title="3D View (Cesium)">3D</v-btn>
       </v-btn-toggle>
     </div>
     
@@ -23,9 +20,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import MapComponent from '@/components/map/MapComponent.vue';
 import MapComponentMVT from '@/components/map/MapComponentMVT.vue';
 import CesiumMapComponent from '@/components/map/CesiumMapComponent.vue';
 
@@ -34,22 +30,18 @@ const router = useRouter();
 const projectId = route.params.id as string;
 const mode = ref(route.query.mode as string || '2D');
 
-// По умолчанию используем MVT рендеринг, если в query-параметрах явно не указано mvt=false
-const renderingMode = ref(route.query.mvt !== 'false' ? 'mvt' : 'geojson');
-const useMvt = computed(() => renderingMode.value === 'mvt');
-
-watch(renderingMode, (newVal) => {
+watch(mode, (newVal) => {
   router.replace({
     query: {
       ...route.query,
-      mvt: newVal === 'mvt' ? 'true' : 'false'
+      mode: newVal
     }
   });
 });
 </script>
 
 <style scoped>
-.rendering-mode-toggle {
+.map-mode-toggle {
   position: absolute;
   top: 16px;
   right: 180px; /* Позиция слева от кнопки Imagery Layers / Fullscreen */

@@ -205,21 +205,33 @@ const initCesium = async () => {
   swipeScreenX.value = cesiumContainer.value.clientWidth / 2;
 
   // Zoom to right layer's extent if available
-  if (rightInfo.bbox && rightInfo.bbox.type === 'Polygon') {
-    const coords = rightInfo.bbox.coordinates[0]; // Exterior ring
-    const degrees = coords.flat();
-    const rectangle = Cesium.Rectangle.fromCartographicArray(
-      degrees.reduce((acc: Cesium.Cartographic[], _, i) => {
-        if (i % 2 === 0) {
-          acc.push(Cesium.Cartographic.fromDegrees(degrees[i], degrees[i+1]));
-        }
-        return acc;
-      }, [])
-    );
-    viewer.camera.flyTo({
-      destination: rectangle,
-      duration: 0
-    });
+  if (rightInfo.bbox) {
+    let allCoords: number[][] = [];
+    if (rightInfo.bbox.type === 'Polygon') {
+      allCoords = rightInfo.bbox.coordinates[0];
+    } else if (rightInfo.bbox.type === 'MultiPolygon') {
+      allCoords = rightInfo.bbox.coordinates[0][0];
+    }
+
+    if (allCoords.length > 0) {
+      const cartographics = allCoords.map(c => Cesium.Cartographic.fromDegrees(c[0], c[1]));
+      let rectangle = Cesium.Rectangle.fromCartographicArray(cartographics);
+      
+      // Add a small margin (20%)
+      const width = rectangle.width;
+      const height = rectangle.height;
+      rectangle = new Cesium.Rectangle(
+        rectangle.west - width * 0.1,
+        rectangle.south - height * 0.1,
+        rectangle.east + width * 0.1,
+        rectangle.north + height * 0.1
+      );
+
+      viewer.camera.flyTo({
+        destination: rectangle,
+        duration: 0
+      });
+    }
   }
 };
 
