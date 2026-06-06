@@ -62,7 +62,9 @@ public class ProjectService {
         if (!hasAccess) {
             throw new AccessDeniedException("You don't have access to this project");
         }
-        return projectMapper.toDto(project);
+        ProjectDto dto = projectMapper.toDto(project);
+        dto.setBbox(projectRepository.calculateProjectBBox(id));
+        return dto;
     }
 
     public Page<ProjectDto> findByCondition(String currentUserEmail, ProjectDto projectDto, Pageable pageable) {

@@ -16,7 +16,8 @@ interface GeodataState {
     selectedProjectId: string | null;
     selectedFeatureId: string | null;
     selectedFolderId: string | null;
-    lastSelectionShouldZoom: boolean;
+    lastSelectionSource: 'map' | 'list' | null;
+    initialZoomDone: boolean;
     isLoading: boolean;
     error: string | null;
     activeCameraStream: { geoObjectId: string, streamHlsUrl: string } | null;
@@ -34,7 +35,8 @@ const state: GeodataState = {
     selectedProjectId: null,
     selectedFeatureId: null,
     selectedFolderId: null,
-    lastSelectionShouldZoom: false,
+    lastSelectionSource: null,
+    initialZoomDone: false,
     isLoading: false,
     error: null,
     activeCameraStream: null,
@@ -53,10 +55,14 @@ const mutations = {
     SET_SELECTED_PROJECT_ID(state: GeodataState, projectId: string | null) {
         state.selectedProjectId = projectId;
         state.selectedFolderId = null; // Reset folder when project changes
+        state.initialZoomDone = false; // Reset initial zoom for new project
     },
-    SET_SELECTED_FEATURE_ID(state: GeodataState, payload: { id: string | null, shouldZoom?: boolean }) {
+    SET_SELECTED_FEATURE_ID(state: GeodataState, payload: { id: string | null, source?: 'map' | 'list' }) {
         state.selectedFeatureId = payload.id;
-        state.lastSelectionShouldZoom = !!payload.shouldZoom;
+        state.lastSelectionSource = payload.source ?? null;
+    },
+    SET_INITIAL_ZOOM_DONE(state: GeodataState, done: boolean) {
+        state.initialZoomDone = done;
     },
     SET_SELECTED_FOLDER_ID(state: GeodataState, folderId: string | null) {
         state.selectedFolderId = folderId;
@@ -270,18 +276,18 @@ const actions = {
     },
 
     // Feature Selection
-    async selectFeature({ commit, state, dispatch }: ActionContext<GeodataState, any>, payload: string | { id: string | null, shouldZoom?: boolean } | null) {
+    async selectFeature({ commit, state, dispatch }: ActionContext<GeodataState, any>, payload: string | { id: string | null, source?: 'map' | 'list' } | null) {
         let id: string | null;
-        let shouldZoom = true;
+        let source: 'map' | 'list' | undefined;
 
         if (typeof payload === 'string' || payload === null) {
             id = payload;
         } else {
             id = payload.id;
-            shouldZoom = payload.shouldZoom ?? true;
+            source = payload.source;
         }
 
-        commit('SET_SELECTED_FEATURE_ID', { id, shouldZoom });
+        commit('SET_SELECTED_FEATURE_ID', { id, source });
 
         if (id) {
             // Check if we have full geometry. If not, fetch full data.
@@ -562,7 +568,7 @@ const actions = {
         }
         commit('DELETE_FEATURE', { type, id });
         if (state.selectedFeatureId === id) {
-            commit('SET_SELECTED_FEATURE_ID', null);
+            commit('SET_SELECTED_FEATURE_ID', { id: null });
         }
     },
 

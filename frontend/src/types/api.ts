@@ -12,6 +12,7 @@ export interface Project {
     id: string; // UUID
     name: string;
     description?: string;
+    bbox?: GeoGeometry;
 }
 
 export interface GeoFolder {
@@ -55,6 +56,7 @@ export interface ProjectPoint {
     description?: string;
     status: Status;
     geom: GeoGeometry;
+    bbox?: GeoGeometry;
     imageUrl?: string;
     characteristics?: Record<string, any>;
 }
@@ -69,6 +71,7 @@ export interface ProjectMultiline {
     description?: string;
     status: Status;
     geom: GeoGeometry;
+    bbox?: GeoGeometry;
     lengthM?: number;
     imageUrl?: string;
     characteristics?: Record<string, any>;
@@ -84,6 +87,7 @@ export interface ProjectPolygon {
     description?: string;
     status: Status;
     geom: GeoGeometry;
+    bbox?: GeoGeometry;
     areaM2?: number;
     imageUrl?: string;
     characteristics?: Record<string, any>;

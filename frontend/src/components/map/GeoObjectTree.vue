@@ -97,7 +97,7 @@ const getIcon = (type: string) => {
 
 const selectObject = (obj: any) => {
   store.commit('geodata/SET_SELECTED_FOLDER_ID', obj.folderId);
-  store.dispatch('geodata/selectFeature', { id: obj.id, shouldZoom: false });
+  store.dispatch('geodata/selectFeature', { id: obj.id, source: 'list' });
 };
 
 const selectRoot = () => {

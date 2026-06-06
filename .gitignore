@@ -39,4 +39,6 @@ build/
 /minio_data/
 .gemini
 
+/error_logs/
+
 *.node/

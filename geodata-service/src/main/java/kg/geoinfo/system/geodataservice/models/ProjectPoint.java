@@ -7,6 +7,7 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.MultiPoint;
+import org.locationtech.jts.geom.Polygon;
 
 import java.util.Map;
 import java.util.UUID;
@@ -48,6 +49,9 @@ public class ProjectPoint extends AuditableCustom<String> {
 
     @Column(columnDefinition = "geometry(MultiPointZ,4326)", nullable = false)
     private MultiPoint geom;
+
+    @Column(columnDefinition = "geometry(Polygon,4326)")
+    private Polygon bbox;
 
     @Column(name = "image_url", length = 1000)
     private String imageUrl;

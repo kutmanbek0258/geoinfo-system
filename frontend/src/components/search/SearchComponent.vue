@@ -53,7 +53,7 @@ const onSearchInput = () => {
 const onResultClick = (result: SearchResult) => {
   console.log('Clicked on:', result.id);
   // Dispatch an action to select the feature in the geodata store
-  store.dispatch('geodata/selectFeature', result.id);
+  store.dispatch('geodata/selectFeature', { id: result.id, source: 'list' });
   // Clear search results after selection
   searchQuery.value = '';
   store.commit('search/CLEAR_RESULTS');

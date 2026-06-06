@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.locationtech.jts.geom.Polygon;
 
 import java.util.Map;
 import java.util.UUID;
@@ -18,6 +19,7 @@ public class ProjectMultilineSummaryDto {
     private String name;
     private String description;
     private Status status;
+    private Polygon bbox;
     private Double lengthM;
     private String imageUrl;
     private Map<String, Object> characteristics;

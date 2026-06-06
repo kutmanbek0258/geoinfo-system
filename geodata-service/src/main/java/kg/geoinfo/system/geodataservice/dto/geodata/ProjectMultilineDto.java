@@ -5,6 +5,7 @@ import kg.geoinfo.system.geodataservice.models.enums.Status;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.Polygon;
 
 import java.util.Map;
 import java.util.UUID;
@@ -21,6 +22,7 @@ public class ProjectMultilineDto {
     private Status status;
 
     private MultiLineString geom;
+    private Polygon bbox;
 
     private Double lengthM;
     private String imageUrl;

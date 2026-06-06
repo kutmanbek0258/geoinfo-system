@@ -1,6 +1,10 @@
 databaseChangeLog:
   #  Objects
   - include:
+      file: object/objects.sql
+      relativeToChangelogFile: true
+      contextFilter: dev
+  - include:
       file: object/geodata_service_Hibernate-2025_10_09_10_40_20-dump.sql
       relativeToChangelogFile: true
       contextFilter: prod

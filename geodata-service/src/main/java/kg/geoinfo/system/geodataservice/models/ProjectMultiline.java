@@ -10,6 +10,7 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.Polygon;
 
 import java.util.Map;
 import java.util.UUID;
@@ -50,6 +51,9 @@ public class ProjectMultiline extends AuditableCustom<String> {
 
     @Column(columnDefinition = "geometry(MultiLineStringZ,4326)", nullable = false)
     private MultiLineString geom;
+
+    @Column(columnDefinition = "geometry(Polygon,4326)")
+    private Polygon bbox;
 
     @Column(name = "length_m")
     private Double lengthM;
