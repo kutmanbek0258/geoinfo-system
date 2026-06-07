@@ -435,32 +435,18 @@ onMounted(() => {
   });
   viewer.value = v;
   v.scene.globe.depthTestAgainstTerrain = true;
+
+  // Temporarily disabled for debugging:
+  /*
   v.screenSpaceEventHandler.setInputAction(async (click: any) => {
-    const picked = v.scene.pick(click.position);
-    if (Cesium.defined(picked) && picked.id && picked.id.id) {
-      let id = picked.id.id;
-      if (id.endsWith('-outline')) id = id.replace('-outline', '');
-      const match = id.match(/(.*)-[0-9]+$/);
-      selectFeature({ id: match ? match[1] : id, source: 'map' });
-      return;
-    }
-    const ray = v.camera.getPickRay(click.position);
-    if (ray) {
-      try {
-        const feats = await (v.imageryLayers as any).pickImageryLayerFeatures(ray, v.scene);
-        if (feats && feats.length > 0) {
-          const fid = feats[0].data?.id || feats[0].properties?.id || feats[0].id;
-          if (fid) { selectFeature({ id: fid, source: 'map' }); return; }
-        }
-      } catch (e) { console.error("Selection error:", e); }
-    }
-    selectFeature(null);
+    // ... (Event handlers disabled)
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
   if (props.projectId) {
     initMvtLayers(props.projectId);
     setTimeout(() => { if (!initialZoomDone.value) { zoomToExtent(); store.commit('geodata/SET_INITIAL_ZOOM_DONE', true); } }, 1000);
   }
+  */
 });
 
 onUnmounted(() => { if (viewer.value) { viewer.value.destroy(); viewer.value = null; } });

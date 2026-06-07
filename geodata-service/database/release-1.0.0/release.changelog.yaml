@@ -1,37 +1,6 @@
 databaseChangeLog:
   #  Objects
   - include:
-      file: object/objects.sql
+      file: object/init_schema.sql
       relativeToChangelogFile: true
       contextFilter: dev
-  - include:
-      file: object/geodata_service_Hibernate-2025_10_09_10_40_20-dump.sql
-      relativeToChangelogFile: true
-      contextFilter: prod
-  - include:
-      file: object/add_project_access_table.sql
-      relativeToChangelogFile: true
-  - include:
-      file: object/add_image_url_to_geo_objects.sql
-      relativeToChangelogFile: true
-  - include:
-      file: object/add_characteristics_to_project_point.sql
-      relativeToChangelogFile: true
-  - include:
-      file: object/update_geom_to_3d.sql
-      relativeToChangelogFile: true
-  - include:
-      file: object/convert_to_multi_geometry.sql
-      relativeToChangelogFile: true
-  - include:
-      file: object/add_characteristics_to_all_geo_objects.sql
-      relativeToChangelogFile: true
-  - include:
-      file: object/add_folders_table.sql
-      relativeToChangelogFile: true
-  - include:
-      file: object/create_mvt_views.sql
-      relativeToChangelogFile: true
-  - include:
-      file: object/create_mvt_functions.sql
-      relativeToChangelogFile: true
