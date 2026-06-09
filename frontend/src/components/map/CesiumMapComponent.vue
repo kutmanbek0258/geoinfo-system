@@ -154,7 +154,7 @@ const {
 // --- 2. Cesium Engine State ---
 const cesiumContainer = ref<HTMLElement | null>(null);
 const cesiumParent = ref<HTMLElement | null>(null);
-const viewer = ref<Cesium.Viewer | null>(null);
+const viewer = shallowRef<Cesium.Viewer | null>(null);
 const swipeActive = ref(false);
 const bufferDistance = ref(100);
 
@@ -390,7 +390,7 @@ watch(drawMode, (newMode) => {
                   return drawPoints.value.length < 2 ? [] : drawPoints.value;
                 }, false) as any,
                 width: 3,
-                material: new Cesium.ColorMaterialProperty(Cesium.Color.YELLOW),
+                material: Cesium.Color.YELLOW,
                 clampToGround: true
               }
             });
@@ -400,14 +400,14 @@ watch(drawMode, (newMode) => {
                 hierarchy: new Cesium.CallbackProperty(() => {
                   return new Cesium.PolygonHierarchy(drawPoints.value.length < 3 ? [] : drawPoints.value);
                 }, false) as any,
-                material: new Cesium.ColorMaterialProperty(Cesium.Color.YELLOW.withAlpha(0.5))
+                material: Cesium.Color.YELLOW.withAlpha(0.5)
               },
               polyline: {
                 positions: new Cesium.CallbackProperty(() => {
                   return drawPoints.value.length < 2 ? [] : [...drawPoints.value, drawPoints.value[0]];
                 }, false) as any,
                 width: 2,
-                material: new Cesium.ColorMaterialProperty(Cesium.Color.YELLOW),
+                material: Cesium.Color.YELLOW,
                 clampToGround: true
               }
             });
@@ -430,23 +430,44 @@ onMounted(() => {
   if (!cesiumContainer.value) return;
   const v = new Cesium.Viewer(cesiumContainer.value, {
     terrainProvider: new Cesium.EllipsoidTerrainProvider(),
-    baseLayer: new Cesium.ImageryLayer(new Cesium.OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' })),
+    baseLayer: new Cesium.ImageryLayer(new Cesium.UrlTemplateImageryProvider({
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      subdomains: ['a', 'b', 'c'],
+      minimumLevel: 0,
+      maximumLevel: 19,
+      credit: '© OpenStreetMap contributors'
+    })),
     animation: false, timeline: false, baseLayerPicker: false, navigationHelpButton: false, homeButton: true, geocoder: false, sceneModePicker: true, selectionIndicator: false, infoBox: false,
   });
   viewer.value = v;
   v.scene.globe.depthTestAgainstTerrain = true;
 
-  // Temporarily disabled for debugging:
-  /*
   v.screenSpaceEventHandler.setInputAction(async (click: any) => {
-    // ... (Event handlers disabled)
+    const picked = v.scene.pick(click.position);
+    if (Cesium.defined(picked) && picked.id && picked.id.id) {
+      let id = picked.id.id;
+      if (id.endsWith('-outline')) id = id.replace('-outline', '');
+      const match = id.match(/(.*)-[0-9]+$/);
+      selectFeature({ id: match ? match[1] : id, source: 'map' });
+      return;
+    }
+    const ray = v.camera.getPickRay(click.position);
+    if (ray) {
+      try {
+        const feats = await (v.imageryLayers as any).pickImageryLayerFeatures(ray, v.scene);      
+        if (feats && feats.length > 0) {
+          const fid = feats[0].data?.id || feats[0].properties?.id || feats[0].id;
+          if (fid) { selectFeature({ id: fid, source: 'map' }); return; }
+        }
+      } catch (e) { console.error("Selection error:", e); }
+    }
+    selectFeature(null);
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
   if (props.projectId) {
     initMvtLayers(props.projectId);
     setTimeout(() => { if (!initialZoomDone.value) { zoomToExtent(); store.commit('geodata/SET_INITIAL_ZOOM_DONE', true); } }, 1000);
   }
-  */
 });
 
 onUnmounted(() => { if (viewer.value) { viewer.value.destroy(); viewer.value = null; } });
