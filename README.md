@@ -16,6 +16,8 @@
     - Автоматический расчет вегетационных индексов (NDVI, EVI, NDWI и др.).
     - Использование RGB-пресетов (Natural Color, False Color, Agriculture и др.).
     - Генерация Cloud Optimized GeoTIFF (COG) для быстрой отрисовки.
+- **Печать карт и генерация отчетов:** Асинхронное формирование высококачественных PDF-отчетов (форматы А4-А0, портретная/альбомная ориентация) на базе библиотеки **GeoTools** и WMS/GeoJSON слоев.
+- **Трансляции с IP-камер:** Интеграция с IP-камерами, динамическое преобразование RTSP-потоков в HLS по запросу с авторизацией доступа.
 - **Ролевая модель доступа (RBAC):** Разграничение прав пользователей (Администратор, Редактор, Просмотрщик).
 
 ## Интеграция с QGIS (Настольный клиент) — *В процессе разработки*
@@ -81,11 +83,11 @@
 ## Технологический стек
 
 - **Frontend:** Vue.js 3, Vite, TypeScript, Vuetify 3, OpenLayers, Vuex
-- **Backend:** Java 17, Spring Boot 3, Spring Cloud
+- **Backend:** Java 17, Spring Boot 3, Spring Cloud, GeoTools, openhtmltopdf
 - **Базы данных:** PostgreSQL, PostGIS, Elasticsearch, Redis
 - **Гео-сервисы:** GeoServer (WMS/WMTS), pg_tileserv (MVT)
 - **Хранилище файлов:** MinIO
-- **Инфраструктура:** Docker, Docker Compose, Nginx, nginx-proxy, Kafka, OnlyOffice
+- **Инфраструктура:** Docker, Docker Compose, Nginx, nginx-proxy, Kafka, OnlyOffice, MediaMTX
 
 ## Быстрый старт (режим разработки)
 
@@ -126,7 +128,9 @@
 - **[<code>terrain-worker/</code>](./terrain-worker/README.md):** Python-воркер для генерации 3D-рельефа.
 - **[<code>geoabstract-worker/</code>](./geoabstract-worker/README.md):** Python-воркер для генерации COG, расчета индексов (NDVI, NDWI и др.).
 - **[<code>geodata-service/</code>](./geodata-service/README.md):** Сервис управления векторными геоданными.
+- **[<code>geoprint-service/</code>](./geoprint-service/README.md):** Сервис асинхронной генерации PDF-отчетов карт на базе GeoTools и openhtmltopdf.
 - **[<code>search-service/</code>](./search-service/README.md):** Сервис поиска.
+- **[<code>stream-service/</code>](./stream-service/README.md):** Сервис трансляции видеопотоков с IP-камер (RTSP в HLS) через MediaMTX.
 - **[<code>nginx-proxy/</code>](./nginx-proxy/README.md):** Обратный прокси и кэширующий слой (MVT кэширование).
 - **`docs/`:** Техническая и архитектурная документация.
 
