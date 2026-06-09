@@ -63,12 +63,42 @@ export function useCesiumShotFrame(
     }
   };
 
+  const SHOT_FRAME_MAX_HEIGHT = 6000; // Approx Zoom Level 16 above ground
+
+  const getTerrainHeight = (v: Cesium.Viewer) => {
+    const carto = v.camera.positionCartographic;
+    // Returns height above ellipsoid at the camera's ground position
+    return v.scene.globe.getHeight(carto) || 0;
+  };
+
   const fetchParts = debounce(async () => {
     const v = viewer.value;
     if (!isGeometryEditMode.value || !isZoomHighEnough.value || !selectedFeatureId.value || !selectedFeature.value || !v) return;
 
-    const rect = v.camera.computeViewRectangle();
-    if (!rect) return;
+    // Calculate precise BBox for the inner "Shot Frame" (matching 15px-20px CSS margin)
+    const margin = 20;
+    const canvas = v.canvas;
+    const pick1 = v.scene.pickPosition(new Cesium.Cartesian2(margin, margin));
+    const pick2 = v.scene.pickPosition(new Cesium.Cartesian2(canvas.clientWidth - margin, canvas.clientHeight - margin));
+    
+    let west, south, east, north;
+
+    if (pick1 && pick2) {
+      const c1 = Cesium.Cartographic.fromCartesian(pick1);
+      const c2 = Cesium.Cartographic.fromCartesian(pick2);
+      west = Cesium.Math.toDegrees(Math.min(c1.longitude, c2.longitude));
+      east = Cesium.Math.toDegrees(Math.max(c1.longitude, c2.longitude));
+      south = Cesium.Math.toDegrees(Math.min(c1.latitude, c2.latitude));
+      north = Cesium.Math.toDegrees(Math.max(c1.latitude, c2.latitude));
+    } else {
+      // Fallback to full view rectangle if picking fails
+      const rect = v.camera.computeViewRectangle();
+      if (!rect) return;
+      west = Cesium.Math.toDegrees(rect.west);
+      south = Cesium.Math.toDegrees(rect.south);
+      east = Cesium.Math.toDegrees(rect.east);
+      north = Cesium.Math.toDegrees(rect.north);
+    }
 
     const typeMap: Record<string, 'points' | 'multilines' | 'polygons'> = {
       'Point': 'points',
@@ -82,8 +112,7 @@ export function useCesiumShotFrame(
     try {
       const response = await GeodataService.getGeometryParts(
         apiType, selectedFeatureId.value,
-        Cesium.Math.toDegrees(rect.west), Cesium.Math.toDegrees(rect.south),
-        Cesium.Math.toDegrees(rect.east), Cesium.Math.toDegrees(rect.north)
+        west, south, east, north
       );
       
       response.data.forEach((part: any) => {
@@ -111,7 +140,15 @@ export function useCesiumShotFrame(
   const handleCameraMoveForShotFrame = () => {
     const v = viewer.value;
     if (!isGeometryEditMode.value || !v) return;
-    isZoomHighEnough.value = v.camera.positionCartographic.height < 5000;
+
+    const terrainHeight = getTerrainHeight(v);
+    const heightAboveGround = v.camera.positionCartographic.height - terrainHeight;
+    
+    isZoomHighEnough.value = heightAboveGround < SHOT_FRAME_MAX_HEIGHT;
+    
+    // Update zoom limit dynamically based on terrain
+    v.scene.screenSpaceCameraController.maximumZoomDistance = SHOT_FRAME_MAX_HEIGHT + terrainHeight;
+
     if (isZoomHighEnough.value) fetchParts();
   };
 
@@ -119,11 +156,17 @@ export function useCesiumShotFrame(
     const v = viewer.value;
     if (!v || !selectedFeature.value) return;
 
-    isZoomHighEnough.value = v.camera.positionCartographic.height < 5000;
+    const terrainHeight = getTerrainHeight(v);
+    const heightAboveGround = v.camera.positionCartographic.height - terrainHeight;
+    isZoomHighEnough.value = heightAboveGround < SHOT_FRAME_MAX_HEIGHT;
+    
     if (!isZoomHighEnough.value) {
-      alert(`Please zoom in closer to edit this complex object in 3D.`);
+      alert(`Please zoom in closer to edit this complex object in 3D (approx. 6000m above ground).`);
       return;
     }
+
+    // Initial zoom limit
+    v.scene.screenSpaceCameraController.maximumZoomDistance = SHOT_FRAME_MAX_HEIGHT + terrainHeight;
 
     isGeometryEditMode.value = true;
     editPoints.value = [];
@@ -166,6 +209,9 @@ export function useCesiumShotFrame(
   const exitEditMode = (refreshMvt: () => void) => {
     const v = viewer.value;
     if (!v) return;
+
+    // Reset zoom limit
+    v.scene.screenSpaceCameraController.maximumZoomDistance = 100000000;
 
     if (editHandler) {
       editHandler.destroy();

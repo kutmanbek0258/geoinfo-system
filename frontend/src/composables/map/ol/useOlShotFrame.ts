@@ -102,6 +102,9 @@ export function useOlShotFrame(
       return;
     }
 
+    // Lock zoom to min level 16
+    m.getView().setMinZoom(SHOT_FRAME_MIN_ZOOM);
+
     isGeometryEditMode.value = true;
     modifiedSubIds.value.clear();
     tempSource.clear();
@@ -127,6 +130,9 @@ export function useOlShotFrame(
   const exitGeometryEditMode = () => {
     const m = map.value;
     if (m) {
+      // Reset zoom constraint
+      m.getView().setMinZoom(0);
+
       if (modifyInteraction) {
         m.removeInteraction(modifyInteraction);
         modifyInteraction = null;
