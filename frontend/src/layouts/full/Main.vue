@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, shallowRef } from 'vue';
+import { ref, shallowRef, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import sidebarItems from './vertical-sidebar/sidebarItem';
 import NavGroup from './vertical-sidebar/NavGroup/index.vue';
 import NavItem from './vertical-sidebar/NavItem/index.vue';
@@ -10,15 +11,30 @@ import { Menu2Icon, BellRingingIcon } from 'vue-tabler-icons';
 // dropdown imports
 import NotificationDD from './vertical-header/NotificationDD.vue';
 import ProfileDD from './vertical-header/ProfileDD.vue';
+
+const route = useRoute();
 const sidebarMenu = shallowRef(sidebarItems);
 const sDrawer = ref(true);
+const rail = ref(false);
+
+watch(() => route.name, (newName) => {
+    if (newName === 'ProjectMapView') {
+        rail.value = true;
+    } else {
+        rail.value = false;
+    }
+}, { immediate: true });
+
+function toggleSidebar() {
+    rail.value = !rail.value;
+}
 </script>
 
 <template>
     <!------Sidebar-------->
-    <v-navigation-drawer left elevation="0"  app class="leftSidebar"  v-model="sDrawer">
+    <v-navigation-drawer left elevation="0"  app class="leftSidebar"  v-model="sDrawer" :rail="rail" expand-on-hover>
         <!---Logo part -->
-        <div class="pa-5">
+        <div class="pa-5" :class="rail ? 'px-2' : 'pa-5'">
             <Logo />
         </div>
         <!-- ---------------------------------------------- -->
@@ -26,7 +42,7 @@ const sDrawer = ref(true);
         <!-- ---------------------------------------------- -->
         <div>
         <perfect-scrollbar class="scrollnavbar">
-            <v-list class="pa-6">
+            <v-list class="pa-6" :class="rail ? 'px-2' : 'pa-6'">
                 <!---Menu Loop -->
                 <template v-for="(item, i) in sidebarMenu">
                     <!---Item Sub Header -->
@@ -48,7 +64,7 @@ const sDrawer = ref(true);
     <v-app-bar elevation="0" height="70">
         <div class="d-flex align-center justify-space-between w-100">
             <div class="d-flex align-center">
-                <v-btn class="hidden-lg-and-up ms-md-3 ms-sm-5 ms-3 text-muted" @click="sDrawer = !sDrawer" icon variant="flat"
+                <v-btn class="ms-md-3 ms-sm-5 ms-3 text-muted" @click="toggleSidebar" icon variant="flat"
                     size="small">
                     <Menu2Icon size="20" stroke-width="1.5" />
                 </v-btn>
