@@ -102,4 +102,10 @@ public class GeometryUtils {
         }
         throw new IllegalArgumentException("Expected Point or MultiPoint, but got " + (geom != null ? geom.getGeometryType() : "null"));
     }
+
+    public static String toWkt3D(Geometry geom) {
+        if (geom == null) return null;
+        org.locationtech.jts.io.WKTWriter writer = new org.locationtech.jts.io.WKTWriter(3);
+        return writer.write(geom);
+    }
 }

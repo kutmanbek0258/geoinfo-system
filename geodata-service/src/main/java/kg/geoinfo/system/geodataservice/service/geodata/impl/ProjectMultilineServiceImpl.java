@@ -164,7 +164,7 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
         updateGeometryPartsDto.getParts().forEach(part -> {
             try {
                 Geometry geom = objectMapper.readValue(part.getGeojson(), Geometry.class);
-                projectMultilineRepository.updatePart(id, part.getSubId(), geom.toText());
+                projectMultilineRepository.updatePart(id, part.getSubId(), GeometryUtils.toWkt3D(geom));
             } catch (JsonProcessingException e) {
                 log.error("Error parsing GeoJSON part for multiline {}: {}", id, e.getMessage());
                 throw new RuntimeException("Invalid GeoJSON part", e);

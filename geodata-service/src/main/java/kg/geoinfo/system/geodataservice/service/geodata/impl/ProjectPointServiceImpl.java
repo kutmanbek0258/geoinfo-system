@@ -166,7 +166,7 @@ public class ProjectPointServiceImpl implements ProjectPointService {
         updateGeometryPartsDto.getParts().forEach(part -> {
             try {
                 Geometry geom = objectMapper.readValue(part.getGeojson(), Geometry.class);
-                projectPointRepository.updatePart(id, part.getSubId(), geom.toText());
+                projectPointRepository.updatePart(id, part.getSubId(), GeometryUtils.toWkt3D(geom));
             } catch (JsonProcessingException e) {
                 log.error("Error parsing GeoJSON part for point {}: {}", id, e.getMessage());
                 throw new RuntimeException("Invalid GeoJSON part", e);

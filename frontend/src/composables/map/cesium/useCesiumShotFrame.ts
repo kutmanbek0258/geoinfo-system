@@ -241,9 +241,31 @@ export function useCesiumShotFrame(
 
     if (modifiedSubIds.value.size > 0) {
       const results: {subId: number, geojson: string}[] = [];
+      
+      // Determine if the original geometry has heights
+      const origGeom = typeof selectedFeature.value.geom === 'string' ? JSON.parse(selectedFeature.value.geom) : selectedFeature.value.geom;
+      let is3D = false;
+      if (origGeom) {
+        if (origGeom.type === 'Point') {
+          is3D = origGeom.coordinates.length >= 3 && origGeom.coordinates[2] !== 0;
+        } else if (origGeom.type === 'LineString' || origGeom.type === 'MultiLineString') {
+          const firstLine = origGeom.type === 'LineString' ? origGeom.coordinates : origGeom.coordinates[0];
+          is3D = firstLine && firstLine[0] && firstLine[0].length >= 3 && firstLine[0][2] !== 0;
+        } else if (origGeom.type === 'Polygon' || origGeom.type === 'MultiPolygon') {
+          const firstRing = origGeom.type === 'Polygon' ? origGeom.coordinates[0] : origGeom.coordinates[0][0];
+          is3D = firstRing && firstRing[0] && firstRing[0].length >= 3 && firstRing[0][2] !== 0;
+        }
+      }
+
       for (const group of editPoints.value) {
         if (modifiedSubIds.value.has(group.subId)) {
-          const coords = await sampleHeights(group.points);
+          let coords = await sampleHeights(group.points);
+          
+          // If original geometry was 2D, force Z to 0 to maintain clamp-to-ground behavior
+          if (!is3D) {
+            coords = coords.map(c => [c[0], c[1], 0]);
+          }
+
           let geojson = '';
           if (selectedFeature.value.type === 'Point') {
             geojson = JSON.stringify({ type: 'Point', coordinates: coords[0] });
@@ -252,6 +274,7 @@ export function useCesiumShotFrame(
           } else {
             geojson = JSON.stringify({ type: 'Polygon', coordinates: [[...coords, coords[0]]] });
           }
+          
           results.push({ subId: group.subId, geojson });
         }
       }
