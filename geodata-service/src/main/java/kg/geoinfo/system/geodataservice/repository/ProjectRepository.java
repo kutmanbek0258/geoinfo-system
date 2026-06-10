@@ -18,12 +18,12 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     @Query("SELECT p FROM Project p LEFT JOIN p.accesses pa WHERE p.createdBy = :email OR pa.id.userEmail = :email")
     Page<Project> findAllExtended(@Param("email") String email, Pageable pageable);
 
-    @Query(value = "SELECT ST_SetSRID(ST_Envelope(ST_Collect(geom)), 4326) FROM (" +
+    @Query(value = "SELECT ST_AsBinary(ST_SetSRID(ST_Envelope(ST_Collect(geom)), 4326)) FROM (" +
             "  SELECT geom FROM geodata.project_points WHERE project_id = :projectId " +
             "  UNION ALL " +
             "  SELECT geom FROM geodata.project_multilines WHERE project_id = :projectId " +
             "  UNION ALL " +
             "  SELECT geom FROM geodata.project_polygons WHERE project_id = :projectId " +
             ") as all_geoms", nativeQuery = true)
-    Polygon calculateProjectBBox(@Param("projectId") UUID projectId);
+    byte[] calculateProjectBBox(@Param("projectId") UUID projectId);
 }

@@ -305,12 +305,16 @@ const newObjectCameraDetails = ref({ // Для хранения специфич
   password: '',
 });
 
-// --- Данные из Vuex ---
-const imageryLayers = computed<ImageryLayer[]>(() => store.state.geodata.imageryLayers?.content || []);
-const terrainLayers = computed<TerrainLayer[]>(() => store.state.geodata.terrainLayers?.content || []);
-const points = computed<ProjectPoint[]>(() => store.state.geodata.points);
-const multilines = computed<ProjectMultiline[]>(() => store.state.geodata.multilines);
-const polygons = computed<ProjectPolygon[]>(() => store.state.geodata.polygons);
+// --- 1. Shared Logic ---
+const {
+  imageryLayers, terrainLayers, currentProject, points, multilines, polygons, hiddenFeatureIds,
+  selectedFeatureId, selectedFeature,
+  autoExtentEnabled, isGeometryEditMode, drawMode, measureMode, isBufferMode
+} = useMapCommonState(props.projectId);
+
+const initialZoomDone = computed(() => store.state.geodata.initialZoomDone);
+
+const selectFeature = (payload: any) => store.dispatch('geodata/selectFeature', payload);
 
 const handleMapClick = (event: any) => {
   if (isGeometryEditMode.value) return; // Do not process clicks in edit mode
@@ -424,6 +428,7 @@ watch(() => props.projectId, (newProjectId) => {
     }
     clearWmsLayers(); // Очищаем старые WMS слои
     store.commit('geodata/SET_SELECTED_PROJECT_ID', newProjectId);
+    store.dispatch('geodata/fetchProject', newProjectId);
     store.dispatch('geodata/fetchVectorDataForProject', newProjectId);
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 }); // Загружаем слои
     store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 }); // Загружаем террейн
@@ -431,7 +436,13 @@ watch(() => props.projectId, (newProjectId) => {
 }, { immediate: true });
 
 // Наблюдаем за обновлением данных в store и перерисовываем карту
-watch([points, multilines, polygons], updateVectorSource)
+watch([points, multilines, polygons, currentProject], () => {
+  updateVectorSource();
+  if (!initialZoomDone.value && currentProject.value?.bbox) {
+    zoomToExtent();
+    store.commit('geodata/SET_INITIAL_ZOOM_DONE', true);
+  }
+});
 
 // Наблюдаем за выбором фичи и приближаемся к ней
 watch(selectedFeatureId, (newId) => {
@@ -653,6 +664,17 @@ const exitGeometryEditMode = () => {
 
 const zoomToExtent = () => {
   if (!map) return;
+
+  // Try to use project bbox from selected project
+  if (currentProject.value?.bbox) {
+    const features = geoJsonFormat.readFeatures(currentProject.value.bbox, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
+    if (features.length > 0) {
+      const extent = features[0].getGeometry()!.getExtent();
+      map.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
+      return;
+    }
+  }
+
   const features = vectorSource.getFeatures();
   if (features.length === 0) return;
 

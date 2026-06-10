@@ -13,6 +13,7 @@ import kg.geoinfo.system.geodataservice.repository.ProjectRepository;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.io.WKBReader;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -63,7 +64,14 @@ public class ProjectService {
             throw new AccessDeniedException("You don't have access to this project");
         }
         ProjectDto dto = projectMapper.toDto(project);
-        dto.setBbox(projectRepository.calculateProjectBBox(id));
+        byte[] bboxWkb = projectRepository.calculateProjectBBox(id);
+        if (bboxWkb != null) {
+            try {
+                dto.setBbox(new WKBReader().read(bboxWkb));
+            } catch (Exception e) {
+                log.error("Failed to parse project BBox for project: {}", id, e);
+            }
+        }
         return dto;
     }
 

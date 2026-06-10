@@ -6,6 +6,7 @@ import type { ActionContext } from "vuex";
 
 interface GeodataState {
     projects: Page<Project> | null;
+    currentProject: Project | null;
     folders: GeoFolder[];
     imageryLayers: Page<ImageryLayer> | null;
     terrainLayers: Page<TerrainLayer> | null;
@@ -25,6 +26,7 @@ interface GeodataState {
 
 const state: GeodataState = {
     projects: null,
+    currentProject: null,
     folders: [],
     imageryLayers: null,
     terrainLayers: null,
@@ -45,6 +47,9 @@ const state: GeodataState = {
 const mutations = {
     SET_PROJECTS(state: GeodataState, projects: Page<Project> | null) {
         state.projects = projects;
+    },
+    SET_CURRENT_PROJECT(state: GeodataState, project: Project | null) {
+        state.currentProject = project;
     },
     SET_FOLDERS(state: GeodataState, folders: GeoFolder[]) {
         state.folders = folders;
@@ -174,6 +179,18 @@ const actions = {
             commit('SET_PROJECTS', response.data);
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch projects.');
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+    async fetchProject({ commit }: ActionContext<GeodataState, any>, projectId: string) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            const response = await geodataService.getProjectById(projectId);
+            commit('SET_CURRENT_PROJECT', response.data);
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to fetch project details.');
         } finally {
             commit('SET_LOADING', false);
         }

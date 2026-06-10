@@ -137,7 +137,7 @@ const projectIdRef = computed(() => props.projectId);
 
 // --- 1. Shared Logic ---
 const {
-  imageryLayers, terrainLayers, points, multilines, polygons, hiddenFeatureIds,
+  imageryLayers, terrainLayers, currentProject, points, multilines, polygons, hiddenFeatureIds,
   selectedFeatureId, selectedFeature, selectFeature,
   autoExtentEnabled, isGeometryEditMode, drawMode, measureMode, isBufferMode
 } = useMapCommonState(props.projectId);
@@ -328,30 +328,14 @@ const zoomToExtent = () => {
   if (!v) return;
 
   // Try to use project bbox from selected project
-  const selectedProject = store.state.geodata.projects?.content.find((p: any) => p.id === props.projectId);
-  if (selectedProject?.bbox && selectedProject.bbox.type === 'Polygon') {
-    const coords = (selectedProject.bbox.coordinates as number[][][])[0];
+  if (currentProject.value?.bbox && currentProject.value.bbox.type === 'Polygon') {
+    const coords = (currentProject.value.bbox.coordinates as number[][][])[0];
     const lons = coords.map((c: any) => c[0]);
     const lats = coords.map((c: any) => c[1]);
     const rect = Cesium.Rectangle.fromDegrees(Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats));
     v.camera.flyTo({ destination: rect, duration: 2.0 });
     return;
   }
-
-  const allGeoms = [...points.value.map(p => p.geom), ...multilines.value.map(l => l.geom), ...polygons.value.map(p => p.geom)]
-    .map(g => { if (!g) return null; try { return typeof g === 'string' ? JSON.parse(g) : g; } catch(e) { return null; } })
-    .filter(g => g && g.type && g.coordinates);
-  if (allGeoms.length > 0) {
-    try {
-      const coll = turf.featureCollection(allGeoms.map(g => turf.feature(g)));
-      const bbox = turf.bbox(coll);
-      const rect = Cesium.Rectangle.fromDegrees(bbox[0], bbox[1], bbox[2], bbox[3]);
-      const margin = Math.max(rect.width, rect.height, 0.01) * 0.3;
-      v.camera.flyTo({ destination: new Cesium.Rectangle(rect.west-margin, rect.south-margin, rect.east+margin, rect.north+margin), duration: 2.0 });
-      return;
-    } catch (e) { console.warn("Turf bbox failed", e); }
-  }
-  if (v.entities.values.length > 0) v.zoomTo(v.entities);
 };
 
 const drawPoints = ref<Cesium.Cartesian3[]>([]);
@@ -477,14 +461,15 @@ watch(() => props.projectId, (newId) => {
     clearImageryLayers();
     store.commit('geodata/SET_SELECTED_PROJECT_ID', newId);
     initMvtLayers(newId);
+    store.dispatch('geodata/fetchProject', newId);
     store.dispatch('geodata/fetchVectorSummaryForProject', newId);
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });
   }
 }, { immediate: true });
 
-watch([points, multilines, polygons], (newData) => {
-  if ((newData[0].length || newData[1].length || newData[2].length) && viewer.value && !initialZoomDone.value) {
+watch([points, multilines, polygons, currentProject], (newData) => {
+  if ((newData[0].length || newData[1].length || newData[2].length || currentProject.value?.bbox) && viewer.value && !initialZoomDone.value) {
     setTimeout(() => { 
       zoomToExtent(); 
       store.commit('geodata/SET_INITIAL_ZOOM_DONE', true);

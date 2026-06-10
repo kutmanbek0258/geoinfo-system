@@ -142,7 +142,7 @@ const projectIdRef = computed(() => props.projectId);
 
 // --- 1. Shared Logic ---
 const {
-  imageryLayers, points, multilines, polygons, hiddenFeatureIds,
+  imageryLayers, points, multilines, polygons, currentProject, hiddenFeatureIds,
   selectedFeatureId, selectedFeature, selectFeature,
   autoExtentEnabled, isGeometryEditMode, drawMode, measureMode, isBufferMode
 } = useMapCommonState(props.projectId);
@@ -261,51 +261,15 @@ watch(drawMode, (newMode) => {
 const zoomToExtent = () => {
   if (!map.value) return;
 
-  // Try to use project bbox from selected project
-  const selectedProject = store.state.geodata.projects?.content.find((p: any) => p.id === props.projectId);
-  if (selectedProject?.bbox) {
-    const features = geoJsonFormat.readFeatures(selectedProject.bbox, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
+  if (currentProject.value?.bbox && currentProject.value.bbox.type === 'Polygon'){
+    const features = geoJsonFormat.readFeatures(currentProject.value.bbox, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
     if (features.length > 0) {
       const extent = features[0].getGeometry()!.getExtent();
       map.value.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
       return;
     }
   }
-
-  const allObjects = [...points.value, ...multilines.value, ...polygons.value];
-  if (allObjects.length === 0) return;
-  const extent = createEmpty();
-  allObjects.forEach(obj => {
-    if (obj.geom) {
-      const readFeatures = geoJsonFormat.readFeatures(obj.geom, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
-      (Array.isArray(readFeatures) ? readFeatures : [readFeatures]).forEach(f => {
-        if (f) extend(extent, f.getGeometry()!.getExtent());
-      });
-    }
-  });
-  if (extent && extent.every(isFinite) && (extent[0] !== Infinity)) {
-    map.value.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000 });
-  }
 };
-
-watch(selectedFeatureId, (newId) => {
-  if (!newId || !map.value || lastSelectionSource.value !== 'list') return;
-
-  if (selectedFeature.value?.bbox) {
-    const features = geoJsonFormat.readFeatures(selectedFeature.value.bbox, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
-    if (features.length > 0) {
-      const extent = features[0].getGeometry()!.getExtent();
-      map.value.getView().fit(extent, { padding: [100, 100, 100, 100], duration: 2000, maxZoom: 18 });
-      return;
-    }
-  }
-
-  if (selectedFeature.value && selectedFeature.value.geom) {
-    const parsed = geoJsonFormat.readFeatures(selectedFeature.value.geom, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
-    const first = Array.isArray(parsed) ? parsed[0] : parsed;
-    if (first) map.value.getView().fit(first.getGeometry()!.getExtent(), { padding: [100, 100, 100, 100], duration: 2000, maxZoom: 18 });
-  }
-});
 
 onMounted(() => {
   if (!mapContainer.value || !mapParent.value) return;
@@ -336,6 +300,7 @@ watch(() => props.projectId, (newId) => {
     if (map.value) map.value.set('projectId', newId);
     clearWmsLayers();
     store.commit('geodata/SET_SELECTED_PROJECT_ID', newId);
+    store.dispatch('geodata/fetchProject', newId);
     store.dispatch('geodata/fetchVectorSummaryForProject', newId);
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });

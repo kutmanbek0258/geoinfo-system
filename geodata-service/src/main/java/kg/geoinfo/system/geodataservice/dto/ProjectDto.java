@@ -1,7 +1,7 @@
 package kg.geoinfo.system.geodataservice.dto;
 
 import kg.geoinfo.system.geodataservice.references.annotation.CheckDate;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.Geometry;
 
 import java.util.Date;
 import java.util.UUID;
@@ -14,17 +14,25 @@ public class ProjectDto extends AbstractDto<UUID> {
     private Date startDate;
     @CheckDate
     private Date endDate;
-    private Polygon bbox;
+    private Geometry bbox;
 
     public ProjectDto() {
     }
 
-    public void setId(java.util.UUID id) {
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
         this.id = id;
     }
 
-    public java.util.UUID getId() {
-        return this.id;
+    public void setBbox(Geometry bbox) {
+        this.bbox = bbox;
+    }
+
+    public Geometry getBbox() {
+        return this.bbox;
     }
 
     public void setName(String name) {
@@ -57,13 +65,5 @@ public class ProjectDto extends AbstractDto<UUID> {
 
     public java.util.Date getEndDate() {
         return this.endDate;
-    }
-
-    public void setBbox(Polygon bbox) {
-        this.bbox = bbox;
-    }
-
-    public Polygon getBbox() {
-        return this.bbox;
     }
 }
