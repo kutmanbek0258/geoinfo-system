@@ -27,6 +27,11 @@ const MainRoutes = {
             component: () => import('@/views/components/TerrainLayers.vue')
         },
         {
+            name: 'Process Jobs',
+            path: '/ui/jobs',
+            component: () => import('@/views/components/ProcessJobs.vue')
+        },
+        {
             name: 'Icons',
             path: '/icons',
             component: () => import('@/views/pages/Icons.vue')

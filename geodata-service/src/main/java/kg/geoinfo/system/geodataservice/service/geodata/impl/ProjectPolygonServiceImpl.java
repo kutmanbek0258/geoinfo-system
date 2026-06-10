@@ -163,7 +163,7 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
         updateGeometryPartsDto.getParts().forEach(part -> {
             try {
                 Geometry geom = objectMapper.readValue(part.getGeojson(), Geometry.class);
-                projectPolygonRepository.updatePart(id, part.getSubId(), geom.toText());
+                projectPolygonRepository.updatePart(id, part.getSubId(), GeometryUtils.toWkt3D(geom));
             } catch (JsonProcessingException e) {
                 log.error("Error parsing GeoJSON part for polygon {}: {}", id, e.getMessage());
                 throw new RuntimeException("Invalid GeoJSON part", e);

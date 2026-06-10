@@ -1,7 +1,9 @@
 <template>
-    <GeoAbstractionLayerManager/>
+  <v-container fluid>
+    <TerrainLayerManager />
+  </v-container>
 </template>
 
 <script setup>
-import GeoAbstractionLayerManager from "@/components/geo-abstraction/GeoAbstractionLayerManager.vue";
+import TerrainLayerManager from "@/components/terrain/TerrainLayerManager.vue";
 </script>

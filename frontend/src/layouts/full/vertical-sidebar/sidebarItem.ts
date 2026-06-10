@@ -1,7 +1,8 @@
 import {
     ApertureIcon,
-    CopyIcon,
-    LayoutDashboardIcon, LoginIcon, MoodHappyIcon, UserPlusIcon, UsersIcon
+    MapIcon,
+    MountainIcon,
+    LayoutDashboardIcon, LoginIcon, MoodHappyIcon, UserPlusIcon, ReportIcon, SettingsAutomationIcon
 } from 'vue-tabler-icons';
 
 export interface menu {
@@ -29,18 +30,23 @@ const sidebarItem: menu[] = [
     { header: 'utilities' },
     {
         title: 'Projects',
-        icon: UsersIcon,
+        icon: ReportIcon,
         to: '/ui/projects'
     },
     {
         title: 'Imagery layers',
-        icon: CopyIcon,
+        icon: MapIcon,
         to: '/ui/layers'
     },
     {
         title: 'Terrain layers',
-        icon: ApertureIcon,
+        icon: MountainIcon,
         to: '/ui/terrain'
+    },
+    {
+        title: 'Process Jobs',
+        icon: SettingsAutomationIcon,
+        to: '/ui/jobs'
     },
     // { header: 'auth' },
     // {
