@@ -236,11 +236,11 @@ const actions = {
     },
 
     // Imagery Layer Actions
-    async fetchImageryLayers({ commit }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
+    async fetchImageryLayers({ commit, state }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const response = await geoAbstractionService.getImageryLayers(page, size);
+            const response = await geoAbstractionService.getImageryLayers(page, size, state.selectedProjectId || undefined);
             commit('SET_IMAGERY_LAYERS', response.data);
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch imagery layers.');
@@ -248,8 +248,9 @@ const actions = {
             commit('SET_LOADING', false);
         }
     },
-    async createImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: Omit<ImageryLayer, 'id'>, page: number, size: number }) {
-        await geoAbstractionService.createImageryLayer(layerData);
+    async createImageryLayer({ dispatch, state }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: Omit<ImageryLayer, 'id'>, page: number, size: number }) {
+        const payload = { ...layerData, projectId: state.selectedProjectId || undefined };
+        await geoAbstractionService.createImageryLayer(payload as ImageryLayer);
         dispatch('fetchImageryLayers', { page, size });
     },
     async updateImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: ImageryLayer, page: number, size: number }) {
@@ -262,11 +263,11 @@ const actions = {
     },
 
     // Terrain Layer Actions
-    async fetchTerrainLayers({ commit }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
+    async fetchTerrainLayers({ commit, state }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const response = await geoAbstractionService.getLayers(page, size);
+            const response = await geoAbstractionService.getLayers(page, size, state.selectedProjectId || undefined);
             commit('SET_TERRAIN_LAYERS', response.data);
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch terrain layers.');
@@ -279,11 +280,11 @@ const actions = {
         dispatch('fetchTerrainLayers', { page, size });
     },
 
-    async fetchTerrainJobs({ commit }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
+    async fetchTerrainJobs({ commit, state }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const response = await geoAbstractionService.getJobs(page, size);
+            const response = await geoAbstractionService.getJobs(page, size, state.selectedProjectId || undefined);
             commit('SET_TERRAIN_JOBS', response.data);
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch terrain jobs.');

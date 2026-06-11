@@ -15,6 +15,14 @@
 
     <template #top-right>
       <div class="d-flex flex-column align-end">
+        <v-btn icon="mdi-terrain" color="white" class="mb-2" elevation="2" @click="showTerrainDialog = true" title="Загрузить рельеф">
+          <v-icon color="brown">mdi-terrain</v-icon>
+        </v-btn>
+
+        <v-btn icon="mdi-satellite-variant" color="white" class="mb-2" elevation="2" @click="showSatelliteDialog = true" title="Обработка спутниковых снимков">
+          <v-icon color="primary">mdi-satellite-variant</v-icon>
+        </v-btn>
+
         <MapLayersControl
           :layers="imageryLayers"
           v-model:visibleIds="visibleLayerIds"
@@ -97,6 +105,8 @@
         v-model:distance="bufferDistance"
       />
       <SwipeMapDialog v-model="swipeMapVisible" />
+      <TerrainUploadDialog v-model="showTerrainDialog" :project-id="projectId" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
+      <SatelliteImageryUploadDialog v-model="showSatelliteDialog" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
     </template>
   </MapBaseLayout>
 </template>
@@ -126,6 +136,8 @@ import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeoObjectTree from './GeoObjectTree.vue';
 import PrintDialog from '@/components/print/PrintDialog.vue';
+import TerrainUploadDialog from '@/components/geo-abstraction/TerrainUploadDialog.vue';
+import SatelliteImageryUploadDialog from '@/components/geo-abstraction/SatelliteImageryUploadDialog.vue';
 
 import { useMapCommonState } from '@/composables/map/shared/useMapCommonState';
 import { useMapMetadata } from '@/composables/map/shared/useMapMetadata';
@@ -162,6 +174,8 @@ const mapParent = ref<HTMLElement | null>(null);
 const map = shallowRef<Map | null>(null);
 const geoJsonFormat = new GeoJSON();
 const swipeMapVisible = ref(false);
+const showTerrainDialog = ref(false);
+const showSatelliteDialog = ref(false);
 const bufferDistance = ref(100);
 
 const initialZoomDone = computed(() => store.state.geodata.initialZoomDone);

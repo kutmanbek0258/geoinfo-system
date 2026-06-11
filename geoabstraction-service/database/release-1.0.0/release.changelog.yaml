@@ -24,3 +24,6 @@ databaseChangeLog:
   - include:
       file: object/update_geo_abstract_jobs_bbox.sql
       relativeToChangelogFile: true
+  - include:
+      file: object/add_project_id_to_layers_and_jobs.sql
+      relativeToChangelogFile: true

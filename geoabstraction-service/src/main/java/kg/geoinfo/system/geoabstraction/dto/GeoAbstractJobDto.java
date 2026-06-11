@@ -13,6 +13,7 @@ import java.util.UUID;
 @EqualsAndHashCode(callSuper = true)
 public class GeoAbstractJobDto extends AbstractDto {
     private UUID id;
+    private UUID projectId;
     private String name;
     private GeoAbstractJobStatus status;
     private String taskType;

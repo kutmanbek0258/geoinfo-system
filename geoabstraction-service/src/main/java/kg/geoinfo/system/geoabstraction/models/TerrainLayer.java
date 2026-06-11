@@ -22,6 +22,9 @@ public class TerrainLayer extends AuditableCustom<String> {
     @Column(name = "id", nullable = false)
     private UUID id;
 
+    @Column(name = "project_id")
+    private UUID projectId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_id")
     private GeoAbstractJob job;

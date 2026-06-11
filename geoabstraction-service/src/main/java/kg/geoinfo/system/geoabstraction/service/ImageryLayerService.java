@@ -95,14 +95,7 @@ public class ImageryLayerService {
     }
 
     public Page<ImageryLayerDto> findByCondition(ImageryLayerDto imageryLayerDto, Pageable pageable) {
-        // Simple implementation: if name is provided, filter by name. Otherwise return all.
-        // In a real app, this should use Specification or Querydsl.
-        Page<ImageryLayer> entityPage;
-        if (imageryLayerDto.getName() != null && !imageryLayerDto.getName().isEmpty()) {
-            entityPage = repository.findAllByNameContainingIgnoreCase(imageryLayerDto.getName(), pageable);
-        } else {
-            entityPage = repository.findAll(pageable);
-        }
+        Page<ImageryLayer> entityPage = repository.findByCondition(imageryLayerDto.getName(), imageryLayerDto.getProjectId(), pageable);
         List<ImageryLayer> entities = entityPage.getContent();
         return new PageImpl<>(imageryLayerMapper.toDto(entities), pageable, entityPage.getTotalElements());
     }

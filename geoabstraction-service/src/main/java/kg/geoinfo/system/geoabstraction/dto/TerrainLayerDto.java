@@ -10,6 +10,7 @@ import java.util.UUID;
 @EqualsAndHashCode(callSuper = true)
 public class TerrainLayerDto extends AbstractDto {
     private UUID id;
+    private UUID projectId;
     private UUID jobId;
     private String title;
     private String description;

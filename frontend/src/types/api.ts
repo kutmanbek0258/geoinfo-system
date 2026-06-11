@@ -26,6 +26,7 @@ export interface GeoFolder {
 
 export interface ImageryLayer {
     id: string; // UUID
+    projectId?: string;
     name: string;
     description?: string;
     workspace: string;
@@ -117,6 +118,7 @@ export interface SearchResult {
 
 export interface TerrainLayer {
     id: string;
+    projectId?: string;
     title: string;
     description?: string;
     terrainUrl: string;
@@ -126,6 +128,7 @@ export interface TerrainLayer {
 
 export interface TerrainJob {
     id: string;
+    projectId?: string;
     name: string;
     status: string;
     taskType?: string;

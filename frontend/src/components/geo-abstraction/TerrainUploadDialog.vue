@@ -110,7 +110,10 @@ const upload = async () => {
       name.value,
       objectKey,
       file.value.size,
-      'TERRAIN_MESH'
+      'TERRAIN_MESH',
+      undefined,
+      undefined,
+      props.projectId || undefined
     );
     
     internalValue.value = false;

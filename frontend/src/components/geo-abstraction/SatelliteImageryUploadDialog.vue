@@ -125,6 +125,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { useStore } from 'vuex';
 import geoAbstractionService from '@/services/geo-abstraction.service';
 
 const props = defineProps<{
@@ -132,6 +133,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits(['uploaded', 'update:modelValue']);
+
+const store = useStore();
 
 const internalValue = computed({
   get: () => props.modelValue,
@@ -308,7 +311,8 @@ const upload = async () => {
       file.value.size,
       taskType,
       satelliteType.value !== 'geotiff' ? selectedChannels.value : undefined,
-      indexType
+      indexType,
+      store.state.geodata.selectedProjectId || undefined
     );
     
     internalValue.value = false;

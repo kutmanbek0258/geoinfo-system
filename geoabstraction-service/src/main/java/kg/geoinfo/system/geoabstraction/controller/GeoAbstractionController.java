@@ -27,8 +27,9 @@ public class GeoAbstractionController {
     @PostMapping("/jobs")
     public ResponseEntity<GeoAbstractJobDto> createJob(
             @RequestParam("name") String name,
-            @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(geoAbstractionService.createJob(name, file));
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "projectId", required = false) UUID projectId) {
+        return ResponseEntity.ok(geoAbstractionService.createJob(name, file, projectId));
     }
 
     @PostMapping("/sentinel/upload")
@@ -36,8 +37,9 @@ public class GeoAbstractionController {
             @RequestParam("name") String name,
             @RequestParam("file") MultipartFile file,
             @RequestParam("channels") List<String> channels,
-            @RequestParam(value = "indexType", required = false) String indexType) {
-        return ResponseEntity.ok(geoAbstractionService.createSentinelJob(name, file, channels, indexType));
+            @RequestParam(value = "indexType", required = false) String indexType,
+            @RequestParam(value = "projectId", required = false) UUID projectId) {
+        return ResponseEntity.ok(geoAbstractionService.createSentinelJob(name, file, channels, indexType, projectId));
     }
 
     @PostMapping("/landsat/upload")
@@ -45,22 +47,25 @@ public class GeoAbstractionController {
             @RequestParam("name") String name,
             @RequestParam("file") MultipartFile file,
             @RequestParam("channels") List<String> channels,
-            @RequestParam(value = "indexType", required = false) String indexType) {
-        return ResponseEntity.ok(geoAbstractionService.createLandsatJob(name, file, channels, indexType));
+            @RequestParam(value = "indexType", required = false) String indexType,
+            @RequestParam(value = "projectId", required = false) UUID projectId) {
+        return ResponseEntity.ok(geoAbstractionService.createLandsatJob(name, file, channels, indexType, projectId));
     }
 
     @PostMapping("/imagery-layer/upload")
     public ResponseEntity<GeoAbstractJobDto> uploadRawGeoTiff(
             @RequestParam("name") String name,
-            @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(geoAbstractionService.createRawGeoTiffJob(name, file));
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "projectId", required = false) UUID projectId) {
+        return ResponseEntity.ok(geoAbstractionService.createRawGeoTiffJob(name, file, projectId));
     }
 
     @PostMapping("/terrain/upload")
     public ResponseEntity<GeoAbstractJobDto> uploadTerrain(
             @RequestParam("name") String name,
-            @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(geoAbstractionService.createTerrainJob(name, file));
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "projectId", required = false) UUID projectId) {
+        return ResponseEntity.ok(geoAbstractionService.createTerrainJob(name, file, projectId));
     }
 
     @GetMapping("/upload/presigned-url")
@@ -80,8 +85,9 @@ public class GeoAbstractionController {
             @RequestParam("fileSize") Long fileSize,
             @RequestParam("taskType") String taskType,
             @RequestParam(value = "channels", required = false) List<String> channels,
-            @RequestParam(value = "indexType", required = false) String indexType) {
-        return ResponseEntity.ok(geoAbstractionService.createJobConfirm(name, objectKey, fileSize, taskType, channels, indexType));
+            @RequestParam(value = "indexType", required = false) String indexType,
+            @RequestParam(value = "projectId", required = false) UUID projectId) {
+        return ResponseEntity.ok(geoAbstractionService.createJobConfirm(name, objectKey, fileSize, taskType, channels, indexType, projectId));
     }
 
     @GetMapping("/jobs/{id}")
@@ -90,13 +96,17 @@ public class GeoAbstractionController {
     }
 
     @GetMapping("/jobs")
-    public ResponseEntity<Page<GeoAbstractJobDto>> getAllJobs(@PageableDefault(sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable){
-        return ResponseEntity.ok(geoAbstractionService.getJobs(pageable));
+    public ResponseEntity<Page<GeoAbstractJobDto>> getAllJobs(
+            @RequestParam(value = "projectId", required = false) UUID projectId,
+            @PageableDefault(sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable){
+        return ResponseEntity.ok(geoAbstractionService.getJobs(pageable, projectId));
     }
 
     @GetMapping("/layers")
-    public ResponseEntity<Page<TerrainLayerDto>> getAllLayers(@PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable){
-        return ResponseEntity.ok(geoAbstractionService.getLayers(pageable));
+    public ResponseEntity<Page<TerrainLayerDto>> getAllLayers(
+            @RequestParam(value = "projectId", required = false) UUID projectId,
+            @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable){
+        return ResponseEntity.ok(geoAbstractionService.getLayers(pageable, projectId));
     }
 
     @GetMapping("/layers/{id}/presigned-url")

@@ -27,7 +27,7 @@ class GeoAbstractionService {
     });
   }
 
-  confirmJob(name: string, objectKey: string, fileSize: number, taskType: string, channels?: string[], indexType?: string) {
+  confirmJob(name: string, objectKey: string, fileSize: number, taskType: string, channels?: string[], indexType?: string, projectId?: string) {
     const params = new URLSearchParams();
     params.append("name", name);
     params.append("objectKey", objectKey);
@@ -40,6 +40,9 @@ class GeoAbstractionService {
     if (indexType) {
       params.append("indexType", indexType);
     }
+    if (projectId) {
+      params.append("projectId", projectId);
+    }
 
     return api.post(`${API_URL}/jobs/confirm`, params, {
       headers: {
@@ -49,11 +52,11 @@ class GeoAbstractionService {
   }
 
   // --- Jobs (Multipart methods - preserved for compatibility if needed) ---
-  createJob(projectId: string, name: string, file: File) {
+  createJob(name: string, file: File, projectId?: string) {
     const formData = new FormData();
-    formData.append("projectId", projectId);
     formData.append("name", name);
     formData.append("file", file);
+    if (projectId) formData.append("projectId", projectId);
 
     return api.post(`${API_URL}/jobs`, formData, {
       headers: {
@@ -62,7 +65,7 @@ class GeoAbstractionService {
     });
   }
 
-  createSentinelJob(name: string, file: File, channels: string[], indexType?: string) {
+  createSentinelJob(name: string, file: File, channels: string[], indexType?: string, projectId?: string) {
     const formData = new FormData();
     formData.append("name", name);
     formData.append("file", file);
@@ -70,6 +73,7 @@ class GeoAbstractionService {
     if (indexType) {
         formData.append("indexType", indexType);
     }
+    if (projectId) formData.append("projectId", projectId);
 
     return api.post(`${API_URL}/sentinel/upload`, formData, {
       headers: {
@@ -78,7 +82,7 @@ class GeoAbstractionService {
     });
   }
 
-  createLandsatJob(name: string, file: File, channels: string[], indexType?: string) {
+  createLandsatJob(name: string, file: File, channels: string[], indexType?: string, projectId?: string) {
     const formData = new FormData();
     formData.append("name", name);
     formData.append("file", file);
@@ -86,6 +90,7 @@ class GeoAbstractionService {
     if (indexType) {
         formData.append("indexType", indexType);
     }
+    if (projectId) formData.append("projectId", projectId);
 
     return api.post(`${API_URL}/landsat/upload`, formData, {
       headers: {
@@ -94,10 +99,11 @@ class GeoAbstractionService {
     });
   }
 
-  uploadRawGeoTiff(name: string, file: File) {
+  uploadRawGeoTiff(name: string, file: File, projectId?: string) {
     const formData = new FormData();
     formData.append("name", name);
     formData.append("file", file);
+    if (projectId) formData.append("projectId", projectId);
 
     return api.post(`${API_URL}/imagery-layer/upload`, formData, {
       headers: {
@@ -106,10 +112,11 @@ class GeoAbstractionService {
     });
   }
 
-  uploadTerrain(name: string, file: File) {
+  uploadTerrain(name: string, file: File, projectId?: string) {
     const formData = new FormData();
     formData.append("name", name);
     formData.append("file", file);
+    if (projectId) formData.append("projectId", projectId);
 
     return api.post(`${API_URL}/terrain/upload`, formData, {
       headers: {
@@ -122,16 +129,16 @@ class GeoAbstractionService {
     return api.get(`${API_URL}/jobs/${id}`);
   }
 
-  getJobs(page: number, size: number) {
+  getJobs(page: number, size: number, projectId?: string) {
     return api.get(`${API_URL}/jobs`, {
-      params: { page, size }
+      params: { page, size, projectId }
     });
   }
 
   // --- Layers ---
-  getLayers(page: number, size: number) {
+  getLayers(page: number, size: number, projectId?: string) {
     return api.get(`${API_URL}/layers`, {
-      params: { page, size }
+      params: { page, size, projectId }
     });
   }
 
@@ -140,8 +147,10 @@ class GeoAbstractionService {
   }
 
   // --- Imagery Layers ---
-  getImageryLayers(page = 0, size = 10) {
-    return api.get<Page<ImageryLayer>>(`${API_URL}/imagery-layer/page-query`, { params: { page, size } });
+  getImageryLayers(page = 0, size = 10, projectId?: string) {
+    return api.get<Page<ImageryLayer>>(`${API_URL}/imagery-layer/page-query`, { 
+      params: { page, size, projectId } 
+    });
   }
 
   getImageryLayerById(id: string) {

@@ -11,19 +11,19 @@ import java.util.List;
 import java.util.UUID;
 
 public interface GeoAbstractionService {
-    GeoAbstractJobDto createJob(String name, MultipartFile file);
-    GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType);
-    GeoAbstractJobDto createLandsatJob(String name, MultipartFile file, List<String> channels, String indexType);
-    GeoAbstractJobDto createRawGeoTiffJob(String name, MultipartFile file);
-    GeoAbstractJobDto createTerrainJob(String name, MultipartFile file);
+    GeoAbstractJobDto createJob(String name, MultipartFile file, UUID projectId);
+    GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType, UUID projectId);
+    GeoAbstractJobDto createLandsatJob(String name, MultipartFile file, List<String> channels, String indexType, UUID projectId);
+    GeoAbstractJobDto createRawGeoTiffJob(String name, MultipartFile file, UUID projectId);
+    GeoAbstractJobDto createTerrainJob(String name, MultipartFile file, UUID projectId);
     
     // Direct Upload support
     String generateUploadUrl(String filename);
-    GeoAbstractJobDto createJobConfirm(String name, String objectKey, Long fileSize, String taskType, List<String> channels, String indexType);
+    GeoAbstractJobDto createJobConfirm(String name, String objectKey, Long fileSize, String taskType, List<String> channels, String indexType, UUID projectId);
 
     GeoAbstractJobDto getJob(UUID jobId);
-    Page<GeoAbstractJobDto> getJobs(Pageable pageable);
-    Page<TerrainLayerDto> getLayers(Pageable pageable);
+    Page<GeoAbstractJobDto> getJobs(Pageable pageable, UUID projectId);
+    Page<TerrainLayerDto> getLayers(Pageable pageable, UUID projectId);
     void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType, MultiPolygon bbox);
     String generateTerrainPresignedUrl(UUID layerId);
     void deleteLayer(UUID id);

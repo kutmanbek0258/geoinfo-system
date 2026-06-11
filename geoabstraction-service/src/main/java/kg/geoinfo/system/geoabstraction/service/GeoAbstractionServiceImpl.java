@@ -51,8 +51,8 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
     @Override
     @Transactional
-    public GeoAbstractJobDto createJob(String name, MultipartFile file) {
-        log.info("Creating terrain job with name {}", name);
+    public GeoAbstractJobDto createJob(String name, MultipartFile file, UUID projectId) {
+        log.info("Creating terrain job with name {} for project {}", name, projectId);
 
         // 1. Save file to MinIO
         String objectKey = fileStoreService.save(file);
@@ -60,6 +60,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         // 2. Create job in DB
         GeoAbstractJob job = new GeoAbstractJob();
         job.setName(name);
+        job.setProjectId(projectId);
         job.setStatus(GeoAbstractJobStatus.QUEUED);
         job.setTaskType("TERRAIN_MESH");
         job.setSourceBucket(minioProperties.getBucket());
@@ -73,6 +74,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         // 3. Send event to Kafka
         GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
                 .jobId(job.getId())
+                .projectId(job.getProjectId())
                 .name(job.getName())
                 .eventType(GeoAbstractJobEvent.EventType.QUEUED)
                 .taskType(job.getTaskType())
@@ -88,29 +90,29 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     }
 
     @Override
-    public GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType) {
-        return this.createSatelliteJob(name, file, channels, indexType, "SENTINEL_COG");
+    public GeoAbstractJobDto createSentinelJob(String name, MultipartFile file, List<String> channels, String indexType, UUID projectId) {
+        return this.createSatelliteJob(name, file, channels, indexType, "SENTINEL_COG", projectId);
     }
 
     @Override
-    public GeoAbstractJobDto createLandsatJob(String name, MultipartFile file, List<String> channels, String indexType) {
-        return this.createSatelliteJob(name, file, channels, indexType, "LANDSAT_COG");
-    }
-
-    @Override
-    @Transactional
-    public GeoAbstractJobDto createRawGeoTiffJob(String name, MultipartFile file) {
-        return createSatelliteJob(name, file, null, null, "RAW_GEOTIFF_OPTIMIZE");
+    public GeoAbstractJobDto createLandsatJob(String name, MultipartFile file, List<String> channels, String indexType, UUID projectId) {
+        return this.createSatelliteJob(name, file, channels, indexType, "LANDSAT_COG", projectId);
     }
 
     @Override
     @Transactional
-    public GeoAbstractJobDto createTerrainJob(String name, MultipartFile file) {
-        return createJob(name, file);
+    public GeoAbstractJobDto createRawGeoTiffJob(String name, MultipartFile file, UUID projectId) {
+        return createSatelliteJob(name, file, null, null, "RAW_GEOTIFF_OPTIMIZE", projectId);
     }
 
-    private GeoAbstractJobDto createSatelliteJob(String name, MultipartFile file, List<String> channels, String indexType, String taskType) {
-        log.info("Creating {} job with name {}, channels {} and indexType {}", taskType, name, channels, indexType);
+    @Override
+    @Transactional
+    public GeoAbstractJobDto createTerrainJob(String name, MultipartFile file, UUID projectId) {
+        return createJob(name, file, projectId);
+    }
+
+    private GeoAbstractJobDto createSatelliteJob(String name, MultipartFile file, List<String> channels, String indexType, String taskType, UUID projectId) {
+        log.info("Creating {} job with name {}, channels {} and indexType {} for project {}", taskType, name, channels, indexType, projectId);
 
         // 1. Save file to MinIO
         String objectKey = fileStoreService.save(file);
@@ -118,6 +120,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         // 2. Create job in DB
         GeoAbstractJob job = new GeoAbstractJob();
         job.setName(name);
+        job.setProjectId(projectId);
         job.setStatus(GeoAbstractJobStatus.QUEUED);
         job.setTaskType(taskType);
 
@@ -141,6 +144,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         // 3. Send event to Kafka
         GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
                 .jobId(job.getId())
+                .projectId(job.getProjectId())
                 .name(job.getName())
                 .eventType(GeoAbstractJobEvent.EventType.QUEUED)
                 .taskType(job.getTaskType())
@@ -178,8 +182,8 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
     @Override
     @Transactional
-    public GeoAbstractJobDto createJobConfirm(String name, String objectKey, Long fileSize, String taskType, List<String> channels, String indexType) {
-        log.info("Confirming job creation for {} with objectKey {} and taskType {}", name, objectKey, taskType);
+    public GeoAbstractJobDto createJobConfirm(String name, String objectKey, Long fileSize, String taskType, List<String> channels, String indexType, UUID projectId) {
+        log.info("Confirming job creation for {} with objectKey {} and taskType {} for project {}", name, objectKey, taskType, projectId);
         
         // Validate object existence in MinIO
         if (!fileStoreService.exists(objectKey)) {
@@ -188,6 +192,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
         GeoAbstractJob job = new GeoAbstractJob();
         job.setName(name);
+        job.setProjectId(projectId);
         job.setStatus(GeoAbstractJobStatus.QUEUED);
         job.setTaskType(taskType);
         job.setSourceBucket(minioProperties.getBucket());
@@ -210,6 +215,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         // Send event to Kafka
         GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
                 .jobId(job.getId())
+                .projectId(job.getProjectId())
                 .name(job.getName())
                 .eventType(GeoAbstractJobEvent.EventType.QUEUED)
                 .taskType(job.getTaskType())
@@ -233,14 +239,14 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     }
 
     @Override
-    public Page<GeoAbstractJobDto> getJobs(Pageable pageable) {
-        return jobRepository.findAll(pageable)
+    public Page<GeoAbstractJobDto> getJobs(Pageable pageable, UUID projectId) {
+        return jobRepository.findByProjectId(projectId, pageable)
                 .map(geoAbstractMapper::toDto);
     }
 
     @Override
-    public Page<TerrainLayerDto> getLayers(Pageable pageable) {
-        return layerRepository.findAll(pageable)
+    public Page<TerrainLayerDto> getLayers(Pageable pageable, UUID projectId) {
+        return layerRepository.findByProjectId(projectId, pageable)
                 .map(terrainLayerMapper::toDto);
     }
 
@@ -289,6 +295,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
                 // Create TerrainLayer
                 TerrainLayer layer = new TerrainLayer();
                 layer.setJob(job);
+                layer.setProjectId(job.getProjectId());
                 layer.setTitle(job.getName());
                 layer.setTerrainUrl(terrainUrl);
                 layer.setCogObjectKey(cogObjectKey);
@@ -348,6 +355,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             // 3. Create ImageryLayer in DB via Service (to trigger Kafka event)
             kg.geoinfo.system.geoabstraction.models.ImageryLayer imageryLayer = new kg.geoinfo.system.geoabstraction.models.ImageryLayer();
             imageryLayer.setJobId(job.getId());
+            imageryLayer.setProjectId(job.getProjectId());
             imageryLayer.setName(job.getName());
             imageryLayer.setDescription("Automatically published layer from job " + job.getId());
             imageryLayer.setWorkspace(workspace);

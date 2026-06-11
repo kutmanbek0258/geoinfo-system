@@ -15,6 +15,7 @@ import java.util.UUID;
 @NoArgsConstructor
 public class ImageryLayerDto extends AbstractDto<UUID> {
     private UUID id;
+    private UUID projectId;
     private UUID jobId;
     private String name;
     private String description;
