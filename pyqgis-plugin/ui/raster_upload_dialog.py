@@ -22,6 +22,13 @@ class RasterUploadDialog(QDialog):
         self.layout.addWidget(QLabel("Upload a local GeoTIFF layer as an Imagery Layer (COG)."))
         self.layout.addSpacing(10)
 
+        # Project Selection
+        self.layout.addWidget(QLabel("Associate with Project (Optional):"))
+        self.project_combo = QComboBox()
+        self.project_combo.addItem("--- Global / No Project ---", None)
+        self.populate_projects()
+        self.layout.addWidget(self.project_combo)
+
         # Layer Selection
         self.layout.addWidget(QLabel("Select Raster Layer from Map:"))
         self.layer_combo = QComboBox()
@@ -62,6 +69,14 @@ class RasterUploadDialog(QDialog):
         btns.addWidget(self.cancel_btn)
         
         self.layout.addLayout(btns)
+
+    def populate_projects(self):
+        try:
+            projects = self.api.get_projects()
+            for p in projects:
+                self.project_combo.addItem(p.get('name', 'Unnamed Project'), p.get('id'))
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to fetch projects for upload dialog: {str(e)}", "GeoInfoSystem", Qgis.Warning)
 
     def populate_layers(self):
         layers = QgsProject.instance().mapLayers().values()
@@ -117,6 +132,8 @@ class RasterUploadDialog(QDialog):
 
         try:
             filename = os.path.basename(source_path)
+            project_id = self.project_combo.currentData()
+            
             upload_info = self.api.get_upload_url_info(filename)
             if not upload_info:
                 raise Exception("API Error: Could not obtain presigned upload URL.")
@@ -142,7 +159,7 @@ class RasterUploadDialog(QDialog):
 
             file_size = os.path.getsize(source_path)
             # Confirm to start RAW_GEOTIFF_OPTIMIZE task
-            confirm_res = self.api.confirm_raster_upload(name, object_key, file_size)
+            confirm_res = self.api.confirm_raster_upload(name, object_key, file_size, projectId=project_id)
             
             if confirm_res:
                 QMessageBox.information(self, "Success", 

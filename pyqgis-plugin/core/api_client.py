@@ -188,7 +188,7 @@ class GeoInfoAPIClient:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Upload failed: {error_details}", "GeoInfoSystem", Qgis.Critical)
             return False
 
-    def confirm_raster_upload(self, name, object_key, file_size, task_type="RAW_GEOTIFF_OPTIMIZE"):
+    def confirm_raster_upload(self, name, object_key, file_size, task_type="RAW_GEOTIFF_OPTIMIZE", projectId=None):
         """Confirms the upload to trigger backend processing."""
         url = f"{self.gateway_url}/geo-abstraction/jobs/confirm"
         params = {
@@ -197,6 +197,9 @@ class GeoInfoAPIClient:
             'fileSize': file_size,
             'taskType': task_type
         }
+        if projectId:
+            params['projectId'] = projectId
+            
         try:
             response = self._request('POST', url, params=params)
             return response.json()

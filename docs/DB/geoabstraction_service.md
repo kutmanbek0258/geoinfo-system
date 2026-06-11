@@ -20,6 +20,7 @@
 | date_captured | TIMESTAMP | Дата съемки |
 | crs | VARCHAR(32) | Система координат |
 | characteristics | JSONB | Доп. метаданные (индекс, каналы и др.) |
+| project_id | UUID | ID проекта (nullable). Если NULL — слой общий. |
 | cog_object_key | VARCHAR(512) | Ключ COG-файла в MinIO |
 | bbox | GEOMETRY(MultiPolygon, 4326) | Пространственные границы слоя |
 
@@ -30,6 +31,7 @@
 | Колонка | Тип данных | Описание |
 | :--- | :--- | :--- |
 | id | UUID | Primary Key |
+| project_id | UUID | ID проекта, в контексте которого запущена задача (nullable) |
 | name | VARCHAR(255) | Имя задачи |
 | status | VARCHAR(50) | Статус (QUEUED, PROCESSING, READY, FAILED) |
 | task_type | VARCHAR(50) | Тип задачи (TERRAIN_MESH, SENTINEL_COG и др.) |
@@ -50,6 +52,7 @@
 | :--- | :--- | :--- |
 | id | UUID | Primary Key |
 | job_id | UUID | Связь с задачей |
+| project_id | UUID | ID проекта (nullable). Если NULL — слой общий. |
 | title | VARCHAR(255) | Заголовок слоя |
 | terrain_url | VARCHAR(512) | URL для Cesium TerrainProvider |
 | status | VARCHAR(50) | Статус готовности |
