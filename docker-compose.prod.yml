@@ -116,6 +116,10 @@ services:
     networks:
       - prod-net
 
+  geoanalysis-worker:
+    networks:
+      - prod-net
+
   search-service:
     networks:
       - prod-net

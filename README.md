@@ -127,6 +127,7 @@
 - **[<code>geoabstraction-service/</code>](./geoabstraction-service/README.md):** Центральный сервис управления растровыми данными, рельефом и интеграцией с GeoServer.
 - **[<code>terrain-worker/</code>](./terrain-worker/README.md):** Python-воркер для генерации 3D-рельефа.
 - **[<code>geoabstract-worker/</code>](./geoabstract-worker/README.md):** Python-воркер для генерации COG, расчета индексов (NDVI, NDWI и др.).
+- **[<code>geoanalysis-worker/</code>](./geoanalysis-worker/README.md):** Python-воркер для тяжелого пространственного анализа (буферы, изолинии, зональная статистика). — *В стадии активной разработки*
 - **[<code>geodata-service/</code>](./geodata-service/README.md):** Сервис управления векторными геоданными.
 - **[<code>geoprint-service/</code>](./geoprint-service/README.md):** Сервис асинхронной генерации PDF-отчетов карт на базе GeoTools и openhtmltopdf.
 - **[<code>search-service/</code>](./search-service/README.md):** Сервис поиска.
