@@ -1,12 +1,12 @@
 import os
 from minio import Minio
 from urllib.parse import urlparse
-from .config import (
+from ..core.config import (
     MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_SECURE,
     logger
 )
 
-class S3Manager:
+class S3Client:
     def __init__(self):
         self.client = Minio(
             MINIO_ENDPOINT.replace("http://", "").replace("https://", ""),

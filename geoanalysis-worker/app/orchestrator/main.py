@@ -5,17 +5,18 @@ import time
 import json
 from datetime import datetime
 from kafka import KafkaConsumer, KafkaProducer
-from .config import (
+from osgeo import gdal
+from ..core.config import (
     KAFKA_BOOTSTRAP_SERVERS, KAFKA_TASKS_TOPIC, KAFKA_RESULTS_TOPIC, KAFKA_GROUP_ID,
-    WORKSPACE_DIR, TASK_TIMEOUT_SEC, logger
+    WORKSPACE_DIR, logger
 )
-from .s3_manager import S3Manager
-from .plugin_loader import PluginLoader
+from .s3_client import S3Client
+from .plugin_manager import PluginManager
 
 class Orchestrator:
     def __init__(self):
-        self.s3_manager = S3Manager()
-        self.plugin_loader = PluginLoader()
+        self.s3_client = S3Client()
+        self.plugin_manager = PluginManager()
         self.consumer = self._create_consumer()
         self.producer = self._create_producer()
 
@@ -36,7 +37,7 @@ class Orchestrator:
         )
 
     def start(self):
-        logger.info(f"Orchestrator started. Listening on {KAFKA_TASKS_TOPIC}")
+        logger.info(f"GeoAnalysis Orchestrator started. Listening on {KAFKA_TASKS_TOPIC}")
         for message in self.consumer:
             task = message.value
             task_id = task.get("taskId", str(uuid.uuid4()))
@@ -63,33 +64,38 @@ class Orchestrator:
         inputs = task.get("inputs", {})
         params = task.get("parameters", {})
         
-        plugin_cls = self.plugin_loader.get_plugin(plugin_name)
+        plugin_cls = self.plugin_manager.get_plugin(plugin_name)
         if not plugin_cls:
             raise ValueError(f"Plugin not found: {plugin_name}")
 
-        # Setup Workspace
+        # Setup Workspace (tmpfs)
         workspace = os.path.join(WORKSPACE_DIR, f"task_{task_id}")
         os.makedirs(workspace, exist_ok=True)
         
+        # Глобальная настройка песочницы GDAL для данной задачи
+        gdal.SetConfigOption('CPL_TMPDIR', workspace)
+        gdal.SetConfigOption('GDAL_CACHEMAX', '512') # Лимит кэша на задачу
+        
         try:
-            # Pull inputs
+            # Pull inputs from S3
             local_inputs = {}
             for key, s3_url in inputs.items():
                 file_name = os.path.basename(s3_url)
                 local_path = os.path.join(workspace, file_name)
-                local_inputs[key] = self.s3_manager.download_file(s3_url, local_path)
+                local_inputs[key] = self.s3_client.download_file(s3_url, local_path)
 
             # Execute plugin
             plugin = plugin_cls()
             logger.info(f"Executing plugin {plugin_name} for task {task_id}")
             local_outputs = plugin.run(local_inputs, params, workspace)
 
-            # Push outputs
+            # Push outputs to S3 (Staging bucket)
             s3_outputs = {}
             for key, local_path in local_outputs.items():
                 file_name = os.path.basename(local_path)
-                s3_key = f"processed/{plugin_name}/{task_id}/{file_name}"
-                s3_outputs[key] = self.s3_manager.upload_file(local_path, "gis-processed-data", s3_key)
+                # Согласно стратегии: temp/{taskId}/...
+                s3_key = f"temp/{task_id}/{file_name}"
+                s3_outputs[key] = self.s3_client.upload_file(local_path, "gis-data", s3_key)
 
             execution_time = (time.time() - start_time) * 1000
             
@@ -104,7 +110,17 @@ class Orchestrator:
             }
 
         finally:
-            # Cleanup
+            # Cleanup tmpfs workspace
             if os.path.exists(workspace):
                 logger.info(f"Cleaning up workspace for task {task_id}")
                 shutil.rmtree(workspace, ignore_errors=True)
+
+def main():
+    try:
+        orchestrator = Orchestrator()
+        orchestrator.start()
+    except Exception as e:
+        logger.exception(f"Critical error in main: {e}")
+
+if __name__ == "__main__":
+    main()
