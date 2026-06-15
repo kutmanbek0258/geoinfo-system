@@ -1,5 +1,4 @@
 import os
-import geopandas as gpd
 from osgeo import gdal, ogr, osr
 from typing import Dict, Any
 from ..core.base_plugin import GeoWorkerPlugin
@@ -22,7 +21,15 @@ class TerrainContoursPlugin(GeoWorkerPlugin):
         output_format = params.get("format", "GeoJSON")
 
         output_filename = f"contours_{int(interval)}m"
-        extension = "geojson" if output_format.lower() == "geojson" else "shp"
+
+        # Расширенная поддержка форматов из системного реестра (GeoJSON / GeoPackage)
+        if output_format.lower() == "geojson":
+            extension = "geojson"
+        elif output_format.lower() == "gpkg":
+            extension = "gpkg"
+        else:
+            extension = "shp"
+
         output_path = os.path.join(workspace, f"{output_filename}.{extension}")
 
         logger.info(f"Generating contours for {dem_path} with interval {interval}, 3D={use_3d}")
@@ -33,48 +40,58 @@ class TerrainContoursPlugin(GeoWorkerPlugin):
 
     def _generate_contours(self, src_file, dst_file, interval, base, elev_field, use_3d, output_format):
         gdal.UseExceptions()
-        
+
         src_ds = gdal.Open(src_file)
         if src_ds is None:
             raise RuntimeError(f"Could not open {src_file}")
-            
+
         src_band = src_ds.GetRasterBand(1)
-        
-        # Создаем временный слой в памяти для промежуточного хранения изолиний
-        mem_drv = ogr.GetDriverByName("Memory")
-        mem_ds = mem_drv.CreateDataSource("mem_ds")
-        
+
+        # Выбираем корректный OGR драйвер на основе формата конфигурации
+        if output_format.lower() == "geojson":
+            driver_name = "GeoJSON"
+        elif output_format.lower() == "gpkg":
+            driver_name = "GPKG"
+        else:
+            driver_name = "ESRI Shapefile"
+
+        drv = ogr.GetDriverByName(driver_name)
+        if drv is None:
+            raise RuntimeError(f"OGR Driver '{driver_name}' not found.")
+
+        # Очищаем старый файл, если воркер перезапустил задачу в той же папке
+        if os.path.exists(dst_file):
+            drv.DeleteDataSource(dst_file)
+
+        # Создаем выходной файл напрямую в tmpfs воркспейса
+        out_ds = drv.CreateDataSource(dst_file)
+        if out_ds is None:
+            raise RuntimeError(f"Could not create output dataset: {dst_file}")
+
         srs = osr.SpatialReference()
         srs.ImportFromWkt(src_ds.GetProjectionRef())
 
         geom_type = ogr.wkbLineString25D if use_3d else ogr.wkbLineString
-        mem_layer = mem_ds.CreateLayer("temp_contours", srs=srs, geom_type=geom_type)
-        
+
+        # Имя слоя внутри векторного контейнера
+        layer_name = os.path.splitext(os.path.basename(dst_file))[0]
+        out_layer = out_ds.CreateLayer(layer_name, srs=srs, geom_type=geom_type)
+
+        # Создаем атрибутивное поле для высоты
         field_defn = ogr.FieldDefn(elev_field, ogr.OFTReal)
-        mem_layer.CreateField(field_defn)
-        elev_field_idx = mem_layer.GetLayerDefn().GetFieldIndex(elev_field)
+        out_layer.CreateField(field_defn)
+        elev_field_idx = out_layer.GetLayerDefn().GetFieldIndex(elev_field)
 
-        # Генерируем изолинии во временный слой в памяти
-        gdal.ContourGenerate(src_band, interval, base, [], 0, 0, mem_layer, -1, elev_field_idx)
-        
-        # Используем GeoPandas для быстрого экспорта через pyogrio
-        # Это значительно быстрее ручного перебора фич OGR
-        logger.info(f"Contouring finished. Converting memory layer to GeoDataFrame and saving via pyogrio.")
-        
-        # Читаем из памяти в GeoDataFrame
-        gdf = gpd.read_file(mem_ds, layer="temp_contours")
-        
-        if not gdf.empty:
-            # Сохраняем результат, используя движок pyogrio
-            engine = "pyogrio"
-            driver = "GeoJSON" if output_format.lower() == "geojson" else "ESRI Shapefile"
-            
-            gdf.to_file(dst_file, driver=driver, engine=engine)
-            logger.info(f"Contours saved successfully to {dst_file} using {engine}")
-        else:
-            logger.warning("No contours were generated (empty output). Creating empty file.")
-            gdf.to_file(dst_file, driver="GeoJSON")
+        logger.info("Executing native GDAL ContourGenerate directly to output path...")
 
-        mem_ds = None # Cleanup memory datasource
+        # Запускаем нативную генерацию прямо в целевой файл
+        gdal.ContourGenerate(src_band, interval, base, [], 0, 0, out_layer, -1, elev_field_idx)
+
+        # КРИТИЧЕСКИ ВАЖНО: Уничтожаем ссылки и сбрасываем кэш на диск,
+        # чтобы закрыть дескрипторы файлов перед отправкой артефактов в S3
+        out_layer = None
+        out_ds.FlushCache()
+        out_ds = None
         src_ds = None
 
+        logger.info(f"Contours saved successfully to {dst_file}")

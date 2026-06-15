@@ -1,0 +1,199 @@
+package kg.geoinfo.system.geoabstraction.service;
+
+import kg.geoinfo.system.common.GeoAnalysisResultEvent;
+import kg.geoinfo.system.common.GeoAnalysisTaskEvent;
+import kg.geoinfo.system.common.GeoVectorExportRequest;
+import kg.geoinfo.system.common.GeoVectorExportResponse;
+import kg.geoinfo.system.geoabstraction.config.MinioProperties;
+import kg.geoinfo.system.geoabstraction.dto.AnalysisTaskDto;
+import kg.geoinfo.system.geoabstraction.dto.CreateAnalysisTaskDto;
+import kg.geoinfo.system.geoabstraction.models.AnalysisTask;
+import kg.geoinfo.system.geoabstraction.models.ImageryLayer;
+import kg.geoinfo.system.geoabstraction.models.TerrainLayer;
+import kg.geoinfo.system.geoabstraction.models.enums.AnalysisTaskStatus;
+import kg.geoinfo.system.geoabstraction.repository.AnalysisTaskRepository;
+import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
+import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
+import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
+import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class AnalysisTaskServiceImpl implements AnalysisTaskService {
+
+    private final AnalysisTaskRepository repository;
+    private final ImageryLayerRepository imageryLayerRepository;
+    private final TerrainLayerRepository terrainLayerRepository;
+    private final FileStoreService fileStoreService;
+    private final KafkaProducerService kafkaProducerService;
+    private final MinioProperties minioProperties;
+
+    @Override
+    @Transactional
+    public AnalysisTaskDto createTask(CreateAnalysisTaskDto dto) {
+        UUID taskId = UUID.randomUUID();
+        
+        AnalysisTask task = new AnalysisTask();
+        task.setId(taskId);
+        task.setPluginName(dto.getPluginName());
+        task.setStatus(AnalysisTaskStatus.PENDING);
+        task.setInputParams(dto.getParameters());
+        task.setProjectId(dto.getProjectId());
+        
+        Map<String, String> s3Inputs = new HashMap<>();
+        boolean requiresVectorExport = false;
+
+        for (Map.Entry<String, CreateAnalysisTaskDto.AnalysisDataSource> entry : dto.getInputs().entrySet()) {
+            String key = entry.getKey();
+            CreateAnalysisTaskDto.AnalysisDataSource source = entry.getValue();
+            
+            switch (source.getType()) {
+                case IMAGERY_LAYER:
+                    ImageryLayer layer = imageryLayerRepository.findById(source.getId())
+                            .orElseThrow(() -> new RuntimeException("Imagery layer not found: " + source.getId()));
+                    s3Inputs.put(key, "s3://" + minioProperties.getBucket() + "/" + layer.getCogObjectKey());
+                    break;
+
+                case TERRAIN_LAYER:
+                    TerrainLayer terrainLayer = terrainLayerRepository.findById(source.getId())
+                            .orElseThrow(() -> new RuntimeException("Terrain layer not found: " + source.getId()));
+                    if (terrainLayer.getCogObjectKey() == null) {
+                        throw new RuntimeException("Terrain layer " + source.getId() + " does not have a COG file. Run COG generation first.");
+                    }
+                    s3Inputs.put(key, "s3://" + minioProperties.getBucket() + "/" + terrainLayer.getCogObjectKey());
+                    break;
+                    
+                case VECTOR_LAYER:
+                    String exportPath = "temp/analysis/" + taskId + "/" + key + ".geojson";
+                    s3Inputs.put(key, "export-pending:" + exportPath);
+                    
+                    kafkaProducerService.sendVectorExportRequest(GeoVectorExportRequest.builder()
+                            .taskId(taskId)
+                            .exportKey(key)
+                            .layerId(source.getId())
+                            .projectId(task.getProjectId())
+                            .s3Destination(exportPath)
+                            .build());
+                    requiresVectorExport = true;
+                    break;
+                    
+                case PREVIOUS_TASK_RESULT:
+                    AnalysisTask prevTask = repository.findById(source.getTaskId())
+                            .orElseThrow(() -> new RuntimeException("Previous task not found: " + source.getTaskId()));
+                    String prevOutput = prevTask.getS3OutputPaths().get(source.getOutputKey());
+                    if (prevOutput == null) {
+                        throw new RuntimeException("Output key " + source.getOutputKey() + " not found in task " + source.getTaskId());
+                    }
+                    s3Inputs.put(key, prevOutput);
+                    break;
+                    
+                case DIRECT_S3:
+                    s3Inputs.put(key, source.getS3Url());
+                    break;
+            }
+        }
+        
+        task.setS3InputPaths(s3Inputs);
+        repository.save(task);
+
+        if (!requiresVectorExport) {
+            triggerWorker(task);
+        }
+
+        return mapToDto(task);
+    }
+
+    @Override
+    @Transactional
+    public void handleExportResponse(GeoVectorExportResponse response) {
+        repository.findById(response.getTaskId()).ifPresent(task -> {
+            if (task.getStatus() != AnalysisTaskStatus.PENDING) {
+                log.warn("Received export response for task {} in status {}", task.getId(), task.getStatus());
+                return;
+            }
+
+            if (!response.isSuccess()) {
+                task.setStatus(AnalysisTaskStatus.FAILED);
+                task.setErrorMessage("Vector export failed: " + response.getError());
+                repository.save(task);
+                return;
+            }
+
+            Map<String, String> s3Inputs = new HashMap<>(task.getS3InputPaths());
+            s3Inputs.put(response.getExportKey(), response.getS3Url());
+            task.setS3InputPaths(s3Inputs);
+            repository.save(task);
+
+            boolean allReady = task.getS3InputPaths().values().stream()
+                    .noneMatch(path -> path != null && path.startsWith("export-pending:"));
+            
+            if (allReady) {
+                triggerWorker(task);
+            }
+        });
+    }
+
+    private void triggerWorker(AnalysisTask task) {
+        task.setStatus(AnalysisTaskStatus.PROCESSING);
+        repository.save(task);
+        
+        kafkaProducerService.sendGeoAnalysisTaskEvent(GeoAnalysisTaskEvent.builder()
+                .taskId(task.getId())
+                .pluginName(task.getPluginName())
+                .inputs(task.getS3InputPaths())
+                .parameters(task.getInputParams())
+                .build());
+    }
+
+    @Override
+    @Transactional
+    public void handleAnalysisResult(GeoAnalysisResultEvent event) {
+        repository.findById(event.getTaskId()).ifPresentOrElse(task -> {
+            task.setStatus(AnalysisTaskStatus.valueOf(event.getStatus()));
+            task.setS3OutputPaths(event.getOutputs());
+            task.setErrorMessage(event.getError());
+            
+            repository.save(task);
+            log.info("Updated analysis task {} status to {}", task.getId(), task.getStatus());
+        }, () -> log.error("Analysis task not found: {}", event.getTaskId()));
+    }
+
+    @Override
+    public AnalysisTaskDto getTask(UUID taskId) {
+        return repository.findById(taskId)
+                .map(this::mapToDto)
+                .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
+    }
+
+    @Override
+    public List<AnalysisTaskDto> getTasksByProjectId(UUID projectId) {
+        return repository.findAllByProjectId(projectId).stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    private AnalysisTaskDto mapToDto(AnalysisTask entity) {
+        AnalysisTaskDto dto = new AnalysisTaskDto();
+        dto.setId(entity.getId());
+        dto.setPluginName(entity.getPluginName());
+        dto.setStatus(entity.getStatus());
+        dto.setInputParams(entity.getInputParams());
+        dto.setS3InputPaths(entity.getS3InputPaths());
+        dto.setS3OutputPaths(entity.getS3OutputPaths());
+        dto.setErrorMessage(entity.getErrorMessage());
+        dto.setUserId(entity.getUserId());
+        dto.setProjectId(entity.getProjectId());
+        return dto;
+    }
+}

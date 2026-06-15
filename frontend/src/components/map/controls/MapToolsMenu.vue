@@ -91,5 +91,5 @@ defineProps<{
   isBufferMode: boolean;
 }>();
 
-const emit = defineEmits(['stop', 'import', 'update:measureMode', 'update:isBufferMode', 'clear', 'swipe']);
+const emit = defineEmits(['stop', 'import', 'update:measureMode', 'update:isBufferMode', 'clear', 'swipe', 'analysis']);
 </script>

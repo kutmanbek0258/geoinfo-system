@@ -37,6 +37,30 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic analysisTasksTopic() {
+        return TopicBuilder.name("geoabstraction.tasks")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic analysisResultsTopic() {
+        return TopicBuilder.name("geoabstraction.results")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic vectorExportTopic() {
+        return TopicBuilder.name("geo.vector.export")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
     public ProducerFactory<String, Object> producerFactory() {
         Map<String, Object> config = new HashMap<>();
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);

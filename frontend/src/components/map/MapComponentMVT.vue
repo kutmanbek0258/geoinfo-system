@@ -11,6 +11,35 @@
       <v-card class="mt-2 feature-list-card" max-height="60vh">
         <GeoObjectTree />
       </v-card>
+
+      <!-- Staging analysis layers panel -->
+      <v-card v-if="stagingLayers.length > 0" class="mt-2 pa-2" min-width="220" elevation="3">
+        <div class="text-caption font-weight-bold mb-1 d-flex align-center">
+          <v-icon size="14" color="deep-orange" class="mr-1">mdi-layers-outline</v-icon>
+          Слои анализа
+        </div>
+        <v-list density="compact" class="pa-0">
+          <v-list-item
+            v-for="sl in stagingLayers"
+            :key="sl.taskId"
+            class="px-0"
+            min-height="32"
+          >
+            <template #prepend>
+              <v-icon size="14" color="deep-orange" class="mr-1">mdi-vector-polygon</v-icon>
+            </template>
+            <v-list-item-title class="text-caption">{{ sl.label }}</v-list-item-title>
+            <template #append>
+              <v-btn
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                @click="store.dispatch('geodata/removeStagingLayer', sl.taskId)"
+              />
+            </template>
+          </v-list-item>
+        </v-list>
+      </v-card>
     </template>
 
     <template #top-right>
@@ -62,15 +91,18 @@
         <v-btn icon="mdi-close" color="error" @click="cancelGeometryEdit" title="Cancel Changes"></v-btn>
       </div>
 
-      <MapToolsMenu
-        :active-tool="!!(measureMode || isBufferMode || drawMode)"
-        v-model:measureMode="measureMode"
-        v-model:isBufferMode="isBufferMode"
-        @stop="stopActiveTool"
-        @import="openImportFileDialog"
-        @clear="clearMeasurements"
-        @swipe="swipeMapVisible = true"
-      />
+      <div class="d-flex flex-column align-end">
+        <MapAnalysisMenu class="mb-2" @select-tool="onSelectAnalysisTool" />
+        <MapToolsMenu
+          :active-tool="!!(measureMode || isBufferMode || drawMode)"
+          v-model:measureMode="measureMode"
+          v-model:isBufferMode="isBufferMode"
+          @stop="stopActiveTool"
+          @import="openImportFileDialog"
+          @clear="clearMeasurements"
+          @swipe="swipeMapVisible = true"
+        />
+      </div>
 
       <v-btn-toggle v-model="drawMode" variant="elevated" density="comfortable" class="mt-2">
         <v-btn value="Point" title="Add Point"><v-icon>mdi-map-marker</v-icon></v-btn>
@@ -88,6 +120,9 @@
     </template>
 
     <template #overlays>
+      <ClipRasterDialog v-model:show="showClipRasterDialog" @task-created="onAnalysisTaskCreated" />
+      <TerrainContoursDialog v-model:show="showContoursDialog" @task-created="onAnalysisTaskCreated" />
+      <ZonalStatisticsDialog v-model:show="showZonalStatsDialog" @task-created="onAnalysisTaskCreated" />
       <MapImportDialog v-model="importFileDialog" v-model:file="importFile" :loading="isImporting" @execute="executeFileImport" />
       <MapMetadataDialog
         v-model="metadataDialog"
@@ -127,6 +162,10 @@ import { GeoJSON } from 'ol/format';
 
 import MapBaseLayout from './shared/MapBaseLayout.vue';
 import MapLayersControl from './controls/MapLayersControl.vue';
+import MapAnalysisMenu from './controls/MapAnalysisMenu.vue';
+import TerrainContoursDialog from './shared/TerrainContoursDialog.vue';
+import ZonalStatisticsDialog from './shared/ZonalStatisticsDialog.vue';
+import ClipRasterDialog from './shared/ClipRasterDialog.vue';
 import MapToolsMenu from './controls/MapToolsMenu.vue';
 import MapImportDialog from './shared/MapImportDialog.vue';
 import MapMetadataDialog from './shared/MapMetadataDialog.vue';
@@ -146,6 +185,7 @@ import { useOlMvt } from '@/composables/map/ol/useOlMvt';
 import { useOlWms } from '@/composables/map/ol/useOlWms';
 import { useOlInteractions } from '@/composables/map/ol/useOlInteractions';
 import { useOlShotFrame } from '@/composables/map/ol/useOlShotFrame';
+import { useStagingLayers } from '@/composables/useStagingLayers';
 import { Draw } from 'ol/interaction';
 
 const props = defineProps({ projectId: { type: String, required: true } });
@@ -177,6 +217,22 @@ const swipeMapVisible = ref(false);
 const showTerrainDialog = ref(false);
 const showSatelliteDialog = ref(false);
 const bufferDistance = ref(100);
+
+// --- Analysis State ---
+const showContoursDialog = ref(false);
+const showZonalStatsDialog = ref(false);
+const showClipRasterDialog = ref(false);
+const stagingLayers = computed(() => store.state.geodata.stagingLayers as Array<{ taskId: string; type: string; url: string; label: string }>);
+
+function onSelectAnalysisTool(pluginName: 'terrain_contours' | 'zonal_statistics' | 'clip_raster_by_mask') {
+  if (pluginName === 'terrain_contours') showContoursDialog.value = true;
+  else if (pluginName === 'zonal_statistics') showZonalStatsDialog.value = true;
+  else if (pluginName === 'clip_raster_by_mask') showClipRasterDialog.value = true;
+}
+
+function onAnalysisTaskCreated(task: any) {
+  console.log('Analysis task created:', task);
+}
 
 const initialZoomDone = computed(() => store.state.geodata.initialZoomDone);
 const lastSelectionSource = computed(() => store.state.geodata.lastSelectionSource);
@@ -299,6 +355,8 @@ onMounted(() => {
     initMvtLayers(props.projectId);
     setTimeout(() => { if (!initialZoomDone.value) { zoomToExtent(); store.commit('geodata/SET_INITIAL_ZOOM_DONE', true); } }, 1000);
   }
+  // Activate staging layer sync after map is ready
+  useStagingLayers(map.value);
 });
 
 onUnmounted(() => {
@@ -318,6 +376,7 @@ watch(() => props.projectId, (newId) => {
     store.dispatch('geodata/fetchVectorSummaryForProject', newId);
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });
+    store.dispatch('geodata/fetchFolders', newId);
   }
 }, { immediate: true });
 

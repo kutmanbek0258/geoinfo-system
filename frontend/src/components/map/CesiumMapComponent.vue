@@ -62,6 +62,7 @@
         <v-btn icon="mdi-close" color="error" @click="exitEditMode(refreshMvtSources)" title="Cancel Changes"></v-btn>
       </div>
 
+      <MapAnalysisMenu class="mb-2" @select-tool="onSelectAnalysisTool" />
       <MapToolsMenu
         :active-tool="!!(measureMode || isBufferMode || drawMode)"
         v-model:measureMode="measureMode"
@@ -109,6 +110,9 @@
         v-model:distance="bufferDistance"
       />
       <CesiumSwipeDialog v-model="swipeActive" />
+      <ClipRasterDialog v-model:show="showClipRasterDialog" @task-created="onAnalysisTaskCreated" />
+      <TerrainContoursDialog v-model:show="showContoursDialog" @task-created="onAnalysisTaskCreated" />
+      <ZonalStatisticsDialog v-model:show="showZonalStatsDialog" @task-created="onAnalysisTaskCreated" />
       <TerrainUploadDialog v-model="showTerrainDialog" :project-id="projectId" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
       <SatelliteImageryUploadDialog v-model="showSatelliteDialog" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
     </template>
@@ -124,11 +128,15 @@ import * as turf from '@turf/turf';
 import MapBaseLayout from './shared/MapBaseLayout.vue';
 import MapLayersControl from './controls/MapLayersControl.vue';
 import CesiumTerrainControl from './controls/CesiumTerrainControl.vue';
+import MapAnalysisMenu from './controls/MapAnalysisMenu.vue';
 import MapToolsMenu from './controls/MapToolsMenu.vue';
 import MapImportDialog from './shared/MapImportDialog.vue';
 import MapMetadataDialog from './shared/MapMetadataDialog.vue';
 import MapBufferPanel from './shared/MapBufferPanel.vue';
 import CesiumSwipeDialog from './CesiumSwipeDialog.vue';
+import ClipRasterDialog from './shared/ClipRasterDialog.vue';
+import TerrainContoursDialog from './shared/TerrainContoursDialog.vue';
+import ZonalStatisticsDialog from './shared/ZonalStatisticsDialog.vue';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeoObjectTree from './GeoObjectTree.vue';
@@ -146,6 +154,21 @@ import { useCesiumShotFrame } from '@/composables/map/cesium/useCesiumShotFrame'
 const props = defineProps<{ projectId: string }>();
 const store = useStore();
 const projectIdRef = computed(() => props.projectId);
+
+const showContoursDialog = ref(false);
+const showZonalStatsDialog = ref(false);
+const showClipRasterDialog = ref(false);
+
+function onSelectAnalysisTool(pluginName: 'terrain_contours' | 'zonal_statistics' | 'clip_raster_by_mask') {
+  if (pluginName === 'terrain_contours') showContoursDialog.value = true;
+  else if (pluginName === 'zonal_statistics') showZonalStatsDialog.value = true;
+  else if (pluginName === 'clip_raster_by_mask') showClipRasterDialog.value = true;
+}
+
+function onAnalysisTaskCreated(task: any) {
+  console.log('Analysis task created:', task);
+  // Optional: show snackbar
+}
 
 // --- 1. Shared Logic ---
 const {
@@ -479,6 +502,7 @@ watch(() => props.projectId, (newId) => {
     store.dispatch('geodata/fetchVectorSummaryForProject', newId);
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });
+    store.dispatch('geodata/fetchFolders', newId);
   }
 }, { immediate: true });
 

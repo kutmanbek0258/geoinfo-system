@@ -1,7 +1,9 @@
 package kg.geoinfo.system.geoabstraction.service.kafka;
 
 import kg.geoinfo.system.common.GeoAbstractJobEvent;
+import kg.geoinfo.system.common.GeoAnalysisTaskEvent;
 import kg.geoinfo.system.common.GeoObjectEvent;
+import kg.geoinfo.system.common.GeoVectorExportRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -17,6 +19,8 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
     private static final String TERRAIN_TOPIC = "geoabstraction.terrain.events";
     private static final String RASTER_TOPIC = "geoabstraction.raster.events";
     private static final String GEO_DATA_TOPIC = "geo.data.events";
+    private static final String ANALYSIS_TASKS_TOPIC = "geoabstraction.tasks";
+    private static final String VECTOR_EXPORT_TOPIC = "geo.vector.export";
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
@@ -54,6 +58,28 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
             log.info("Sent {} event to topic {}: {}", eventType, GEO_DATA_TOPIC, key);
         } catch (Exception e) {
             log.error("Error sending geo object event to Kafka: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendGeoAnalysisTaskEvent(GeoAnalysisTaskEvent event) {
+        try {
+            String key = event.getTaskId().toString();
+            kafkaTemplate.send(ANALYSIS_TASKS_TOPIC, key, event);
+            log.info("Sent analysis task event to topic {}: {}", ANALYSIS_TASKS_TOPIC, key);
+        } catch (Exception e) {
+            log.error("Error sending analysis task event to Kafka: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendVectorExportRequest(GeoVectorExportRequest request) {
+        try {
+            String key = request.getTaskId().toString();
+            kafkaTemplate.send(VECTOR_EXPORT_TOPIC, key, request);
+            log.info("Sent vector export request to topic {}: {}", VECTOR_EXPORT_TOPIC, key);
+        } catch (Exception e) {
+            log.error("Error sending vector export request to Kafka: {}", e.getMessage());
         }
     }
 }

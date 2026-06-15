@@ -1,3 +1,6 @@
+--liquibase formatted sql
+
+--changeset admin:add_project_id_to_layers_and_jobs
 -- Add project_id column to imagery_layers, terrain_layers and geo_abstract_jobs
 ALTER TABLE geoabstraction.imagery_layers ADD COLUMN IF NOT EXISTS project_id UUID;
 ALTER TABLE geoabstraction.terrain_layers ADD COLUMN IF NOT EXISTS project_id UUID;

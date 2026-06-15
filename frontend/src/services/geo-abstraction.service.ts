@@ -1,8 +1,9 @@
 import api from "./api";
-import type { Page, ImageryLayer } from '@/types/api';
+import type {Page, ImageryLayer, CreateAnalysisTaskDto, AnalysisTask} from '@/types/api';
 import axios from 'axios';
 
 const API_URL = "/geo-abstraction";
+const ANALYSIS_URL = "/analysis";
 
 class GeoAbstractionService {
   // --- Direct Upload ---
@@ -171,6 +172,19 @@ class GeoAbstractionService {
 
   getStyles() {
     return api.get<string[]>(`${API_URL}/imagery-layer/styles`);
+  }
+
+  // --- Analysis Tasks ---
+  createAnalysisTask(dto: CreateAnalysisTaskDto) {
+    return api.post<AnalysisTask>(`${ANALYSIS_URL}/tasks`, dto);
+  }
+
+  getAnalysisTask(id: string) {
+    return api.get<AnalysisTask>(`${ANALYSIS_URL}/tasks/${id}`);
+  }
+
+  getAnalysisTasksByProject(projectId: string) {
+    return api.get<AnalysisTask[]>(`${ANALYSIS_URL}/tasks/project/${projectId}`);
   }
 }
 

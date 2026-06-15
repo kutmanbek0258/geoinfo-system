@@ -1,8 +1,13 @@
 package kg.geoinfo.system.geoabstraction.service.kafka;
 
-import kg.geoinfo.system.common.GeoAbstractJobEvent;
-import kg.geoinfo.system.geoabstraction.service.GeoAbstractionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kg.geoinfo.system.common.GeoAbstractJobEvent;
+import kg.geoinfo.system.common.GeoAnalysisResultEvent;
+import kg.geoinfo.system.common.GeoVectorExportResponse;
+import kg.geoinfo.system.geoabstraction.service.AnalysisTaskService;
+import kg.geoinfo.system.geoabstraction.service.GeoAbstractionService;
+import kg.geoinfo.system.geoabstraction.service.ImageryLayerService;
+import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Geometry;
@@ -17,8 +22,9 @@ import org.springframework.stereotype.Service;
 public class KafkaConsumerService {
 
     private final GeoAbstractionService geoAbstractionService;
-    private final kg.geoinfo.system.geoabstraction.service.ImageryLayerService imageryLayerService;
-    private final kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository imageryLayerRepository;
+    private final ImageryLayerService imageryLayerService;
+    private final ImageryLayerRepository imageryLayerRepository;
+    private final AnalysisTaskService analysisTaskService;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = {"geoabstraction.terrain.events", "geoabstraction.raster.events"}, 
@@ -64,5 +70,21 @@ public class KafkaConsumerService {
                 imageryLayerService.forceDelete(layer.getId());
             });
         }
+    }
+
+    @KafkaListener(topics = "geoabstraction.results", 
+                   containerFactory = "jsonTypeListenerContainerFactory",
+                   groupId = "${spring.kafka.consumer.group-id:geoabstraction-service-group}")
+    public void listenAnalysisResults(GeoAnalysisResultEvent event) {
+        log.info("Received geo-analysis result: {} for task {}", event.getStatus(), event.getTaskId());
+        analysisTaskService.handleAnalysisResult(event);
+    }
+
+    @KafkaListener(topics = "geo.vector.export.results", 
+                   containerFactory = "jsonTypeListenerContainerFactory",
+                   groupId = "${spring.kafka.consumer.group-id:geoabstraction-service-group}")
+    public void listenExportResults(GeoVectorExportResponse response) {
+        log.info("Received vector export response: success={} for task {}", response.isSuccess(), response.getTaskId());
+        analysisTaskService.handleExportResponse(response);
     }
 }

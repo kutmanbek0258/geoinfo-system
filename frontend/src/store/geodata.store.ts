@@ -1,8 +1,16 @@
 import geodataService from "@/services/geodata.service";
 import streamService from "@/services/stream.service";
 import geoAbstractionService from "@/services/geo-abstraction.service";
-import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary } from "@/types/api";
+import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, AnalysisTask, CreateAnalysisTaskDto } from "@/types/api";
 import type { ActionContext } from "vuex";
+
+interface StagingLayer {
+    taskId: string;
+    type: 'VECTOR' | 'RASTER';
+    url: string;           // MVT tile URL or presigned COG URL
+    pluginName: string;
+    label: string;
+}
 
 interface GeodataState {
     projects: Page<Project> | null;
@@ -11,6 +19,8 @@ interface GeodataState {
     imageryLayers: Page<ImageryLayer> | null;
     terrainLayers: Page<TerrainLayer> | null;
     terrainJobs: Page<TerrainJob> | null;
+    analysisTasks: AnalysisTask[];
+    stagingLayers: StagingLayer[];
     points: (ProjectPoint | ProjectPointSummary)[];
     multilines: (ProjectMultiline | ProjectMultilineSummary)[];
     polygons: (ProjectPolygon | ProjectPolygonSummary)[];
@@ -31,6 +41,8 @@ const state: GeodataState = {
     imageryLayers: null,
     terrainLayers: null,
     terrainJobs: null,
+    analysisTasks: [],
+    stagingLayers: [],
     points: [],
     multilines: [],
     polygons: [],
@@ -90,6 +102,31 @@ const mutations = {
 
     SET_TERRAIN_JOBS(state: GeodataState, jobs: Page<TerrainJob> | null) {
         state.terrainJobs = jobs;
+    },
+
+    SET_ANALYSIS_TASKS(state: GeodataState, tasks: AnalysisTask[]) {
+        state.analysisTasks = tasks;
+    },
+
+    UPDATE_ANALYSIS_TASK(state: GeodataState, task: AnalysisTask) {
+        const index = state.analysisTasks.findIndex(t => t.id === task.id);
+        if (index !== -1) {
+            state.analysisTasks = [...state.analysisTasks.slice(0, index), task, ...state.analysisTasks.slice(index + 1)];
+        } else {
+            state.analysisTasks = [...state.analysisTasks, task];
+        }
+    },
+
+    ADD_STAGING_LAYER(state: GeodataState, layer: StagingLayer) {
+        // Replace previous layer from same task if re-run
+        state.stagingLayers = [
+            ...state.stagingLayers.filter(l => l.taskId !== layer.taskId),
+            layer
+        ];
+    },
+
+    REMOVE_STAGING_LAYER(state: GeodataState, taskId: string) {
+        state.stagingLayers = state.stagingLayers.filter(l => l.taskId !== taskId);
     },
 
     UPDATE_FEATURE(state: GeodataState, { type, data }: { type: 'Point' | 'MultiLineString' | 'Polygon', data: any }) {
@@ -280,6 +317,62 @@ const actions = {
         dispatch('fetchTerrainLayers', { page, size });
     },
 
+    // Analysis Actions
+    async triggerAnalysis({ commit, dispatch }: ActionContext<GeodataState, any>, dto: CreateAnalysisTaskDto) {
+        commit('SET_LOADING', true);
+        try {
+            const response = await geoAbstractionService.createAnalysisTask(dto);
+            commit('UPDATE_ANALYSIS_TASK', response.data);
+            
+            // Start polling for this task
+            dispatch('pollAnalysisTask', response.data.id);
+            return response.data;
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to trigger analysis.');
+            throw err;
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
+    async pollAnalysisTask({ commit, dispatch }: ActionContext<GeodataState, any>, taskId: string) {
+        try {
+            const response = await geoAbstractionService.getAnalysisTask(taskId);
+            const task = response.data;
+            commit('UPDATE_ANALYSIS_TASK', task);
+
+            if (task.status === 'PENDING' || task.status === 'PROCESSING') {
+                setTimeout(() => dispatch('pollAnalysisTask', taskId), 3000);
+            } else if (task.status === 'COMPLETED') {
+                // Mount vector staging layer via pg_tileserv RPC if worker produced vector output
+                if (task.s3OutputPaths?.vector_result) {
+                    const tileUrl = `/tiles/rpc/geodata.get_staging_layer/{z}/{x}/{y}.pbf?task_uuid=${task.id}`;
+                    commit('ADD_STAGING_LAYER', {
+                        taskId: task.id,
+                        type: 'VECTOR',
+                        url: tileUrl,
+                        pluginName: task.pluginName,
+                        label: `[Анализ] ${task.pluginName} (${task.id.slice(0, 8)})`
+                    } as StagingLayer);
+                }
+                // For raster results — just notify; COG display requires publishing to GeoServer
+                if (task.s3OutputPaths?.raster_result) {
+                    dispatch('alert/info', `Растр готов: ${task.pluginName}. Добавьте слой через менеджер слоёв.`, { root: true });
+                } else {
+                    dispatch('alert/success', `Анализ «${task.pluginName}» завершён.`, { root: true });
+                }
+            } else if (task.status === 'FAILED') {
+                dispatch('alert/error', `Ошибка анализа: ${task.errorMessage}`, { root: true });
+            }
+        } catch (err) {
+            console.error('Polling error:', err);
+        }
+    },
+
+    removeStagingLayer({ commit }: ActionContext<GeodataState, any>, taskId: string) {
+        commit('REMOVE_STAGING_LAYER', taskId);
+    },
+
     async fetchTerrainJobs({ commit, state }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
@@ -396,8 +489,14 @@ const actions = {
 
     // Folder Actions
     async fetchFolders({ commit }: ActionContext<GeodataState, any>, projectId: string) {
-        const response = await geodataService.getFoldersByProjectId(projectId);
-        commit('SET_FOLDERS', response.data);
+        if (!projectId) return;
+        try {
+            const response = await geodataService.getFoldersByProjectId(projectId);
+            commit('SET_FOLDERS', Array.isArray(response.data) ? response.data : []);
+        } catch (err) {
+            console.error('Failed to fetch folders:', err);
+            commit('SET_FOLDERS', []);
+        }
     },
     async createFolder({ dispatch, state }: ActionContext<GeodataState, any>, folderData: Omit<GeoFolder, 'id'>) {
         await geodataService.createFolder(folderData);

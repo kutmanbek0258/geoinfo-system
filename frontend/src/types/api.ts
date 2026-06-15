@@ -122,6 +122,8 @@ export interface TerrainLayer {
     title: string;
     description?: string;
     terrainUrl: string;
+    cogObjectKey?: string;
+    cogUrl?: string;
     status: string;
     isVisible: boolean;
 }
@@ -134,4 +136,33 @@ export interface TerrainJob {
     taskType?: string;
     characteristics?: Record<string, any>;
     errorMessage?: string;
+}
+
+export type AnalysisTaskStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface AnalysisTask {
+    id: string;
+    pluginName: string;
+    status: AnalysisTaskStatus;
+    inputParams: Record<string, any>;
+    s3InputPaths: Record<string, string>;
+    s3OutputPaths: Record<string, string>;
+    errorMessage?: string;
+    userId?: string;
+    projectId?: string;
+}
+
+export interface CreateAnalysisTaskDto {
+    pluginName: string;
+    projectId?: string;
+    inputs: Record<string, AnalysisDataSource>;
+    parameters: Record<string, any>;
+}
+
+export interface AnalysisDataSource {
+    type: 'IMAGERY_LAYER' | 'VECTOR_LAYER' | 'TERRAIN_LAYER' | 'PREVIOUS_TASK_RESULT' | 'DIRECT_S3';
+    id?: string;
+    taskId?: string;
+    outputKey?: string;
+    s3Url?: string;
 }
