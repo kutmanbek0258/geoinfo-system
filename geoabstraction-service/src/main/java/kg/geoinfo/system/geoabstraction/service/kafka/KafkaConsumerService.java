@@ -73,7 +73,7 @@ public class KafkaConsumerService {
     }
 
     @KafkaListener(topics = "geoabstraction.results", 
-                   containerFactory = "jsonTypeListenerContainerFactory",
+                   containerFactory = "analysisResultsListenerContainerFactory",
                    groupId = "${spring.kafka.consumer.group-id:geoabstraction-service-group}")
     public void listenAnalysisResults(GeoAnalysisResultEvent event) {
         log.info("Received geo-analysis result: {} for task {}", event.getStatus(), event.getTaskId());
@@ -81,7 +81,7 @@ public class KafkaConsumerService {
     }
 
     @KafkaListener(topics = "geo.vector.export.results", 
-                   containerFactory = "jsonTypeListenerContainerFactory",
+                   containerFactory = "vectorExportListenerContainerFactory",
                    groupId = "${spring.kafka.consumer.group-id:geoabstraction-service-group}")
     public void listenExportResults(GeoVectorExportResponse response) {
         log.info("Received vector export response: success={} for task {}", response.isSuccess(), response.getTaskId());

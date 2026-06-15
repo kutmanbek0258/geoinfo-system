@@ -11,11 +11,16 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
     consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
         request.timeout.ms: 60000
         session.timeout.ms: 45000
         heartbeat.interval.ms: 3000
         max.poll.interval.ms: 600000
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.value.default.type: "kg.geoinfo.system.common.GeoAnalysisResultEvent"
+        spring.json.trusted.packages: "kg.geoinfo.system.*"
     producer:
       properties:
         request.timeout.ms: 60000

@@ -11,7 +11,8 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
         spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
-        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: "kg.geoinfo.system.common.GeoAnalysisResultEvent"
+        spring.json.trusted.packages: "kg.geoinfo.system.*"
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://postgres-geodata:5432/geodata_db}

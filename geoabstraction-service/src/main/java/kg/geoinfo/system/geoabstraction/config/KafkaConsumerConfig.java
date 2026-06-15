@@ -1,6 +1,9 @@
 package kg.geoinfo.system.geoabstraction.config;
 
+import kg.geoinfo.system.common.GeoAnalysisResultEvent;
+import kg.geoinfo.system.common.GeoVectorExportResponse;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -29,14 +32,12 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         
-        // Use ErrorHandlingDeserializer to wrap actual deserializers
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
         
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
         
-        // JsonDeserializer configuration
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "kg.geoinfo.system.common.GeoAbstractJobEvent");
@@ -52,27 +53,42 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public ConsumerFactory<String, Object> jsonTypeConsumerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, Object> analysisResultsListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+        JsonDeserializer<GeoAnalysisResultEvent> deserializer = new JsonDeserializer<>(GeoAnalysisResultEvent.class);
+        deserializer.addTrustedPackages("*");
+        deserializer.setUseTypeHeaders(false);
         
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
+        // Casting Deserializer<GeoAnalysisResultEvent> to Deserializer<Object> to satisfy DefaultKafkaConsumerFactory
+        @SuppressWarnings("unchecked")
+        Deserializer<Object> objectDeserializer = (Deserializer<Object>) (Deserializer<?>) deserializer;
         
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, true);
-
-        return new DefaultKafkaConsumerFactory<>(props);
+        factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new ErrorHandlingDeserializer<>(objectDeserializer)));
+        return factory;
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, Object> jsonTypeListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, Object> vectorExportListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(jsonTypeConsumerFactory());
+        
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        
+        JsonDeserializer<GeoVectorExportResponse> deserializer = new JsonDeserializer<>(GeoVectorExportResponse.class);
+        deserializer.addTrustedPackages("*");
+        deserializer.setUseTypeHeaders(false);
+        
+        // Casting Deserializer<GeoVectorExportResponse> to Deserializer<Object> to satisfy DefaultKafkaConsumerFactory
+        @SuppressWarnings("unchecked")
+        Deserializer<Object> objectDeserializer = (Deserializer<Object>) (Deserializer<?>) deserializer;
+        
+        factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new ErrorHandlingDeserializer<>(objectDeserializer)));
         return factory;
     }
 }
