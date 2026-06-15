@@ -17,6 +17,7 @@ import java.util.UUID;
 public interface ProjectMultilineRepository extends JpaRepository<ProjectMultiline, UUID> {
     Page<ProjectMultiline> findAllByProjectId(Pageable pageable, UUID projectId);
     List<ProjectMultiline> findAllByFolderId(UUID folderId);
+    List<ProjectMultiline> findAllByProjectIdAndFolderIdIsNull(UUID projectId);
 
     @Query(value = "SELECT (parts.path)[1] as subId, ST_AsGeoJSON(parts.geom) as geojson " +
             "FROM (SELECT (ST_Dump(geom)).* FROM geodata.project_multilines WHERE id = :id) as parts " +
