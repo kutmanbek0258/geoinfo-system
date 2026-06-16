@@ -377,6 +377,7 @@ watch(() => props.projectId, (newId) => {
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchFolders', newId);
+    store.dispatch('geodata/fetchAnalysisTasksByProject', newId);
   }
 }, { immediate: true });
 

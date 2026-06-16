@@ -22,6 +22,7 @@ export interface GeoFolder {
     name: string;
     description?: string;
     characteristics?: Record<string, any>;
+    isSaved?: boolean;
 }
 
 export interface ImageryLayer {
@@ -60,6 +61,7 @@ export interface ProjectPoint {
     bbox?: GeoGeometry;
     imageUrl?: string;
     characteristics?: Record<string, any>;
+    isSaved?: boolean;
 }
 
 export interface ProjectPointSummary extends Omit<ProjectPoint, 'geom'> {}
@@ -76,6 +78,7 @@ export interface ProjectMultiline {
     lengthM?: number;
     imageUrl?: string;
     characteristics?: Record<string, any>;
+    isSaved?: boolean;
 }
 
 export interface ProjectMultilineSummary extends Omit<ProjectMultiline, 'geom'> {}
@@ -92,6 +95,7 @@ export interface ProjectPolygon {
     areaM2?: number;
     imageUrl?: string;
     characteristics?: Record<string, any>;
+    isSaved?: boolean;
 }
 
 export interface ProjectPolygonSummary extends Omit<ProjectPolygon, 'geom'> {}

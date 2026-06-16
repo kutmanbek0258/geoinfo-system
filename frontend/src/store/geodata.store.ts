@@ -317,6 +317,31 @@ const actions = {
         dispatch('fetchTerrainLayers', { page, size });
     },
 
+    async fetchAnalysisTasksByProject({ commit }: ActionContext<GeodataState, any>, projectId: string) {
+        try {
+            const response = await geoAbstractionService.getAnalysisTasksByProject(projectId);
+            const tasks = response.data;
+            console.log(tasks);
+            commit('SET_ANALYSIS_TASKS', tasks);
+            
+            // Populate staging layers for completed tasks
+            tasks.forEach(task => {
+                if (task.status === 'COMPLETED' && task.s3OutputPaths?.vector_result) {
+                    const tileUrl = `/tiles/geodata.get_staging_layer/{z}/{x}/{y}.pbf?task_uuid=${task.id}`;
+                    commit('ADD_STAGING_LAYER', {
+                        taskId: task.id,
+                        type: 'VECTOR',
+                        url: tileUrl,
+                        pluginName: task.pluginName,
+                        label: `[Анализ] ${task.pluginName} (${task.id.slice(0, 8)})`
+                    } as StagingLayer);
+                }
+            });
+        } catch (err) {
+            console.error('Failed to fetch analysis tasks:', err);
+        }
+    },
+
     // Analysis Actions
     async triggerAnalysis({ commit, dispatch }: ActionContext<GeodataState, any>, dto: CreateAnalysisTaskDto) {
         commit('SET_LOADING', true);
@@ -339,6 +364,7 @@ const actions = {
         try {
             const response = await geoAbstractionService.getAnalysisTask(taskId);
             const task = response.data;
+            console.log(task);
             commit('UPDATE_ANALYSIS_TASK', task);
 
             if (task.status === 'PENDING' || task.status === 'PROCESSING') {
@@ -346,7 +372,7 @@ const actions = {
             } else if (task.status === 'COMPLETED') {
                 // Mount vector staging layer via pg_tileserv RPC if worker produced vector output
                 if (task.s3OutputPaths?.vector_result) {
-                    const tileUrl = `/tiles/rpc/geodata.get_staging_layer/{z}/{x}/{y}.pbf?task_uuid=${task.id}`;
+                    const tileUrl = `/tiles/geodata.get_staging_layer/{z}/{x}/{y}.pbf?task_uuid=${task.id}`;
                     commit('ADD_STAGING_LAYER', {
                         taskId: task.id,
                         type: 'VECTOR',

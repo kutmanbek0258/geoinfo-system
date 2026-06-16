@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: object/change_temp_analysis_geom_to_z.sql
+      relativeToChangelogFile: true
