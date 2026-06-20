@@ -4,5 +4,9 @@ public enum AnalysisTaskStatus {
     PENDING,
     PROCESSING,
     COMPLETED,
-    FAILED
+    FAILED,
+    /** Результат перенесён в постоянные слои проекта */
+    COMMITTED,
+    /** Временные данные удалены (Rollback) */
+    ARCHIVED
 }

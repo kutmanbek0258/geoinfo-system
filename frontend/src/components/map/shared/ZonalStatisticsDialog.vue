@@ -32,6 +32,7 @@ watch(() => props.show, (newVal) => {
       if (!store.state.geodata.terrainLayers) {
         store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });
       }
+      store.dispatch('geodata/fetchAnalysisTasksByProject', projectId);
     }
   }
 });
@@ -45,10 +46,18 @@ const formData = ref({
   } as Record<string, any>
 });
 
+const PLUGIN_LABELS: Record<string, string> = {
+  terrain_contours:   'Изолинии рельефа',
+  zonal_statistics:   'Зональная статистика',
+  clip_raster_by_mask:'Обрезка растра',
+};
+
+const pluginLabel = (name: string) => PLUGIN_LABELS[name] || name;
+
 const rasterOptions = computed(() => {
   const imagery = store.state.geodata.imageryLayers?.content || [];
   const items = imagery.map((l: any) => ({
-    title: l.name,
+    title: `[Снимок] ${l.name}`,
     value: { type: 'IMAGERY_LAYER', id: l.id }
   }));
 
@@ -59,6 +68,19 @@ const rasterOptions = computed(() => {
       value: { type: 'TERRAIN_LAYER', id: l.id }
     });
   });
+
+  const tasks = store.state.geodata.analysisTasks || [];
+  tasks.filter((t: any) => t.status === 'COMPLETED' && t.s3OutputPaths?.raster_result)
+    .forEach((t: any) => {
+      items.push({
+        title: `[Результат] ${pluginLabel(t.pluginName)} (${t.id.slice(0, 8)})`,
+        value: {
+          type: 'PREVIOUS_TASK_RESULT',
+          taskId: t.id,
+          outputKey: 'raster_result'
+        }
+      });
+    });
 
   return items;
 });
@@ -78,6 +100,31 @@ const vectorOptions = computed(() => {
       value: { type: 'VECTOR_LAYER', id: null }  // null → backend uses projectId
     });
   }
+
+  const tasks = store.state.geodata.analysisTasks || [];
+  tasks.forEach((t: any) => {
+    if (t.status === 'COMPLETED' && t.s3OutputPaths) {
+      if (t.s3OutputPaths.vector_result) {
+        options.push({
+          title: `[Результат] ${pluginLabel(t.pluginName)} (${t.id.slice(0, 8)})`,
+          value: {
+            type: 'PREVIOUS_TASK_RESULT',
+            taskId: t.id,
+            outputKey: 'vector_result'
+          }
+        });
+      } else if (t.s3OutputPaths.statistics_geojson) {
+        options.push({
+          title: `[Результат] ${pluginLabel(t.pluginName)} (${t.id.slice(0, 8)})`,
+          value: {
+            type: 'PREVIOUS_TASK_RESULT',
+            taskId: t.id,
+            outputKey: 'statistics_geojson'
+          }
+        });
+      }
+    }
+  });
 
   return options;
 });
