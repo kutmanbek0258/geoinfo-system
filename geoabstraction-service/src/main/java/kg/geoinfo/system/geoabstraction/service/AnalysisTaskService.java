@@ -15,4 +15,5 @@ public interface AnalysisTaskService {
     void handleExportResponse(GeoVectorExportResponse response);
     AnalysisTaskDto getTask(UUID taskId);
     List<AnalysisTaskDto> getTasksByProjectId(UUID projectId);
+    String generateOutputPresignedUrl(UUID taskId, String outputKey);
 }

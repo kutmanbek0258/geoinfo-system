@@ -7,7 +7,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -30,5 +32,13 @@ public class AnalysisTaskController {
     @GetMapping("/tasks/project/{projectId}")
     public ResponseEntity<List<AnalysisTaskDto>> getTasksByProject(@PathVariable UUID projectId) {
         return ResponseEntity.ok(service.getTasksByProjectId(projectId));
+    }
+
+    @GetMapping("/tasks/{id}/outputs/{outputKey}/presigned-url")
+    public ResponseEntity<Map<String, String>> getOutputPresignedUrl(@PathVariable UUID id, @PathVariable String outputKey) {
+        String url = service.generateOutputPresignedUrl(id, outputKey);
+        Map<String, String> response = new HashMap<>();
+        response.put("url", url);
+        return ResponseEntity.ok(response);
     }
 }

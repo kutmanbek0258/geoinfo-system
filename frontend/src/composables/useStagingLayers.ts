@@ -1,10 +1,14 @@
 import { watch, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
-import OlMap from 'ol/Map';
+import type { Ref } from 'vue';
+import type OlMap from 'ol/Map';
 import VectorTileLayer from 'ol/layer/VectorTile';
 import VectorTileSource from 'ol/source/VectorTile';
 import MVT from 'ol/format/MVT';
 import { Fill, Stroke, Style, Circle as CircleStyle } from 'ol/style';
+import WebGLTileLayer from 'ol/layer/WebGLTile';
+import GeoTIFFSource from 'ol/source/GeoTIFF';
+import type { Layer } from 'ol/layer';
 
 /** Bright highlight style for analysis result geometries */
 const stagingStyle = new Style({
@@ -17,64 +21,115 @@ const stagingStyle = new Style({
     }),
 });
 
+type StagingLayerMeta = { taskId: string; type: string; url: string; label: string };
+
 /**
  * Composable that watches `geodata.stagingLayers` in the Vuex store and
- * synchronises OpenLayers VectorTileLayer instances on the provided map.
- * Layers are keyed by taskId so they can be added/removed independently.
+ * synchronises OpenLayers layer instances on the provided map.
+ * Accepts either a raw OlMap or a Ref<OlMap|null> so it can be used in setup()
+ * before the map is mounted (will start syncing once the ref becomes non-null).
  */
-export function useStagingLayers(map: OlMap) {
+export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
     const store = useStore();
-    // Use a plain object to avoid conflict with the native JS Map / OL Map class names
-    const layerRegistry: Record<string, VectorTileLayer> = {};
+    const layerRegistry: Record<string, Layer> = {};
 
-    function buildOlLayer(url: string, label: string): VectorTileLayer {
+    function getMap(): OlMap | null {
+        return (mapOrRef && typeof (mapOrRef as Ref<OlMap | null>).value !== 'undefined')
+            ? (mapOrRef as Ref<OlMap | null>).value
+            : (mapOrRef as OlMap);
+    }
+
+    function buildVectorLayer(url: string, label: string): VectorTileLayer {
         return new VectorTileLayer({
-            source: new VectorTileSource({
-                format: new MVT(),
-                url,
-            }),
+            source: new VectorTileSource({ format: new MVT(), url }),
             style: stagingStyle,
-            properties: { isStagingLayer: true, label },
+            properties: { isStagingLayer: true, layerType: 'VECTOR', label },
             zIndex: 100,
         });
     }
 
-    function syncLayers(stagingLayers: Array<{ taskId: string; type: string; url: string; label: string }>) {
+    function buildRasterLayer(url: string, label: string): WebGLTileLayer {
+        return new WebGLTileLayer({
+            source: new GeoTIFFSource({
+                sources: [{ url, nodata: 0 }],
+                convertToRGB: true,
+                interpolate: true,
+            }),
+            opacity: 0.85,
+            properties: { isStagingLayer: true, layerType: 'RASTER', label },
+            zIndex: 90,
+        });
+    }
+
+    function syncLayers(stagingLayers: StagingLayerMeta[]) {
+        const olMap = getMap();
+        if (!olMap) return;
+
         const incomingIds = new Set(stagingLayers.map(l => l.taskId));
 
         // Remove layers that are no longer in state
         for (const taskId of Object.keys(layerRegistry)) {
             if (!incomingIds.has(taskId)) {
-                map.removeLayer(layerRegistry[taskId]);
+                olMap.removeLayer(layerRegistry[taskId]);
                 delete layerRegistry[taskId];
             }
         }
 
         // Add new layers
         for (const sl of stagingLayers) {
-            if (sl.type === 'VECTOR' && !layerRegistry[sl.taskId]) {
-                const olLayer = buildOlLayer(sl.url, sl.label);
-                map.addLayer(olLayer);
+            if (layerRegistry[sl.taskId]) continue; // already mounted
+            if (sl.type === 'VECTOR') {
+                const olLayer = buildVectorLayer(sl.url, sl.label);
+                olMap.addLayer(olLayer);
+                layerRegistry[sl.taskId] = olLayer;
+            } else if (sl.type === 'RASTER') {
+                const olLayer = buildRasterLayer(sl.url, sl.label);
+                olMap.addLayer(olLayer);
                 layerRegistry[sl.taskId] = olLayer;
             }
         }
     }
 
-    const stopWatcher = watch(
-        () => store.state.geodata.stagingLayers as any[],
+    /** Toggle map layer visibility by taskId */
+    function setVisible(taskId: string, visible: boolean) {
+        const layer = layerRegistry[taskId];
+        if (layer) layer.setVisible(visible);
+    }
+
+    // Watch both staging layers AND map ref (for the case the map mounts after the composable)
+    const stopStagingWatcher = watch(
+        () => store.state.geodata.stagingLayers as StagingLayerMeta[],
         (layers) => syncLayers(layers),
         { immediate: true, deep: false }
     );
 
+    // If a Ref<OlMap> was passed, also watch for map becoming available
+    let stopMapWatcher: (() => void) | undefined;
+    if ((mapOrRef as Ref<OlMap | null>).value !== undefined) {
+        stopMapWatcher = watch(
+            () => (mapOrRef as Ref<OlMap | null>).value,
+            (newMap) => {
+                if (newMap) syncLayers(store.state.geodata.stagingLayers);
+            },
+            { immediate: false }
+        );
+    }
+
     onBeforeUnmount(() => {
-        stopWatcher();
-        for (const olLayer of Object.values(layerRegistry)) {
-            map.removeLayer(olLayer);
+        stopStagingWatcher();
+        stopMapWatcher?.();
+        const olMap = getMap();
+        if (olMap) {
+            for (const olLayer of Object.values(layerRegistry)) {
+                olMap.removeLayer(olLayer);
+            }
         }
     });
 
     return {
-        /** Programmatically remove a staging layer both from OL map and the store */
+        /** Toggle visibility of a staging layer on the OL map */
+        setVisible,
+        /** Remove a staging layer from both the OL map and the store */
         remove(taskId: string) {
             store.dispatch('geodata/removeStagingLayer', taskId);
         },

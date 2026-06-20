@@ -183,6 +183,39 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public String generateOutputPresignedUrl(UUID taskId, String outputKey) {
+        AnalysisTask task = repository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
+        
+        if (task.getS3OutputPaths() == null || !task.getS3OutputPaths().containsKey(outputKey)) {
+            throw new RuntimeException("Output key " + outputKey + " not found for task " + taskId);
+        }
+        
+        String s3Url = task.getS3OutputPaths().get(outputKey);
+        if (s3Url == null || !s3Url.startsWith("s3://")) {
+            throw new RuntimeException("Invalid S3 URL: " + s3Url);
+        }
+        
+        String path = s3Url.substring(5); // Remove "s3://"
+        int slashIndex = path.indexOf("/");
+        if (slashIndex == -1) {
+            throw new RuntimeException("Invalid S3 path structure: " + s3Url);
+        }
+        
+        String bucket = path.substring(0, slashIndex);
+        String key = path.substring(slashIndex + 1);
+        
+        String url = fileStoreService.generateDownloadUrl(bucket, key);
+        
+        // Rewrite internal MinIO URL to public /minio/ prefix
+        if (url.contains("/" + bucket + "/")) {
+            url = "/minio" + url.substring(url.indexOf("/" + bucket + "/"));
+        }
+        
+        return url;
+    }
+
     private AnalysisTaskDto mapToDto(AnalysisTask entity) {
         AnalysisTaskDto dto = new AnalysisTaskDto();
         dto.setId(entity.getId());

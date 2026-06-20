@@ -8,6 +8,7 @@ public interface FileStoreService {
     String save(MultipartFile file);
     String generateUploadUrl(String objectKey);
     String generateDownloadUrl(String objectKey);
+    String generateDownloadUrl(String bucket, String objectKey);
     boolean exists(String objectKey);
     Optional<byte[]> find(String key);
     void delete(String key);

@@ -186,6 +186,10 @@ class GeoAbstractionService {
   getAnalysisTasksByProject(projectId: string) {
     return api.get<AnalysisTask[]>(`${ANALYSIS_URL}/tasks/project/${projectId}`);
   }
+
+  getAnalysisTaskOutputUrl(id: string, outputKey: string) {
+    return api.get<{ url: string }>(`${ANALYSIS_URL}/tasks/${id}/outputs/${outputKey}/presigned-url`);
+  }
 }
 
 export default new GeoAbstractionService();

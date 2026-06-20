@@ -326,15 +326,30 @@ const actions = {
             
             // Populate staging layers for completed tasks
             tasks.forEach(task => {
-                if (task.status === 'COMPLETED' && task.s3OutputPaths?.vector_result) {
-                    const tileUrl = `/tiles/geodata.get_staging_layer/{z}/{x}/{y}.pbf?task_uuid=${task.id}`;
-                    commit('ADD_STAGING_LAYER', {
-                        taskId: task.id,
-                        type: 'VECTOR',
-                        url: tileUrl,
-                        pluginName: task.pluginName,
-                        label: `[Анализ] ${task.pluginName} (${task.id.slice(0, 8)})`
-                    } as StagingLayer);
+                if (task.status === 'COMPLETED') {
+                    if (task.s3OutputPaths?.vector_result) {
+                        const tileUrl = `/tiles/geodata.get_staging_layer/{z}/{x}/{y}.pbf?task_uuid=${task.id}`;
+                        commit('ADD_STAGING_LAYER', {
+                            taskId: task.id,
+                            type: 'VECTOR',
+                            url: tileUrl,
+                            pluginName: task.pluginName,
+                            label: `[Анализ] ${task.pluginName} (${task.id.slice(0, 8)})`
+                        } as StagingLayer);
+                    }
+                    if (task.s3OutputPaths?.raster_result) {
+                        geoAbstractionService.getAnalysisTaskOutputUrl(task.id, 'raster_result')
+                            .then(res => {
+                                commit('ADD_STAGING_LAYER', {
+                                    taskId: task.id,
+                                    type: 'RASTER',
+                                    url: res.data.url,
+                                    pluginName: task.pluginName,
+                                    label: `[Растр] ${task.pluginName} (${task.id.slice(0, 8)})`
+                                } as StagingLayer);
+                            })
+                            .catch(err => console.error('Failed to pre-fetch raster URL on startup:', err));
+                    }
                 }
             });
         } catch (err) {
@@ -380,11 +395,29 @@ const actions = {
                         pluginName: task.pluginName,
                         label: `[Анализ] ${task.pluginName} (${task.id.slice(0, 8)})`
                     } as StagingLayer);
+                    dispatch('alert/success', `Анализ «${task.pluginName}» завершён. Векторный слой загружен.`, { root: true });
                 }
-                // For raster results — just notify; COG display requires publishing to GeoServer
+                // For raster results — fetch presigned URL and mount as RASTER staging layer
                 if (task.s3OutputPaths?.raster_result) {
-                    dispatch('alert/info', `Растр готов: ${task.pluginName}. Добавьте слой через менеджер слоёв.`, { root: true });
-                } else {
+                    geoAbstractionService.getAnalysisTaskOutputUrl(task.id, 'raster_result')
+                        .then(res => {
+                            commit('ADD_STAGING_LAYER', {
+                                taskId: task.id,
+                                type: 'RASTER',
+                                url: res.data.url,
+                                pluginName: task.pluginName,
+                                label: `[Растр] ${task.pluginName} (${task.id.slice(0, 8)})`
+                            } as StagingLayer);
+                            dispatch('alert/success', `Анализ «${task.pluginName}» завершён. Растровый слой загружен.`, { root: true });
+                        })
+                        .catch(err => {
+                            console.error('Failed to get raster output URL:', err);
+                            dispatch('alert/error', `Ошибка загрузки растрового результата: ${err.message}`, { root: true });
+                        });
+                }
+                
+                // General success notice if no map layers produced
+                if (!task.s3OutputPaths?.vector_result && !task.s3OutputPaths?.raster_result) {
                     dispatch('alert/success', `Анализ «${task.pluginName}» завершён.`, { root: true });
                 }
             } else if (task.status === 'FAILED') {

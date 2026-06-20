@@ -94,10 +94,16 @@ public class MinioFileStoreServiceImpl implements FileStoreService {
     @Override
     @SneakyThrows
     public String generateDownloadUrl(String objectKey) {
+        return generateDownloadUrl(minioProperties.getBucket(), objectKey);
+    }
+
+    @Override
+    @SneakyThrows
+    public String generateDownloadUrl(String bucket, String objectKey) {
         return minioClient.getPresignedObjectUrl(
                 GetPresignedObjectUrlArgs.builder()
                         .method(Method.GET)
-                        .bucket(minioProperties.getBucket())
+                        .bucket(bucket)
                         .object(objectKey)
                         .expiry(24 * 60 * 60) // 24 hours
                         .build()

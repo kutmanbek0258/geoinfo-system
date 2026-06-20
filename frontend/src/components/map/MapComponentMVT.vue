@@ -12,33 +12,9 @@
         <GeoObjectTree />
       </v-card>
 
-      <!-- Staging analysis layers panel -->
-      <v-card v-if="stagingLayers.length > 0" class="mt-2 pa-2" min-width="220" elevation="3">
-        <div class="text-caption font-weight-bold mb-1 d-flex align-center">
-          <v-icon size="14" color="deep-orange" class="mr-1">mdi-layers-outline</v-icon>
-          Слои анализа
-        </div>
-        <v-list density="compact" class="pa-0">
-          <v-list-item
-            v-for="sl in stagingLayers"
-            :key="sl.taskId"
-            class="px-0"
-            min-height="32"
-          >
-            <template #prepend>
-              <v-icon size="14" color="deep-orange" class="mr-1">mdi-vector-polygon</v-icon>
-            </template>
-            <v-list-item-title class="text-caption">{{ sl.label }}</v-list-item-title>
-            <template #append>
-              <v-btn
-                icon="mdi-close"
-                size="x-small"
-                variant="text"
-                @click="store.dispatch('geodata/removeStagingLayer', sl.taskId)"
-              />
-            </template>
-          </v-list-item>
-        </v-list>
+      <!-- Analysis tasks panel (under object tree) -->
+      <v-card class="mt-2" elevation="2" style="background: rgba(255,255,255,0.93)">
+        <AnalysisTasksPanel :set-visible="stagingControl.setVisible" />
       </v-card>
     </template>
 
@@ -174,6 +150,7 @@ import SwipeMapDialog from './SwipeMapDialog.vue';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeoObjectTree from './GeoObjectTree.vue';
+import AnalysisTasksPanel from './shared/AnalysisTasksPanel.vue';
 import PrintDialog from '@/components/print/PrintDialog.vue';
 import TerrainUploadDialog from '@/components/geo-abstraction/TerrainUploadDialog.vue';
 import SatelliteImageryUploadDialog from '@/components/geo-abstraction/SatelliteImageryUploadDialog.vue';
@@ -222,7 +199,9 @@ const bufferDistance = ref(100);
 const showContoursDialog = ref(false);
 const showZonalStatsDialog = ref(false);
 const showClipRasterDialog = ref(false);
-const stagingLayers = computed(() => store.state.geodata.stagingLayers as Array<{ taskId: string; type: string; url: string; label: string }>);
+
+// Staging layer OL synchronisation — called at setup level so setVisible is available
+const stagingControl = useStagingLayers(map);
 
 function onSelectAnalysisTool(pluginName: 'terrain_contours' | 'zonal_statistics' | 'clip_raster_by_mask') {
   if (pluginName === 'terrain_contours') showContoursDialog.value = true;
@@ -355,8 +334,6 @@ onMounted(() => {
     initMvtLayers(props.projectId);
     setTimeout(() => { if (!initialZoomDone.value) { zoomToExtent(); store.commit('geodata/SET_INITIAL_ZOOM_DONE', true); } }, 1000);
   }
-  // Activate staging layer sync after map is ready
-  useStagingLayers(map.value);
 });
 
 onUnmounted(() => {
