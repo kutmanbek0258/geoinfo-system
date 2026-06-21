@@ -25,7 +25,7 @@ public class StagingCommitController {
      * Временные данные после переноса удаляются.
      */
     @PostMapping("/{taskId}/commit")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    @PreAuthorize("hasAuthority('GEO_FEATURE_CREATE')")
     public ResponseEntity<Void> commit(
             @PathVariable UUID taskId,
             @RequestBody CommitAnalysisTaskDto dto) {
@@ -42,7 +42,7 @@ public class StagingCommitController {
      * Удаляет временные данные задачи taskId без переноса в постоянные слои.
      */
     @DeleteMapping("/{taskId}/rollback")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_EDITOR')")
+    @PreAuthorize("hasAuthority('GEO_FEATURE_DELETE')")
     public ResponseEntity<Void> rollback(@PathVariable UUID taskId) {
         commitService.rollbackTask(taskId);
         return ResponseEntity.noContent().build();

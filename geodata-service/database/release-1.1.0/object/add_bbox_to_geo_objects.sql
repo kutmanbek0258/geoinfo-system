@@ -18,11 +18,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Triggers for project_points
-DROP TRIGGER IF EXISTS trg_update_project_points_bbox ON geodata.project_points;
-CREATE TRIGGER trg_update_project_points_bbox
-BEFORE INSERT OR UPDATE OF geom ON geodata.project_points
-FOR EACH ROW EXECUTE FUNCTION geodata.update_geo_object_bbox();
+-- -- Triggers for project_points
+-- DROP TRIGGER IF EXISTS trg_update_project_points_bbox ON geodata.project_points;
+-- CREATE TRIGGER trg_update_project_points_bbox
+-- BEFORE INSERT OR UPDATE OF geom ON geodata.project_points
+-- FOR EACH ROW EXECUTE FUNCTION geodata.update_geo_object_bbox();
 
 -- Triggers for project_multilines
 DROP TRIGGER IF EXISTS trg_update_project_multilines_bbox ON geodata.project_multilines;
@@ -37,6 +37,6 @@ BEFORE INSERT OR UPDATE OF geom ON geodata.project_polygons
 FOR EACH ROW EXECUTE FUNCTION geodata.update_geo_object_bbox();
 
 -- Populate existing bboxes
-UPDATE geodata.project_points SET bbox = ST_SetSRID(ST_Envelope(geom), 4326) WHERE geom IS NOT NULL AND bbox IS NULL;
+-- UPDATE geodata.project_points SET bbox = ST_SetSRID(ST_Envelope(geom), 4326) WHERE geom IS NOT NULL AND bbox IS NULL;
 UPDATE geodata.project_multilines SET bbox = ST_SetSRID(ST_Envelope(geom), 4326) WHERE geom IS NOT NULL AND bbox IS NULL;
 UPDATE geodata.project_polygons SET bbox = ST_SetSRID(ST_Envelope(geom), 4326) WHERE geom IS NOT NULL AND bbox IS NULL;

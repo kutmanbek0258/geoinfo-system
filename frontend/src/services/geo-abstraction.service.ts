@@ -190,6 +190,14 @@ class GeoAbstractionService {
   getAnalysisTaskOutputUrl(id: string, outputKey: string) {
     return api.get<{ url: string }>(`${ANALYSIS_URL}/tasks/${id}/outputs/${outputKey}/presigned-url`);
   }
+
+  commitAnalysisTask(id: string, projectId: string, folderId: string | null, taskName: string) {
+    return api.post<void>(`${ANALYSIS_URL}/tasks/${id}/commit`, { projectId, folderId, taskName });
+  }
+
+  rejectAnalysisTask(id: string) {
+    return api.post<void>(`${ANALYSIS_URL}/tasks/${id}/reject`);
+  }
 }
 
 export default new GeoAbstractionService();

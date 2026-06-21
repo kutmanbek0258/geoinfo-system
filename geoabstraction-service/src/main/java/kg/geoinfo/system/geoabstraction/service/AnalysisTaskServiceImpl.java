@@ -14,6 +14,8 @@ import kg.geoinfo.system.geoabstraction.models.enums.AnalysisTaskStatus;
 import kg.geoinfo.system.geoabstraction.repository.AnalysisTaskRepository;
 import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
 import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
+import kg.geoinfo.system.geoabstraction.dto.CommitAnalysisTaskRequestDto;
+import kg.geoinfo.system.geoabstraction.service.client.GeoDataServiceClient;
 import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     private final FileStoreService fileStoreService;
     private final KafkaProducerService kafkaProducerService;
     private final MinioProperties minioProperties;
+    private final GeoDataServiceClient geoDataServiceClient;
+
 
     @Override
     @Transactional
@@ -214,6 +218,53 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         }
         
         return url;
+    }
+
+    @Override
+    @Transactional
+    public void commitTask(UUID taskId, CommitAnalysisTaskRequestDto dto) {
+        AnalysisTask task = repository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
+        
+        if (task.getStatus() != AnalysisTaskStatus.COMPLETED) {
+            throw new IllegalStateException("Only COMPLETED tasks can be committed. Current status: " + task.getStatus());
+        }
+
+        geoDataServiceClient.commitTask(taskId, dto);
+
+        task.setStatus(AnalysisTaskStatus.COMMITTED);
+        repository.save(task);
+    }
+
+    @Override
+    @Transactional
+    public void rollbackTask(UUID taskId) {
+        AnalysisTask task = repository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
+
+        // Delete files from S3 if s3OutputPaths is not null
+        if (task.getS3OutputPaths() != null) {
+            for (String s3Url : task.getS3OutputPaths().values()) {
+                if (s3Url != null && s3Url.startsWith("s3://")) {
+                    try {
+                        String path = s3Url.substring(5); // Remove "s3://"
+                        int slashIndex = path.indexOf("/");
+                        if (slashIndex != -1) {
+                            String key = path.substring(slashIndex + 1);
+                            fileStoreService.delete(key);
+                            log.info("Deleted staging file from S3: {}", key);
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to delete staging file {} from S3: {}", s3Url, e.getMessage());
+                    }
+                }
+            }
+        }
+
+        geoDataServiceClient.rollbackTask(taskId);
+
+        task.setStatus(AnalysisTaskStatus.ARCHIVED);
+        repository.save(task);
     }
 
     private AnalysisTaskDto mapToDto(AnalysisTask entity) {

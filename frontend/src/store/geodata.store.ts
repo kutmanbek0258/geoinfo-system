@@ -432,6 +432,43 @@ const actions = {
         commit('REMOVE_STAGING_LAYER', taskId);
     },
 
+    async commitStagingLayer({ commit, dispatch }: ActionContext<GeodataState, any>, { taskId, projectId, folderId, taskName }: { taskId: string, projectId: string, folderId: string | null, taskName: string }) {
+        commit('SET_LOADING', true);
+        try {
+            await geoAbstractionService.commitAnalysisTask(taskId, projectId, folderId, taskName);
+            commit('REMOVE_STAGING_LAYER', taskId);
+            dispatch('alert/success', 'Результаты анализа успешно сохранены в проект.', { root: true });
+            
+            // Refresh vector geometries
+            dispatch('fetchVectorSummaryForProject', projectId);
+            // Refresh analysis tasks list
+            dispatch('fetchAnalysisTasksByProject', projectId);
+        } catch (err: any) {
+            console.error(err);
+            dispatch('alert/error', 'Не удалось сохранить результаты: ' + (err.response?.data?.message || err.message), { root: true });
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
+    async rejectStagingLayer({ commit, dispatch }: ActionContext<GeodataState, any>, { taskId, projectId }: { taskId: string, projectId: string }) {
+        commit('SET_LOADING', true);
+        try {
+            await geoAbstractionService.rejectAnalysisTask(taskId);
+            commit('REMOVE_STAGING_LAYER', taskId);
+            dispatch('alert/success', 'Результаты анализа успешно отклонены.', { root: true });
+            
+            // Refresh analysis tasks list
+            dispatch('fetchAnalysisTasksByProject', projectId);
+        } catch (err: any) {
+            console.error(err);
+            dispatch('alert/error', 'Не удалось отклонить результаты: ' + (err.response?.data?.message || err.message), { root: true });
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
+
     async fetchTerrainJobs({ commit, state }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);

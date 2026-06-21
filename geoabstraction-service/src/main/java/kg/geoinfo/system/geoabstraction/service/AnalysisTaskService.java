@@ -1,5 +1,6 @@
 package kg.geoinfo.system.geoabstraction.service;
 
+import kg.geoinfo.system.geoabstraction.dto.CommitAnalysisTaskRequestDto;
 import kg.geoinfo.system.common.GeoAnalysisResultEvent;
 import kg.geoinfo.system.common.GeoVectorExportResponse;
 import kg.geoinfo.system.geoabstraction.dto.AnalysisTaskDto;
@@ -16,4 +17,7 @@ public interface AnalysisTaskService {
     AnalysisTaskDto getTask(UUID taskId);
     List<AnalysisTaskDto> getTasksByProjectId(UUID projectId);
     String generateOutputPresignedUrl(UUID taskId, String outputKey);
+    void commitTask(UUID taskId, CommitAnalysisTaskRequestDto dto);
+    void rollbackTask(UUID taskId);
 }
+

@@ -156,9 +156,9 @@ BEGIN
     RETURN NEW;
 END; $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_update_project_points_bbox ON geodata.project_points;
-CREATE TRIGGER trg_update_project_points_bbox BEFORE INSERT OR UPDATE OF geom ON geodata.project_points
-FOR EACH ROW EXECUTE FUNCTION geodata.update_geo_object_bbox();
+-- DROP TRIGGER IF EXISTS trg_update_project_points_bbox ON geodata.project_points;
+-- CREATE TRIGGER trg_update_project_points_bbox BEFORE INSERT OR UPDATE OF geom ON geodata.project_points
+-- FOR EACH ROW EXECUTE FUNCTION geodata.update_geo_object_bbox();
 
 DROP TRIGGER IF EXISTS trg_update_project_multilines_bbox ON geodata.project_multilines;
 CREATE TRIGGER trg_update_project_multilines_bbox BEFORE INSERT OR UPDATE OF geom ON geodata.project_multilines

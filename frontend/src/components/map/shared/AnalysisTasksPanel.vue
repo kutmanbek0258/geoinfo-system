@@ -71,6 +71,24 @@
                 :title="isLayerVisible(task.id) ? 'Скрыть слой' : 'Показать слой'"
                 @click="toggleLayerVisibility(task.id)"
               />
+              <!-- Commit button -->
+              <v-btn
+                icon="mdi-content-save-outline"
+                size="x-small"
+                variant="text"
+                color="success"
+                title="Сохранить в проект"
+                @click="openCommitDialog(task)"
+              />
+              <!-- Reject button -->
+              <v-btn
+                icon="mdi-delete-sweep-outline"
+                size="x-small"
+                variant="text"
+                color="error"
+                title="Отклонить и удалить результаты"
+                @click="confirmReject(task)"
+              />
             </template>
 
             <!-- JSON stats table button (zonal_statistics) -->
@@ -106,6 +124,55 @@
         </div>
       </div>
     </v-expand-transition>
+
+    <!-- Commit Dialog -->
+    <v-dialog v-model="commitDialog" max-width="500">
+      <v-card rounded="lg" class="commit-dialog-card">
+        <v-card-title class="d-flex align-center gap-2 pa-4">
+          <v-icon color="success">mdi-content-save</v-icon>
+          <span>Сохранить результаты анализа</span>
+          <v-spacer />
+          <v-btn icon="mdi-close" size="small" variant="text" @click="commitDialog = false" />
+        </v-card-title>
+        
+        <v-divider />
+
+        <v-card-text class="pa-4">
+          <div class="mb-4">
+            <span class="text-caption text-grey">Вы собираетесь перенести временные результаты анализа в постоянные слои проекта.</span>
+          </div>
+
+          <v-text-field
+            v-model="commitTaskName"
+            label="Префикс названия объектов"
+            variant="outlined"
+            density="compact"
+            class="mb-3"
+            hide-details
+          />
+
+          <!-- Folder selection only for Vector staging layers -->
+          <v-select
+            v-if="commitLayerType === 'VECTOR'"
+            v-model="commitFolderId"
+            :items="folderItems"
+            item-title="name"
+            item-value="id"
+            label="Папка проекта (Куда сохранить)"
+            variant="outlined"
+            density="compact"
+            clearable
+            hide-details
+          />
+        </v-card-text>
+
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="commitDialog = false">Отмена</v-btn>
+          <v-btn color="success" variant="flat" :loading="committing" @click="executeCommit">Сохранить</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Statistics dialog -->
     <v-dialog v-model="statsDialog" max-width="900" scrollable>
@@ -223,6 +290,21 @@ const statsHeaders = ref<{ title: string; key: string; sortable: boolean }[]>([]
 const statsDialogTitle = ref('');
 const statsSearch = ref('');
 
+// Commit Dialog State
+const commitDialog = ref(false);
+const committing = ref(false);
+const commitTaskName = ref('');
+const commitFolderId = ref<string | null>(null);
+const commitLayerType = ref<'VECTOR' | 'RASTER'>('VECTOR');
+const commitTaskId = ref('');
+
+const folderItems = computed(() => {
+  return (store.state.geodata.folders || []).map((f: any) => ({
+    name: f.name,
+    id: f.id
+  }));
+});
+
 // ── Getters ───────────────────────────────────────────────────────────────────
 const analysisTasks = computed<AnalysisTask[]>(() => store.state.geodata.analysisTasks || []);
 const stagingLayers = computed<{ taskId: string; type: string; url: string; label: string }[]>(
@@ -284,6 +366,46 @@ function removeLayer(taskId: string) {
   delete next[taskId];
   layerVisibility.value = next;
   store.dispatch('geodata/removeStagingLayer', taskId);
+}
+
+function openCommitDialog(task: AnalysisTask) {
+  commitTaskId.value = task.id;
+  commitTaskName.value = pluginLabel(task.pluginName);
+  commitFolderId.value = null;
+  const sl = getStagingLayer(task.id);
+  commitLayerType.value = sl?.type as 'VECTOR' | 'RASTER' || 'VECTOR';
+  commitDialog.value = true;
+}
+
+async function executeCommit() {
+  if (!commitTaskId.value) return;
+  committing.value = true;
+  try {
+    await store.dispatch('geodata/commitStagingLayer', {
+      taskId: commitTaskId.value,
+      projectId: store.state.geodata.selectedProjectId,
+      folderId: commitFolderId.value,
+      taskName: commitTaskName.value
+    });
+    commitDialog.value = false;
+  } catch (err) {
+    console.error(err);
+  } finally {
+    committing.value = false;
+  }
+}
+
+async function confirmReject(task: AnalysisTask) {
+  if (confirm(`Вы уверены, что хотите отклонить результаты анализа «${pluginLabel(task.pluginName)}»? Это действие безвозвратно удалит временные геометрии и файлы из базы данных и облачного хранилища.`)) {
+    try {
+      await store.dispatch('geodata/rejectStagingLayer', {
+        taskId: task.id,
+        projectId: store.state.geodata.selectedProjectId
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
 }
 
 // ── Statistics dialog ─────────────────────────────────────────────────────────

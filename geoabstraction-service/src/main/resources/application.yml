@@ -79,3 +79,8 @@ minio:
   access-key: ${MINIO_ROOT_USER:minio_access_key}
   secret-key: ${MINIO_ROOT_PASSWORD:minio_secret_key}
   bucket: geo-abstraction-input
+feign:
+  client:
+    config:
+      geodata-service:
+        url: http://geodata-service:9002/api

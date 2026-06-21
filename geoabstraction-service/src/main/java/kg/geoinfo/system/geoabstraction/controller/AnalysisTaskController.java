@@ -1,5 +1,6 @@
 package kg.geoinfo.system.geoabstraction.controller;
 
+import kg.geoinfo.system.geoabstraction.dto.CommitAnalysisTaskRequestDto;
 import kg.geoinfo.system.geoabstraction.dto.AnalysisTaskDto;
 import kg.geoinfo.system.geoabstraction.dto.CreateAnalysisTaskDto;
 import kg.geoinfo.system.geoabstraction.service.AnalysisTaskService;
@@ -40,5 +41,17 @@ public class AnalysisTaskController {
         Map<String, String> response = new HashMap<>();
         response.put("url", url);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/tasks/{id}/commit")
+    public ResponseEntity<Void> commitTask(@PathVariable UUID id, @RequestBody CommitAnalysisTaskRequestDto dto) {
+        service.commitTask(id, dto);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/tasks/{id}/reject")
+    public ResponseEntity<Void> rollbackTask(@PathVariable UUID id) {
+        service.rollbackTask(id);
+        return ResponseEntity.ok().build();
     }
 }

@@ -19,9 +19,9 @@ import java.util.UUID;
 )
 public interface GeoDataServiceClient {
 
-    @PostMapping("/api/geodata/staging/{taskId}/commit")
+    @PostMapping("/geodata/staging/{taskId}/commit")
     void commitTask(@PathVariable UUID taskId, @RequestBody CommitAnalysisTaskRequestDto dto);
 
-    @DeleteMapping("/api/geodata/staging/{taskId}/rollback")
+    @DeleteMapping("/geodata/staging/{taskId}/rollback")
     void rollbackTask(@PathVariable UUID taskId);
 }
