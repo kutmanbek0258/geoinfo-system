@@ -99,6 +99,10 @@
       <ClipRasterDialog v-model:show="showClipRasterDialog" @task-created="onAnalysisTaskCreated" />
       <TerrainContoursDialog v-model:show="showContoursDialog" @task-created="onAnalysisTaskCreated" />
       <ZonalStatisticsDialog v-model:show="showZonalStatsDialog" @task-created="onAnalysisTaskCreated" />
+      <SlopeDialog v-model:show="showSlopeDialog" @task-created="onAnalysisTaskCreated" />
+      <AspectDialog v-model:show="showAspectDialog" @task-created="onAnalysisTaskCreated" />
+      <HillshadeDialog v-model:show="showHillshadeDialog" @task-created="onAnalysisTaskCreated" />
+      <ViewshedDialog v-model:show="showViewshedDialog" @task-created="onAnalysisTaskCreated" />
       <MapImportDialog v-model="importFileDialog" v-model:file="importFile" :loading="isImporting" @execute="executeFileImport" />
       <MapMetadataDialog
         v-model="metadataDialog"
@@ -142,6 +146,11 @@ import MapAnalysisMenu from './controls/MapAnalysisMenu.vue';
 import TerrainContoursDialog from './shared/TerrainContoursDialog.vue';
 import ZonalStatisticsDialog from './shared/ZonalStatisticsDialog.vue';
 import ClipRasterDialog from './shared/ClipRasterDialog.vue';
+import SlopeDialog from './shared/SlopeDialog.vue';
+import AspectDialog from './shared/AspectDialog.vue';
+import HillshadeDialog from './shared/HillshadeDialog.vue';
+import ViewshedDialog from './shared/ViewshedDialog.vue';
+import { toLonLat } from 'ol/proj';
 import MapToolsMenu from './controls/MapToolsMenu.vue';
 import MapImportDialog from './shared/MapImportDialog.vue';
 import MapMetadataDialog from './shared/MapMetadataDialog.vue';
@@ -199,14 +208,22 @@ const bufferDistance = ref(100);
 const showContoursDialog = ref(false);
 const showZonalStatsDialog = ref(false);
 const showClipRasterDialog = ref(false);
+const showSlopeDialog = ref(false);
+const showAspectDialog = ref(false);
+const showHillshadeDialog = ref(false);
+const showViewshedDialog = ref(false);
 
 // Staging layer OL synchronisation — called at setup level so setVisible is available
 const stagingControl = useStagingLayers(map);
 
-function onSelectAnalysisTool(pluginName: 'terrain_contours' | 'zonal_statistics' | 'clip_raster_by_mask') {
+function onSelectAnalysisTool(pluginName: string) {
   if (pluginName === 'terrain_contours') showContoursDialog.value = true;
   else if (pluginName === 'zonal_statistics') showZonalStatsDialog.value = true;
   else if (pluginName === 'clip_raster_by_mask') showClipRasterDialog.value = true;
+  else if (pluginName === 'slope') showSlopeDialog.value = true;
+  else if (pluginName === 'aspect') showAspectDialog.value = true;
+  else if (pluginName === 'hillshade') showHillshadeDialog.value = true;
+  else if (pluginName === 'viewshed_analysis') showViewshedDialog.value = true;
 }
 
 function onAnalysisTaskCreated(task: any) {
@@ -280,6 +297,16 @@ const stopActiveTool = () => {
 
 const handleMapClick = (event: any) => {
   if (isGeometryEditMode.value || measureMode.value || isBufferMode.value) return;
+
+  // Перехват клика для выбора точки на карте (для Viewshed и др.)
+  if (store.state.geodata.pointSelectionActive) {
+    const coords = event.coordinate;
+    const lonLat = toLonLat(coords);
+    store.commit('geodata/SET_SELECTED_POINT', { x: lonLat[0], y: lonLat[1] });
+    store.commit('geodata/SET_POINT_SELECTION_ACTIVE', false);
+    return;
+  }
+
   const feature = map.value?.forEachFeatureAtPixel(event.pixel, (f, layer) => {
     if (layer?.get('zIndex') >= 98 && layer?.get('zIndex') <= 100) return f;
     return null;

@@ -21,7 +21,7 @@ ENV VITE_ONLYOFFICE_API_URL=$VITE_ONLYOFFICE_API_URL
 
 COPY . .
 
-RUN npm config set registry https://registry.npmmirror.com && npm config set strict-ssl false && npm install
+RUN npm install
 RUN npm run build
 
 FROM nginx:stable-alpine as deploy-stage

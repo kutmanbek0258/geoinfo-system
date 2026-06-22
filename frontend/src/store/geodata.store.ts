@@ -32,6 +32,8 @@ interface GeodataState {
     isLoading: boolean;
     error: string | null;
     activeCameraStream: { geoObjectId: string, streamHlsUrl: string } | null;
+    pointSelectionActive: boolean;
+    selectedPoint: { x: number, y: number } | null;
 }
 
 const state: GeodataState = {
@@ -54,9 +56,17 @@ const state: GeodataState = {
     isLoading: false,
     error: null,
     activeCameraStream: null,
+    pointSelectionActive: false,
+    selectedPoint: null,
 };
 
 const mutations = {
+    SET_POINT_SELECTION_ACTIVE(state: GeodataState, active: boolean) {
+        state.pointSelectionActive = active;
+    },
+    SET_SELECTED_POINT(state: GeodataState, point: { x: number, y: number } | null) {
+        state.selectedPoint = point;
+    },
     SET_PROJECTS(state: GeodataState, projects: Page<Project> | null) {
         state.projects = projects;
     },

@@ -13,6 +13,30 @@ const tools = [
     description: 'Генерация контуров высот из DEM' 
   },
   { 
+    name: 'slope', 
+    title: 'Крутизна уклонов', 
+    icon: 'mdi-slope-uphill',
+    description: 'Расчет углов наклона поверхности' 
+  },
+  { 
+    name: 'aspect', 
+    title: 'Направление экспозиции', 
+    icon: 'mdi-compass-outline',
+    description: 'Определение ориентации уклонов по сторонам света' 
+  },
+  { 
+    name: 'hillshade', 
+    title: 'Теневая отмывка', 
+    icon: 'mdi-brightness-6',
+    description: 'Моделирование освещенности рельефа' 
+  },
+  { 
+    name: 'viewshed_analysis', 
+    title: 'Зоны видимости', 
+    icon: 'mdi-eye-outline',
+    description: 'Определение видимости с учетом высоты объекта' 
+  },
+  { 
     name: 'zonal_statistics', 
     title: 'Зональная статистика', 
     icon: 'mdi-table-large',

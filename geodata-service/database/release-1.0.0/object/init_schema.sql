@@ -186,7 +186,7 @@ DECLARE res bytea;
 BEGIN
     WITH bounds AS (SELECT ST_TileEnvelope(z, x, y) AS geom),
     mvtgeom AS (
-      SELECT ST_AsMVTGeom(ST_Transform(t.geom, 3857), bounds.geom) AS geom,
+      SELECT ST_AsMVTGeom(ST_Transform(ST_Force2D(t.geom), 3857), bounds.geom) AS geom,
              t.id, t.name, t.status, t.characteristics::text AS characteristics
       FROM geodata.project_points t, bounds
       WHERE t.project_id = project_id_param AND ST_Intersects(ST_Transform(t.geom, 3857), bounds.geom)
@@ -199,7 +199,7 @@ DECLARE res bytea;
 BEGIN
     WITH bounds AS (SELECT ST_TileEnvelope(z, x, y) AS geom),
     mvtgeom AS (
-      SELECT ST_AsMVTGeom(ST_Transform(t.geom, 3857), bounds.geom) AS geom,
+      SELECT ST_AsMVTGeom(ST_Transform(ST_Force2D(t.geom), 3857), bounds.geom) AS geom,
              t.id, t.name, t.status, t.characteristics::text AS characteristics
       FROM geodata.project_multilines t, bounds
       WHERE t.project_id = project_id_param AND ST_Intersects(ST_Transform(t.geom, 3857), bounds.geom)
@@ -212,7 +212,7 @@ DECLARE res bytea;
 BEGIN
     WITH bounds AS (SELECT ST_TileEnvelope(z, x, y) AS geom),
     mvtgeom AS (
-      SELECT ST_AsMVTGeom(ST_Transform(t.geom, 3857), bounds.geom) AS geom,
+      SELECT ST_AsMVTGeom(ST_Transform(ST_Force2D(t.geom), 3857), bounds.geom) AS geom,
              t.id, t.name, t.status, t.characteristics::text AS characteristics
       FROM geodata.project_polygons t, bounds
       WHERE t.project_id = project_id_param AND ST_Intersects(ST_Transform(t.geom, 3857), bounds.geom)

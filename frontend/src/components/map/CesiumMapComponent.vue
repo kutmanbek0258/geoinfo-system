@@ -113,6 +113,10 @@
       <ClipRasterDialog v-model:show="showClipRasterDialog" @task-created="onAnalysisTaskCreated" />
       <TerrainContoursDialog v-model:show="showContoursDialog" @task-created="onAnalysisTaskCreated" />
       <ZonalStatisticsDialog v-model:show="showZonalStatsDialog" @task-created="onAnalysisTaskCreated" />
+      <SlopeDialog v-model:show="showSlopeDialog" @task-created="onAnalysisTaskCreated" />
+      <AspectDialog v-model:show="showAspectDialog" @task-created="onAnalysisTaskCreated" />
+      <HillshadeDialog v-model:show="showHillshadeDialog" @task-created="onAnalysisTaskCreated" />
+      <ViewshedDialog v-model:show="showViewshedDialog" @task-created="onAnalysisTaskCreated" />
       <TerrainUploadDialog v-model="showTerrainDialog" :project-id="projectId" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
       <SatelliteImageryUploadDialog v-model="showSatelliteDialog" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
     </template>
@@ -137,6 +141,10 @@ import CesiumSwipeDialog from './CesiumSwipeDialog.vue';
 import ClipRasterDialog from './shared/ClipRasterDialog.vue';
 import TerrainContoursDialog from './shared/TerrainContoursDialog.vue';
 import ZonalStatisticsDialog from './shared/ZonalStatisticsDialog.vue';
+import SlopeDialog from './shared/SlopeDialog.vue';
+import AspectDialog from './shared/AspectDialog.vue';
+import HillshadeDialog from './shared/HillshadeDialog.vue';
+import ViewshedDialog from './shared/ViewshedDialog.vue';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeoObjectTree from './GeoObjectTree.vue';
@@ -158,11 +166,19 @@ const projectIdRef = computed(() => props.projectId);
 const showContoursDialog = ref(false);
 const showZonalStatsDialog = ref(false);
 const showClipRasterDialog = ref(false);
+const showSlopeDialog = ref(false);
+const showAspectDialog = ref(false);
+const showHillshadeDialog = ref(false);
+const showViewshedDialog = ref(false);
 
-function onSelectAnalysisTool(pluginName: 'terrain_contours' | 'zonal_statistics' | 'clip_raster_by_mask') {
+function onSelectAnalysisTool(pluginName: string) {
   if (pluginName === 'terrain_contours') showContoursDialog.value = true;
   else if (pluginName === 'zonal_statistics') showZonalStatsDialog.value = true;
   else if (pluginName === 'clip_raster_by_mask') showClipRasterDialog.value = true;
+  else if (pluginName === 'slope') showSlopeDialog.value = true;
+  else if (pluginName === 'aspect') showAspectDialog.value = true;
+  else if (pluginName === 'hillshade') showHillshadeDialog.value = true;
+  else if (pluginName === 'viewshed_analysis') showViewshedDialog.value = true;
 }
 
 function onAnalysisTaskCreated(task: any) {
@@ -464,6 +480,19 @@ onMounted(() => {
   v.scene.globe.depthTestAgainstTerrain = true;
 
   v.screenSpaceEventHandler.setInputAction(async (click: any) => {
+    // Перехват клика для выбора точки на карте (для Viewshed и др.)
+    if (store.state.geodata.pointSelectionActive) {
+      const position = v.scene.pickPosition(click.position);
+      if (position) {
+        const cartographic = Cesium.Cartographic.fromCartesian(position);
+        const longitude = Cesium.Math.toDegrees(cartographic.longitude);
+        const latitude = Cesium.Math.toDegrees(cartographic.latitude);
+        store.commit('geodata/SET_SELECTED_POINT', { x: longitude, y: latitude });
+        store.commit('geodata/SET_POINT_SELECTION_ACTIVE', false);
+      }
+      return;
+    }
+
     const picked = v.scene.pick(click.position);
     if (Cesium.defined(picked) && picked.id && picked.id.id) {
       let id = picked.id.id;
