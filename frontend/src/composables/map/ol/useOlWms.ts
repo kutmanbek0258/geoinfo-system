@@ -1,11 +1,13 @@
 import { ref, shallowRef, toRaw, type Ref } from 'vue';
 import { Map } from 'ol';
 import TileLayer from 'ol/layer/Tile';
-import TileWMS from 'ol/source/TileWMS.js';
+import XYZ from 'ol/source/XYZ';
 import type { ImageryLayer } from '@/types/api';
+import { buildTiTilerColormap, getExtentFromGeometry } from '@/util/titiler-style-builder';
+import { transformExtent } from 'ol/proj';
 
 export function useOlWms(map: Ref<Map | null>) {
-  const activeImageLayers = shallowRef<Record<string, TileLayer<TileWMS>>>({});
+  const activeImageLayers = shallowRef<Record<string, TileLayer<XYZ>>>({});
   const layerOpacities = ref<Record<string, number>>({});
   const visibleLayerIds = ref<string[]>([]);
 
@@ -25,18 +27,33 @@ export function useOlWms(map: Ref<Map | null>) {
     if (isVisible) {
       if (activeImageLayers.value[layerInfo.id]) return;
 
-      const wmsSource = new TileWMS({
-        url: layerInfo.serviceUrl,
-        params: {
-          'LAYERS': layerInfo.workspace + ":" + layerInfo.layerName,
-          TILED: true,
-        },
-        serverType: 'geoserver',
+      let colormapParam = "";
+      if (layerInfo.style && layerInfo.style.config) {
+        const colormapStr = buildTiTilerColormap(layerInfo.style.config);
+        if (colormapStr) {
+          colormapParam = "&colormap=" + encodeURIComponent(colormapStr);
+        }
+      }
+
+      const s3Url = `s3://geo-abstraction-input/${layerInfo.cogObjectKey}`;
+      const tileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}${colormapParam}`;
+
+      let olExtent: [number, number, number, number] | undefined;
+      if (layerInfo.bbox) {
+        const wgs84Extent = getExtentFromGeometry(layerInfo.bbox);
+        if (wgs84Extent) {
+          olExtent = transformExtent(wgs84Extent, 'EPSG:4326', 'EPSG:3857') as [number, number, number, number];
+        }
+      }
+
+      const xyzSource = new XYZ({
+        url: tileUrl,
         transition: 0,
       });
       const imageLayer = new TileLayer({
-        source: wmsSource,
+        source: xyzSource,
         opacity: (layerOpacities.value[layerInfo.id] || 100) / 100,
+        extent: olExtent
       });
       m.addLayer(imageLayer);
 

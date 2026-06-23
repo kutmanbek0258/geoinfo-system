@@ -5,10 +5,11 @@ import kg.geoinfo.system.common.GeoObjectEvent;
 import kg.geoinfo.system.geoabstraction.dto.ImageryLayerDto;
 import kg.geoinfo.system.geoabstraction.mapper.ImageryLayerMapper;
 import kg.geoinfo.system.geoabstraction.models.ImageryLayer;
+import kg.geoinfo.system.geoabstraction.models.RasterStyle;
 import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
+import kg.geoinfo.system.geoabstraction.repository.RasterStyleRepository;
 import kg.geoinfo.system.geoabstraction.config.MinioProperties;
 import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
-import kg.geoinfo.system.geoabstraction.service.geoserver.GeoServerClient;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,17 +34,22 @@ public class ImageryLayerService {
     private final KafkaProducerService kafkaProducerService;
     private final ObjectMapper objectMapper;
 
-    private final GeoServerClient geoServerClient;
+    private final RasterStyleRepository rasterStyleRepository;
     private final FileStoreService fileStoreService;
     private final MinioProperties minioProperties;
 
     public ImageryLayerDto save(ImageryLayerDto imageryLayerDto) {
         ImageryLayer entity = imageryLayerMapper.toEntity(imageryLayerDto);
+        if (imageryLayerDto.getStyle() != null && imageryLayerDto.getStyle().getId() != null) {
+            RasterStyle style = rasterStyleRepository.findById(imageryLayerDto.getStyle().getId())
+                    .orElseThrow(() -> new RuntimeException("Style not found: " + imageryLayerDto.getStyle().getId()));
+            entity.setStyle(style);
+        }
         return save(entity);
     }
     
     public List<String> getStyles() {
-        return geoServerClient.getStyles();
+        return rasterStyleRepository.findAll().stream().map(RasterStyle::getName).toList();
     }
 
     public ImageryLayerDto save(ImageryLayer entity) {
@@ -60,17 +66,15 @@ public class ImageryLayerService {
         repository.save(entity);
         sendKafkaEvent(entity, GeoObjectEvent.EventType.UPDATED);
 
-        // 2. Delete from GeoServer
-        geoServerClient.deleteLayer(entity.getWorkspace(), entity.getLayerName());
-        geoServerClient.deleteCoverageStore(entity.getWorkspace(), entity.getLayerName()); // layerName is storeName in our convention
-
-        // 3. Send event to Kafka for geoabstract-worker to delete file
+        // 2. Send event to Kafka for geoabstract-worker to delete file
         log.info("Sending DELETED event for imagery layer {} (jobId: {})", id, entity.getJobId());
         kg.geoinfo.system.common.GeoAbstractJobEvent event = kg.geoinfo.system.common.GeoAbstractJobEvent.builder()
                 .jobId(entity.getJobId())
                 .eventType(kg.geoinfo.system.common.GeoAbstractJobEvent.EventType.DELETED)
-                .taskType("RAW_GEOTIFF_OPTIMIZE") // worker uses this for raster cleanup
+                .taskType("RAW_GEOTIFF_OPTIMIZE")
                 .outputPrefix(entity.getLayerName())
+                .sourceBucket(minioProperties.getBucket())
+                .outputBucket(minioProperties.getBucket())
                 .build();
 
         kafkaProducerService.sendGeoAbstractJobEvent(event);
@@ -103,14 +107,18 @@ public class ImageryLayerService {
     public ImageryLayerDto update(ImageryLayerDto imageryLayerDto, UUID id) {
         ImageryLayer entity = repository.findById(id).orElseThrow(() -> new RuntimeException("ImageryLayer not found"));
         imageryLayerMapper.update(entity, imageryLayerDto);
-        geoServerClient.updateLayerStyle(entity.getLayerName(), entity.getStyle());
+        if (imageryLayerDto.getStyle() != null && imageryLayerDto.getStyle().getId() != null) {
+            RasterStyle style = rasterStyleRepository.findById(imageryLayerDto.getStyle().getId())
+                    .orElseThrow(() -> new RuntimeException("Style not found: " + imageryLayerDto.getStyle().getId()));
+            entity.setStyle(style);
+        }
         entity = repository.save(entity);
         sendKafkaEvent(entity, GeoObjectEvent.EventType.UPDATED);
         return imageryLayerMapper.toDto(entity);
     }
 
     private void sendKafkaEvent(ImageryLayer entity, GeoObjectEvent.EventType eventType) {
-        Map<String, Object> payload = objectMapper.convertValue(entity, Map.class);
+        Map<String, Object> payload = objectMapper.convertValue(imageryLayerMapper.toDto(entity), Map.class);
         payload.put("type", "imagery");
         kafkaProducerService.sendGeoObjectEvent(payload, eventType);
     }

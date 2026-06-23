@@ -16,8 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Table(name = "imagery_layers", schema = "geoabstraction", indexes = {
-        @Index(name = "ix_imagery_date", columnList = "date_captured"),
-        @Index(name = "ux_imagery_ws_name", columnList = "workspace, layer_name", unique = true)
+        @Index(name = "ix_imagery_date", columnList = "date_captured")
 })
 @Entity
 @AllArgsConstructor
@@ -42,21 +41,16 @@ public class ImageryLayer extends AuditableCustom<String> {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "workspace", nullable = false, length = 128)
-    private String workspace;
-
-    @Column(name = "layer_name", nullable = false, length = 256)
+    @Column(name = "layer_name", length = 256)
     private String layerName;
-
-    @Column(name = "service_url", nullable = false)
-    private String serviceUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private Status status;
 
-    @Column(name = "style", length = 128)
-    private String style;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "style_id")
+    private RasterStyle style;
 
     @Column(name = "date_captured", nullable = false)
     private Date dateCaptured;

@@ -170,6 +170,11 @@ class GeoAbstractionService {
     return api.delete(`${API_URL}/imagery-layer/${id}`);
   }
 
+  async getImageryPresignedUrl(id: string) {
+    const response = await api.get<{ url: string }>(`${API_URL}/imagery-layer/${id}/presigned-url`);
+    return response.data.url;
+  }
+
   getStyles() {
     return api.get<string[]>(`${API_URL}/imagery-layer/styles`);
   }

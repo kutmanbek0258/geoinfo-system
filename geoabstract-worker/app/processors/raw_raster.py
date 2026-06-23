@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 from .base import BaseProcessor
-from ..core.config import logger, GDAL_STORE
+from ..core.config import logger
 from ..core.clients import minio_client
 from ..core.gdal import run_command, get_band_stats, safe_scale_range, build_final_cog, get_wgs84_extent
 
@@ -22,13 +22,7 @@ class RawRasterProcessor(BaseProcessor):
         
         work_dir = tempfile.mkdtemp(prefix="raw-raster-{0}-".format(job_id))
         
-        # If it's a terrain task, we don't need to keep it in GDAL_STORE (shared volume)
-        # as QGIS plugin now uses presigned URLs from MinIO.
-        if task_type == "TERRAIN_COG":
-            final_output_file = os.path.join(work_dir, "processed_terrain.tif")
-        else:
-            final_output_file = os.path.join(GDAL_STORE, "{0}.tif".format(output_prefix))
-
+        final_output_file = os.path.join(work_dir, "{0}.tif".format(output_prefix))
         input_file = os.path.join(work_dir, "input.tif")
 
         try:
@@ -40,12 +34,6 @@ class RawRasterProcessor(BaseProcessor):
             run_command(["gdalinfo", input_file])
 
             logger.info("Converting raw GeoTIFF to Cloud Optimized GeoTIFF: %s", final_output_file)
-            
-            # For raw GeoTIFF, we just optimize it to COG. 
-            # We assume it's already in a good projection or let COG driver handle it.
-            # Usually we want to ensure it's Byte if it's for simple viewing, 
-            # but user said they want original values for SLD.
-            
             build_final_cog(input_file, final_output_file, render_mode="analytic")
             
             # Extract BBox
@@ -77,20 +65,13 @@ class RawRasterProcessor(BaseProcessor):
         if not output_prefix: 
             return
             
-        target = os.path.join(GDAL_STORE, "{0}.tif".format(output_prefix))
-        logger.info("Cleaning up data for job %s at %s", job_id, target)
+        source_bucket = job_data.get("sourceBucket", "geo-abstraction-input")
+        cog_key = "imagery-cog/{0}.tif".format(output_prefix)
+        logger.info("Removing raw COG from MinIO: %s/%s", source_bucket, cog_key)
         
         try:
-            if os.path.isfile(target):
-                os.remove(target)
-                logger.info("Deleted main TIFF: %s", target)
-            
-            for suffix in (".aux.xml", ".ovr", ".msk"):
-                sidecar = target + suffix
-                if os.path.isfile(sidecar):
-                    os.remove(sidecar)
-                    
+            minio_client.remove_object(source_bucket, cog_key)
             self.send_status(job_id, "DELETED", "RAW_GEOTIFF_OPTIMIZE", output_prefix=output_prefix)
         except Exception as e:
-            logger.exception("Failed to cleanup job %s", job_id)
+            logger.exception("Failed to cleanup job %s in MinIO", job_id)
             self.send_status(job_id, "FAILED", "RAW_GEOTIFF_OPTIMIZE", error_message=str(e), output_prefix=output_prefix)

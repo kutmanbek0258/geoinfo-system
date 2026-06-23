@@ -71,19 +71,18 @@ services:
       retries: 5
       start_period: 20s
 
-  postgres-geoprint:
-    image: postgres:15
-    container_name: postgres-geoprint
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB_GEOPRINT}
-      POSTGRES_USER: ${POSTGRES_USER_GEOPRINT}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_GEOPRINT}
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d print_db -h localhost" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
+#  postgres-geoprint:
+#    image: postgres:15
+#    container_name: postgres-geoprint
+#    environment:
+#      POSTGRES_DB: ${POSTGRES_DB_GEOPRINT}
+#      POSTGRES_USER: ${POSTGRES_USER_GEOPRINT}
+#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_GEOPRINT}
+#    healthcheck:
+#      test: [ "CMD-SHELL", "pg_isready -U postgres -d print_db -h localhost" ]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
 
   # ====== Message Broker ======
   kafka:
@@ -142,20 +141,21 @@ services:
       timeout: 10s
       retries: 5
 
-  # ====== GEOSERVER ======
-  geoserver:
-    image: kartoza/geoserver:2.23.2
-    volumes:
-      - ./geoserver_uploads:/opt/geoserver/data_dir/uploads
+  # ====== TITILER ======
+  titiler:
+    image: ghcr.io/developmentseed/titiler:latest
     environment:
-      - GEOSERVER_ADMIN_USER=${GEOSERVER_ADMIN_USER}
-      - GEOSERVER_ADMIN_PASSWORD=${GEOSERVER_ADMIN_PASSWORD}
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/geoserver/web/" ]
-      interval: 10s
-      timeout: 5s
-      retries: 20
-      start_period: 60s
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+      - AWS_S3_ENDPOINT=http://minio:9000
+      - AWS_VIRTUAL_HOSTING=FALSE
+      - PORT=8000
+      - GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR
+      - CPL_VSIL_CURL_NON_EXISTING_FILE_CACHE_TIME=0
+    depends_on:
+      - minio
+    restart: always
+
 
   # ======= MINIO STORAGE ======
   minio:
@@ -346,7 +346,6 @@ services:
       context: ./geoabstraction-service
     container_name: geoabstraction-service
     volumes:
-      - ./geoserver_uploads:/data/gdal-store
       - ./terrain_store:/data/terrain-store
     environment:
       DB_URL: jdbc:postgresql://${POSTGRES_HOST_GEOABSTRACTION}:${POSTGRES_PORT_GEOABSTRACTION}/${POSTGRES_DB_GEOABSTRACTION}
@@ -354,15 +353,11 @@ services:
       DB_PASS: ${POSTGRES_PASSWORD_GEOABSTRACTION}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-2048}
-      GEOSERVER_URL: ${GEOSERVER_URL}
-      GEOSERVER_ADMIN_USER: ${GEOSERVER_ADMIN_USER}
-      GEOSERVER_ADMIN_PASSWORD: ${GEOSERVER_ADMIN_PASSWORD}
-      GEOSERVER_WORKSPACE: ${GEOSERVER_WORKSPACE}
     depends_on:
       postgres-geoabstraction:
         condition: service_healthy
-      geoserver:
-        condition: service_healthy
+      titiler:
+        condition: service_started
       kafka:
         condition: service_healthy
       config-server:
@@ -370,28 +365,30 @@ services:
       discovery-server:
         condition: service_healthy
 
-  geoprint-service:
-    build:
-      context: ./geoprint-service
-    container_name: geoprint-service
-    environment:
-      DB_URL: jdbc:postgresql://${POSTGRES_HOST_GEOPRINT}:${POSTGRES_PORT_GEOPRINT}/${POSTGRES_DB_GEOPRINT}
-      DB_USER: ${POSTGRES_USER_GEOPRINT}
-      DB_PASS: ${POSTGRES_PASSWORD_GEOPRINT}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-1024}
-      MINIO_EXTERNAL_ENDPOINT: http://${HOST}/minio
-    depends_on:
-      postgres-geoprint:
-        condition: service_healthy
-      geoserver:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
+
+#  geoprint-service:
+#    build:
+#      context: ./geoprint-service
+#    container_name: geoprint-service
+#    environment:
+#      DB_URL: jdbc:postgresql://${POSTGRES_HOST_GEOPRINT}:${POSTGRES_PORT_GEOPRINT}/${POSTGRES_DB_GEOPRINT}
+#      DB_USER: ${POSTGRES_USER_GEOPRINT}
+#      DB_PASS: ${POSTGRES_PASSWORD_GEOPRINT}
+#      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+#      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-1024}
+#      MINIO_EXTERNAL_ENDPOINT: http://${HOST}/minio
+#    depends_on:
+#      postgres-geoprint:
+#        condition: service_healthy
+#      geoserver:
+#        condition: service_healthy
+#      kafka:
+#        condition: service_healthy
+#      config-server:
+#        condition: service_healthy
+#      discovery-server:
+#        condition: service_healthy
+
 
   terrain-worker:
     build:
@@ -415,8 +412,6 @@ services:
     build:
       context: geoabstract-worker
     container_name: geoabstract-worker
-    volumes:
-      - ./geoserver_uploads:/data/gdal-store
     environment:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       MINIO_ENDPOINT: http://minio:9000
@@ -428,6 +423,7 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+
 
   geoanalysis-worker:
     build:
@@ -468,8 +464,7 @@ services:
         condition: service_healthy
       discovery-server:
         condition: service_healthy
-      geoserver:
-        condition: service_healthy
+
 
   stream-service:
     build:
@@ -498,7 +493,6 @@ services:
         VITE_AUTH_SERVICE_URL: ${VITE_AUTH_SERVICE_URL:-http://127.0.0.1:9001}
         VITE_AUTH_CALLBACK_URL: ${VITE_AUTH_CALLBACK_URL:-http://127.0.0.1:8080/code}
         VITE_ONLYOFFICE_URL: ${VITE_ONLYOFFICE_URL:-http://127.0.0.1:8081}
-        VITE_GEOSERVER_URL: ${VITE_GEOSERVER_URL:-http://127.0.0.1:8080/geoserver/wms}
         VITE_ONLYOFFICE_API_URL: ${VITE_ONLYOFFICE_API_URL:-http://127.0.0.1:9003/api/documents}
     container_name: frontend
     environment:
@@ -507,8 +501,8 @@ services:
       __VITE_AUTH_SERVICE_URL__: ${VITE_AUTH_SERVICE_URL:-http://127.0.0.1:9001}
       __VITE_AUTH_CALLBACK_URL__: ${VITE_AUTH_CALLBACK_URL:-http://127.0.0.1:8080/code}
       __VITE_ONLYOFFICE_URL__: ${VITE_ONLYOFFICE_URL:-http://127.0.0.1:8081}
-      __VITE_GEOSERVER_URL__: ${VITE_GEOSERVER_URL:-http://127.0.0.1:8080/geoserver/wms}
       __VITE_ONLYOFFICE_API_URL__: ${VITE_ONLYOFFICE_API_URL:-http://127.0.0.1:9003/api/documents}
+
     deploy:
       restart_policy:
         condition: on-failure
@@ -531,12 +525,13 @@ services:
       - frontend
       - api-gateway
       - auth-service
-      - geoserver
+      - titiler
       - onlyoffice-doc-server
       - mediamtx
       - geoabstraction-service
       - pg_tileserv
     restart: unless-stopped
+
 
 volumes:
   nginx_cache:

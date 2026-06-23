@@ -10,7 +10,7 @@
 - **Оптимизированная загрузка (Direct Upload):** Механизм загрузки тяжелых растров и архивов напрямую в S3 (MinIO) через Presigned URLs, обеспечивающий стабильность при передаче файлов до 10 ГБ.
 - **Работа с документами:** Загрузка файлов (PDF, DOCX, изображения) в S3-совместимое хранилище (MinIO) и их привязка к объектам на карте.
 - **Онлайн-редактирование:** Интеграция с **OnlyOffice** для редактирования документов (DOCX, XLSX, PPTX) прямо в браузере.
-- **Растровые слои:** Отображение геопривязанных изображений (GeoTIFF) в виде слоев WMS/WMTS через **GeoServer**.
+- **Растровые слои:** Отображение геопривязанных изображений (GeoTIFF) в виде XYZ тайлов через **TiTiler**.
 - **Полнотекстовый и гео-поиск:** Мощный поиск по атрибутам объектов и содержимому документов на базе **Elasticsearch**.
 - **Анализ мультиспектральных данных:** Поддержка импорта, обработки и визуализации спутниковых снимков **Sentinel-2** и **Landsat 8**.
     - Автоматический расчет вегетационных индексов (NDVI, EVI, NDWI и др.).
@@ -27,7 +27,7 @@
 ### Основные возможности интеграции:
 - **Единая авторизация (SSO):** Безопасный вход в плагин через системный браузер по протоколу OAuth2/PKCE.
 - **Двусторонняя синхронизация векторов:** Просмотр и редактирование точек, линий и полигонов напрямую из `geodata-service` с возможностью сохранения изменений одной кнопкой.
-- **Прямая загрузка растров (Direct Upload):** Загрузка локальных GeoTIFF файлов напрямую в облачное хранилище системы с автоматической генерацией COG и публикацией в GeoServer.
+- **Прямая загрузка растров (Direct Upload):** Загрузка локальных GeoTIFF файлов напрямую в облачное хранилище системы с автоматической генерацией COG и раздачей через TiTiler.
 - **Работа с тяжелыми растрами (COG):** Прямое чтение Cloud Optimized GeoTIFF из хранилища через HTTP Range-запросы, что позволяет проводить ГИС-анализ без скачивания файлов.
 - **Визуализация 3D-рельефа:** Нативное подключение слоев рельефа (Quantized Mesh) для работы в 3D-окне QGIS.
 - **Общие ресурсы:** Глобальный доступ к WMS-слоям и библиотекам рельефа всей системы.
@@ -85,7 +85,7 @@
 - **Frontend:** Vue.js 3, Vite, TypeScript, Vuetify 3, OpenLayers, Vuex
 - **Backend:** Java 17, Spring Boot 3, Spring Cloud, GeoTools, openhtmltopdf
 - **Базы данных:** PostgreSQL, PostGIS, Elasticsearch, Redis
-- **Гео-сервисы:** GeoServer (WMS/WMTS), pg_tileserv (MVT)
+- **Гео-сервисы:** TiTiler (XYZ), pg_tileserv (MVT)
 - **Хранилище файлов:** MinIO
 - **Инфраструктура:** Docker, Docker Compose, Nginx, nginx-proxy, Kafka, OnlyOffice, MediaMTX
 
@@ -124,7 +124,7 @@
 - **[<code>discovery-server/</code>](./discovery-server/README.md):** Сервер обнаружения (Eureka).
 - **[<code>document-service/</code>](./document-service/README.md):** Сервис управления документами.
 - **[<code>frontend/</code>](./frontend/README.md):** Клиентское приложение на Vue.js (OpenLayers + MVT).
-- **[<code>geoabstraction-service/</code>](./geoabstraction-service/README.md):** Центральный сервис управления растровыми данными, рельефом и интеграцией с GeoServer.
+- **[<code>geoabstraction-service/</code>](./geoabstraction-service/README.md):** Центральный сервис управления растровыми данными, рельефом и интеграцией с TiTiler.
 - **[<code>terrain-worker/</code>](./terrain-worker/README.md):** Python-воркер для генерации 3D-рельефа.
 - **[<code>geoabstract-worker/</code>](./geoabstract-worker/README.md):** Python-воркер для генерации COG, расчета индексов (NDVI, NDWI и др.).
 - **[<code>geoanalysis-worker/</code>](./geoanalysis-worker/README.md):** Python-воркер для тяжелого пространственного анализа (буферы, изолинии, зональная статистика). — *В стадии активной разработки*

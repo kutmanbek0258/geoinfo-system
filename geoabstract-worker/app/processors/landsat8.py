@@ -6,7 +6,7 @@ import tarfile
 import glob
 from typing import Any, Dict, List, Optional, Tuple
 from .base import BaseProcessor
-from ..core.config import logger, GDAL_STORE
+from ..core.config import logger
 from ..core.clients import minio_client
 from ..core.gdal import run_command, get_band_stats, safe_scale_range, build_final_cog, get_wgs84_extent
 from ..registry import get_formula_and_bands, build_gdal_calc_formula
@@ -36,11 +36,11 @@ class Landsat8Processor(BaseProcessor):
         render_mode = self.determine_render_mode(characteristics, index_type, channels)
         source_bucket = job_data["sourceBucket"]
         source_key = job_data["sourceObjectKey"]
-        final_output_file = os.path.join(GDAL_STORE, "{0}.tif".format(output_prefix))
 
         work_dir = tempfile.mkdtemp(prefix="landsat8-{0}-".format(job_id))
         archive_file = os.path.join(work_dir, "source.archive")
         extract_dir = os.path.join(work_dir, "extracted")
+        final_output_file = os.path.join(work_dir, "{0}.tif".format(output_prefix))
 
         try:
             self.send_status(job_id, "PROCESSING", "LANDSAT_COG", output_prefix=output_prefix)
@@ -55,8 +55,6 @@ class Landsat8Processor(BaseProcessor):
                 with zipfile.ZipFile(archive_file, "r") as zip_ref:
                     zip_ref.extractall(extract_dir)
             else:
-                # Assume it's a single TIF file? Or unsupported.
-                # Landsat 8 is usually a collection.
                 raise RuntimeError("Unsupported archive format for Landsat 8")
 
             band_paths: List[str] = []
@@ -80,11 +78,11 @@ class Landsat8Processor(BaseProcessor):
 
                 gdal_formula = build_gdal_calc_formula(formula, expected)
                 calc_cmd.extend([
-                    "--calc", gdal_formula,
-                    "--outfile", processed_tif,
-                    "--NoDataValue", "-9999",
-                    "--type", "Float32",
-                    "--overwrite",
+                     "--calc", gdal_formula,
+                     "--outfile", processed_tif,
+                     "--NoDataValue", "-9999",
+                     "--type", "Float32",
+                     "--overwrite",
                 ])
                 run_command(calc_cmd)
             else:
@@ -128,27 +126,18 @@ class Landsat8Processor(BaseProcessor):
         if not output_prefix: 
             return
             
-        target = os.path.join(GDAL_STORE, "{0}.tif".format(output_prefix))
-        logger.info("Cleaning up Landsat 8 data for job %s at %s", job_id, target)
+        source_bucket = job_data.get("sourceBucket", "geo-abstraction-input")
+        cog_key = "imagery-cog/{0}.tif".format(output_prefix)
+        logger.info("Removing Landsat 8 COG from MinIO: %s/%s", source_bucket, cog_key)
         
         try:
-            if os.path.isfile(target):
-                os.remove(target)
-                logger.info("Deleted main TIFF: %s", target)
-            
-            for suffix in (".aux.xml", ".ovr", ".msk"):
-                sidecar = target + suffix
-                if os.path.isfile(sidecar):
-                    os.remove(sidecar)
-                    
+            minio_client.remove_object(source_bucket, cog_key)
             self.send_status(job_id, "DELETED", "LANDSAT_COG", output_prefix=output_prefix)
         except Exception as e:
-            logger.exception("Failed to cleanup job %s", job_id)
+            logger.exception("Failed to cleanup job %s in MinIO", job_id)
             self.send_status(job_id, "FAILED", "LANDSAT_COG", error_message=str(e), output_prefix=output_prefix)
 
     def find_band_path(self, extract_dir: str, band: str) -> Optional[str]:
-        # Landsat 8 files typically look like: LC08_L1TP_149039_20170411_20170414_01_T1_B1.TIF
-        # We look for *_B{N}.TIF or *_B{N}.tif
         band_num = band.upper()
         if band_num.startswith("B0"):
             band_num = "B" + band_num[2:]

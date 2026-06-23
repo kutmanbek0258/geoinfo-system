@@ -219,7 +219,9 @@ import 'ol/ol.css';
 import { Map, View, Feature } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
-import TileWMS from "ol/source/TileWMS.js";
+import XYZ from "ol/source/XYZ.js";
+import { buildTiTilerColormap } from "@/util/titiler-style-builder";
+
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import { GeoJSON } from 'ol/format';
@@ -260,7 +262,7 @@ const isGeometryEditMode = ref(false);
 let modifyInteraction: Modify | null = null;
 const visibleLayerIds = ref<string[]>([]);
 const selectedTerrainLayerId = ref<string | null>(null);
-const activeImageLayers = shallowRef<Record<string, TileLayer<TileWMS>>>({}); // Используем shallowRef
+const activeImageLayers = shallowRef<Record<string, TileLayer<any>>>({}); // Используем shallowRef
 const layerOpacities = ref<Record<string, number>>({}); // Для хранения прозрачности
 const imageryMenuOpen = ref(false);
 const autoExtentEnabled = ref(false);
@@ -477,20 +479,27 @@ const toggleImageryLayer = (layerInfo: ImageryLayer) => {
     if (isVisible) {
         if (activeImageLayers.value[layerInfo.id]) return;
 
-        const wmsSource = new TileWMS({
-          url: layerInfo.serviceUrl,
-          params: {
-            'LAYERS': layerInfo.workspace + ":" +layerInfo.layerName,
-            TILED: true,
-          },
-          serverType: 'geoserver',
+        let colormapParam = "";
+        if (layerInfo.style && layerInfo.style.config) {
+          const colormapStr = buildTiTilerColormap(layerInfo.style.config);
+          if (colormapStr) {
+            colormapParam = "&colormap=" + encodeURIComponent(colormapStr);
+          }
+        }
+
+        const s3Url = `s3://geo-abstraction-input/${layerInfo.cogObjectKey}`;
+        const tileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}${colormapParam}`;
+
+        const xyzSource = new XYZ({
+          url: tileUrl,
           transition: 0,
         });
         const imageLayer = new TileLayer({ 
-            source: wmsSource,
+            source: xyzSource,
             opacity: (layerOpacities.value[layerInfo.id] || 100) / 100, // Устанавливаем начальную прозрачность
         });
         map.addLayer(imageLayer);
+
         
         activeImageLayers.value = {
             ...activeImageLayers.value,

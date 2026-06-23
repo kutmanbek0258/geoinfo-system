@@ -5,7 +5,7 @@ import zipfile
 import glob
 from typing import Any, Dict, List, Optional, Tuple
 from .base import BaseProcessor
-from ..core.config import logger, GDAL_STORE
+from ..core.config import logger
 from ..core.clients import minio_client
 from ..core.gdal import run_command, get_band_stats, safe_scale_range, build_final_cog, get_wgs84_extent
 from ..registry import SENTINEL2_INDEX_BANDS, build_gdal_calc_formula, get_formula_and_bands
@@ -35,11 +35,11 @@ class Sentinel2Processor(BaseProcessor):
         render_mode = self.determine_render_mode(characteristics, index_type, channels)
         source_bucket = job_data["sourceBucket"]
         source_key = job_data["sourceObjectKey"]
-        final_output_file = os.path.join(GDAL_STORE, "{0}.tif".format(output_prefix))
 
         work_dir = tempfile.mkdtemp(prefix="sentinel-{0}-".format(job_id))
         zip_file = os.path.join(work_dir, "source.zip")
         extract_dir = os.path.join(work_dir, "extracted")
+        final_output_file = os.path.join(work_dir, "{0}.tif".format(output_prefix))
 
         try:
             self.send_status(job_id, "PROCESSING", "SENTINEL_COG", output_prefix=output_prefix)
@@ -62,17 +62,17 @@ class Sentinel2Processor(BaseProcessor):
 
                 logger.info("Normalizing channel %s to 10m -> %s", channel, norm_path)
                 run_command([
-                    "gdalwarp",
-                    "-overwrite",
-                    "-tr", "10", "10",
-                    "-tap",
-                    "-r", "bilinear",
-                    "-multi",
-                    "-wo", "NUM_THREADS=ALL_CPUS",
-                    "-srcnodata", "0",
-                    "-dstnodata", "0",
-                    src_path,
-                    norm_path,
+                     "gdalwarp",
+                     "-overwrite",
+                     "-tr", "10", "10",
+                     "-tap",
+                     "-r", "bilinear",
+                     "-multi",
+                     "-wo", "NUM_THREADS=ALL_CPUS",
+                     "-srcnodata", "0",
+                     "-dstnodata", "0",
+                     src_path,
+                     norm_path,
                 ])
 
                 normalized_paths.append(norm_path)
@@ -100,11 +100,11 @@ class Sentinel2Processor(BaseProcessor):
 
                 gdal_formula = build_gdal_calc_formula(formula, expected)
                 calc_cmd.extend([
-                    "--calc", gdal_formula,
-                    "--outfile", processed_tif,
-                    "--NoDataValue", "-9999",
-                    "--type", "Float32",
-                    "--overwrite",
+                     "--calc", gdal_formula,
+                     "--outfile", processed_tif,
+                     "--NoDataValue", "-9999",
+                     "--type", "Float32",
+                     "--overwrite",
                 ])
                 run_command(calc_cmd)
             else:
@@ -148,22 +148,15 @@ class Sentinel2Processor(BaseProcessor):
         if not output_prefix: 
             return
             
-        target = os.path.join(GDAL_STORE, "{0}.tif".format(output_prefix))
-        logger.info("Cleaning up Sentinel-2 data for job %s at %s", job_id, target)
+        source_bucket = job_data.get("sourceBucket", "geo-abstraction-input")
+        cog_key = "imagery-cog/{0}.tif".format(output_prefix)
+        logger.info("Removing Sentinel-2 COG from MinIO: %s/%s", source_bucket, cog_key)
         
         try:
-            if os.path.isfile(target):
-                os.remove(target)
-                logger.info("Deleted main TIFF: %s", target)
-            
-            for suffix in (".aux.xml", ".ovr", ".msk"):
-                sidecar = target + suffix
-                if os.path.isfile(sidecar):
-                    os.remove(sidecar)
-                    
+            minio_client.remove_object(source_bucket, cog_key)
             self.send_status(job_id, "DELETED", "SENTINEL_COG", output_prefix=output_prefix)
         except Exception as e:
-            logger.exception("Failed to cleanup job %s", job_id)
+            logger.exception("Failed to cleanup job %s in MinIO", job_id)
             self.send_status(job_id, "FAILED", "SENTINEL_COG", error_message=str(e), output_prefix=output_prefix)
 
     def normalize_band_name(self, channel: str) -> str:

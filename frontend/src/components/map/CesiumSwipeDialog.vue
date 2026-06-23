@@ -97,6 +97,7 @@ import { ref, computed, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import * as Cesium from 'cesium';
 import type { ImageryLayer, TerrainLayer } from '@/types/api';
+import { buildTiTilerColormap, getExtentFromGeometry } from '@/util/titiler-style-builder';
 
 const props = defineProps({
   modelValue: Boolean,
@@ -185,18 +186,52 @@ const initCesium = async () => {
   }
 
   // Add Left Layer
-  leftLayer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapServiceImageryProvider({
-    url: leftInfo.serviceUrl,
-    layers: `${leftInfo.workspace}:${leftInfo.layerName}`,
-    parameters: { transparent: 'true', format: 'image/png' },
+  let leftColormapParam = "";
+  if (leftInfo.style && leftInfo.style.config) {
+    const colormapStr = buildTiTilerColormap(leftInfo.style.config);
+    if (colormapStr) {
+      leftColormapParam = "&colormap=" + encodeURIComponent(colormapStr);
+    }
+  }
+  const leftS3Url = `s3://geo-abstraction-input/${leftInfo.cogObjectKey}`;
+  const leftTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(leftS3Url)}${leftColormapParam}`;
+
+  let leftRectangle: Cesium.Rectangle | undefined;
+  if (leftInfo.bbox) {
+    const extent = getExtentFromGeometry(leftInfo.bbox);
+    if (extent) {
+      leftRectangle = Cesium.Rectangle.fromDegrees(extent[0], extent[1], extent[2], extent[3]);
+    }
+  }
+
+  leftLayer = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+    url: leftTileUrl,
+    rectangle: leftRectangle
   }));
   leftLayer.splitDirection = Cesium.SplitDirection.LEFT;
 
   // Add Right Layer
-  rightLayer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapServiceImageryProvider({
-    url: rightInfo.serviceUrl,
-    layers: `${rightInfo.workspace}:${rightInfo.layerName}`,
-    parameters: { transparent: 'true', format: 'image/png' },
+  let rightColormapParam = "";
+  if (rightInfo.style && rightInfo.style.config) {
+    const colormapStr = buildTiTilerColormap(rightInfo.style.config);
+    if (colormapStr) {
+      rightColormapParam = "&colormap=" + encodeURIComponent(colormapStr);
+    }
+  }
+  const rightS3Url = `s3://geo-abstraction-input/${rightInfo.cogObjectKey}`;
+  const rightTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(rightS3Url)}${rightColormapParam}`;
+
+  let rightRectangle: Cesium.Rectangle | undefined;
+  if (rightInfo.bbox) {
+    const extent = getExtentFromGeometry(rightInfo.bbox);
+    if (extent) {
+      rightRectangle = Cesium.Rectangle.fromDegrees(extent[0], extent[1], extent[2], extent[3]);
+    }
+  }
+
+  rightLayer = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+    url: rightTileUrl,
+    rectangle: rightRectangle
   }));
   rightLayer.splitDirection = Cesium.SplitDirection.RIGHT;
 

@@ -25,16 +25,32 @@ export interface GeoFolder {
     isSaved?: boolean;
 }
 
+export interface ColorMapEntry {
+    color: string;
+    quantity: number;
+    opacity: number;
+    label?: string;
+}
+
+export interface RasterStyle {
+    id: string;
+    name: string;
+    title: string;
+    type: string;
+    config: ColorMapEntry[];
+    isSystem: boolean;
+    createdDate?: string;
+    lastModifiedDate?: string;
+}
+
 export interface ImageryLayer {
     id: string; // UUID
     projectId?: string;
     name: string;
     description?: string;
-    workspace: string;
-    layerName: string;
-    serviceUrl: string;
+    layerName?: string;
     status: Status;
-    style?: string;
+    style?: RasterStyle;
     dateCaptured: string; // Date -> string
     crs: string;
     characteristics?: Record<string, any>;

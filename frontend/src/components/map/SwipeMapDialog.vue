@@ -89,8 +89,10 @@ import 'ol/ol.css';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
-import TileWMS from 'ol/source/TileWMS';
+import XYZ from 'ol/source/XYZ';
 import type { ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon } from '@/types/api';
+import { buildTiTilerColormap, getExtentFromGeometry } from '@/util/titiler-style-builder';
+
 import { getRenderPixel } from 'ol/render';
 import { createEmpty, extend } from 'ol/extent';
 import { transformExtent } from 'ol/proj';
@@ -112,8 +114,9 @@ const rightLayerId = ref<string | null>(null);
 const swipePosition = ref(window.innerWidth / 2);
 
 let map: Map | null = null;
-let leftWmsLayer: TileLayer<TileWMS> | null = null;
-let rightWmsLayer: TileLayer<TileWMS> | null = null;
+let leftWmsLayer: TileLayer<any> | null = null;
+let rightWmsLayer: TileLayer<any> | null = null;
+
 
 const availableLayers = computed<ImageryLayer[]>(() => store.state.geodata.imageryLayers?.content || []);
 
@@ -156,21 +159,58 @@ const initMap = () => {
 
   if (!leftInfo || !rightInfo) return;
 
+  let leftColormapParam = "";
+  if (leftInfo.style && leftInfo.style.config) {
+    const colormapStr = buildTiTilerColormap(leftInfo.style.config);
+    if (colormapStr) {
+      leftColormapParam = "&colormap=" + encodeURIComponent(colormapStr);
+    }
+  }
+  const leftS3Url = `s3://geo-abstraction-input/${leftInfo.cogObjectKey}`;
+  const leftTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(leftS3Url)}${leftColormapParam}`;
+
+  let leftOlExtent: [number, number, number, number] | undefined;
+  if (leftInfo.bbox) {
+    const wgs84Extent = getExtentFromGeometry(leftInfo.bbox);
+    if (wgs84Extent) {
+      leftOlExtent = transformExtent(wgs84Extent, 'EPSG:4326', 'EPSG:3857') as [number, number, number, number];
+    }
+  }
+
   leftWmsLayer = new TileLayer({
-    source: new TileWMS({
-      url: leftInfo.serviceUrl,
-      params: { 'LAYERS': `${leftInfo.workspace}:${leftInfo.layerName}`, 'TILED': true },
-      serverType: 'geoserver',
+    source: new XYZ({
+      url: leftTileUrl,
+      transition: 0,
     }),
+    extent: leftOlExtent
   });
 
+  let rightColormapParam = "";
+  if (rightInfo.style && rightInfo.style.config) {
+    const colormapStr = buildTiTilerColormap(rightInfo.style.config);
+    if (colormapStr) {
+      rightColormapParam = "&colormap=" + encodeURIComponent(colormapStr);
+    }
+  }
+  const rightS3Url = `s3://geo-abstraction-input/${rightInfo.cogObjectKey}`;
+  const rightTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(rightS3Url)}${rightColormapParam}`;
+
+  let rightOlExtent: [number, number, number, number] | undefined;
+  if (rightInfo.bbox) {
+    const wgs84Extent = getExtentFromGeometry(rightInfo.bbox);
+    if (wgs84Extent) {
+      rightOlExtent = transformExtent(wgs84Extent, 'EPSG:4326', 'EPSG:3857') as [number, number, number, number];
+    }
+  }
+
   rightWmsLayer = new TileLayer({
-    source: new TileWMS({
-      url: rightInfo.serviceUrl,
-      params: { 'LAYERS': `${rightInfo.workspace}:${rightInfo.layerName}`, 'TILED': true },
-      serverType: 'geoserver',
+    source: new XYZ({
+      url: rightTileUrl,
+      transition: 0,
     }),
+    extent: rightOlExtent
   });
+
 
   // The Magic: Cliping the right layer
   rightWmsLayer.on('prerender', (event) => {

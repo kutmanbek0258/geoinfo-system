@@ -1,7 +1,7 @@
 <template>
   <v-card>
     <v-toolbar color="secondary" dark>
-      <v-toolbar-title>Imagery Layers</v-toolbar-title>
+      <v-toolbar-title>Слои растровых данных</v-toolbar-title>
       <v-spacer></v-spacer>
       <v-btn icon @click="openCreateDialog">
         <v-icon>mdi-plus</v-icon>
@@ -16,11 +16,11 @@
         :key="layer.id"
       >
         <v-list-item-title>{{ layer.name }}</v-list-item-title>
-        <v-list-item-subtitle>
-          Workspace: {{ layer.workspace }}, Layer: {{ layer.layerName }}
+        <v-list-item-subtitle class="font-weight-medium">
+          COG Key: {{ layer.cogObjectKey || 'Файл не загружен' }}
         </v-list-item-subtitle>
         <v-list-item-subtitle>
-          Date: {{ layer.dateCaptured }}
+          Дата: {{ new Date(layer.dateCaptured).toLocaleDateString() }} | CRS: {{ layer.crs }}
         </v-list-item-subtitle>
 
         <template v-slot:append>
@@ -30,7 +30,7 @@
       </v-list-item>
     </v-list>
 
-    <div class="text-center">
+    <div class="text-center pa-4" v-if="totalPages > 1">
         <v-pagination
             v-model="currentPage"
             :length="totalPages"
@@ -38,90 +38,98 @@
         ></v-pagination>
     </div>
 
-    <v-dialog v-model="dialog" max-width="800px">
+    <!-- Create/Edit Layer Dialog -->
+    <v-dialog v-model="dialog" max-width="600px">
       <v-card>
-        <v-card-title>
-          <span class="headline">{{ isEditing ? 'Edit Layer' : 'New Layer' }}</span>
+        <v-card-title class="bg-secondary text-white">
+          <span class="headline">{{ isEditing ? 'Редактировать слой' : 'Создать слой' }}</span>
         </v-card-title>
-        <v-card-text>
+        <v-card-text class="pt-4">
           <v-form ref="form">
-            <v-text-field v-model="editableLayer.name" label="Display Name" :rules="[v => !!v || 'Name is required']"></v-text-field>
-            <v-textarea v-model="editableLayer.description" label="Description"></v-textarea>
-            <v-row>
-              <v-col cols="12" sm="6">
-                <v-text-field v-model="editableLayer.workspace" label="GeoServer Workspace" :rules="[v => !!v || 'Workspace is required']"></v-text-field>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field v-model="editableLayer.layerName" label="GeoServer Layer Name" :rules="[v => !!v || 'Layer name is required']"></v-text-field>
-              </v-col>
-            </v-row>
-            <v-text-field v-model="editableLayer.serviceUrl" label="Service URL (WMS/WMTS)" :rules="[v => !!v || 'URL is required']"></v-text-field>
+            <v-text-field v-model="editableLayer.name" label="Отображаемое имя" variant="outlined" density="comfortable" :rules="[v => !!v || 'Имя обязательно']"></v-text-field>
+            <v-textarea v-model="editableLayer.description" label="Описание" variant="outlined" density="comfortable"></v-textarea>
+            
             <v-row>
                 <v-col cols="12" sm="6">
-                    <v-text-field v-model="editableLayer.dateCaptured" label="Date Captured" type="date"></v-text-field>
+                    <v-text-field v-model="editableLayer.dateCaptured" label="Дата создания" variant="outlined" density="comfortable" type="date"></v-text-field>
                 </v-col>
                 <v-col cols="12" sm="6">
-                    <v-select v-model="editableLayer.status" :items="['COMPLETED', 'IN_PROCESS', 'REJECTED']" label="Status" :rules="[v => !!v || 'Status is required']"></v-select>
+                    <v-select v-model="editableLayer.status" :items="['COMPLETED', 'IN_PROCESS', 'REJECTED']" label="Статус" variant="outlined" density="comfortable" :rules="[v => !!v || 'Статус обязателен']"></v-select>
                 </v-col>
             </v-row>
-            <v-row>
-                <v-col cols="12" sm="6">
-                    <v-select v-model="editableLayer.style" :items="availableStyles" label="Style"></v-select>
+            <v-row align="center">
+                <v-col cols="10">
+                    <v-select
+                        v-model="selectedStyleObject"
+                        :items="availableStyles"
+                        item-title="title"
+                        item-value="id"
+                        return-object
+                        label="Цветовая шкала"
+                        variant="outlined"
+                        density="comfortable"
+                    ></v-select>
                 </v-col>
-                <v-col cols="12" sm="6">
-                    <v-text-field v-model="editableLayer.crs" label="CRS (e.g., EPSG:4326)" :rules="[v => !!v || 'CRS is required']"></v-text-field>
+                <v-col cols="2" class="text-right">
+                    <v-btn icon="mdi-palette" color="primary" @click="showStyleEditor = true" title="Редактор стилей"></v-btn>
+                </v-col>
+            </v-row>
+            <v-row>
+                <v-col cols="12">
+                    <v-text-field v-model="editableLayer.crs" label="Проекция (CRS, e.g., EPSG:4326)" variant="outlined" density="comfortable" :rules="[v => !!v || 'CRS обязателен']"></v-text-field>
                 </v-col>
             </v-row>
           </v-form>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
-          <v-btn color="blue darken-1" variant="text" @click="dialog = false">Cancel</v-btn>
-          <v-btn color="blue darken-1" variant="text" @click="saveLayer">Save</v-btn>
+          <v-btn variant="text" @click="dialog = false">Отмена</v-btn>
+          <v-btn color="secondary" variant="elevated" @click="saveLayer">Сохранить</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Raster Style Editor Dialog Component -->
+    <RasterStyleEditorDialog v-model="showStyleEditor" @styles-updated="fetchStyles" />
   </v-card>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useStore } from 'vuex';
-import type { ImageryLayer } from '@/types/api';
-import GeoAbstractionService from '@/services/geo-abstraction.service';
+import type { ImageryLayer, RasterStyle } from '@/types/api';
+import RasterStyleService from '@/services/raster-style.service';
+import RasterStyleEditorDialog from './RasterStyleEditorDialog.vue';
 
-// Используем Vuex store
 const store = useStore();
 
-// --- Состояние компонента ---
 const dialog = ref(false);
+const showStyleEditor = ref(false);
 const isEditing = ref(false);
 const editableLayer = ref<Partial<ImageryLayer>>({});
 const form = ref<any>(null);
 const currentPage = ref(1);
 const pageSize = ref(10);
-const availableStyles = ref<string[]>([]);
+const availableStyles = ref<RasterStyle[]>([]);
+const selectedStyleObject = ref<RasterStyle | null>(null);
 
-// --- Получение данных из Vuex ---
 const isLoading = computed(() => store.state.geodata.isLoading);
 const imageryLayers = computed<ImageryLayer[]>(() => store.state.geodata.imageryLayers?.content || []);
 const totalPages = computed(() => store.state.geodata.imageryLayers?.totalPages || 0);
 
-// --- Методы для загрузки данных ---
 const fetchCurrentPage = () => {
     store.dispatch('geodata/fetchImageryLayers', { page: currentPage.value - 1, size: pageSize.value });
 }
 
 const fetchStyles = async () => {
     try {
-        const response = await GeoAbstractionService.getStyles();
-        availableStyles.value = response.data;
+        const response = await RasterStyleService.getRasterStyles(0, 100);
+        availableStyles.value = response.data.content;
     } catch (e) {
         console.error("Failed to fetch styles", e);
     }
 }
 
-// --- Жизненный цикл и наблюдатели ---
 onMounted(async () => {
   fetchCurrentPage();
   await fetchStyles();
@@ -131,32 +139,32 @@ watch(currentPage, () => {
     fetchCurrentPage();
 });
 
-// --- Методы ---
 const openCreateDialog = () => {
   isEditing.value = false;
   editableLayer.value = {
     name: '',
     description: '',
-    workspace: 'geoinfo',
-    layerName: '',
-    serviceUrl: import.meta.env.VITE_GEOSERVER_URL,
     dateCaptured: new Date().toISOString().split('T')[0],
     status: 'COMPLETED',
-    style: '',
     crs: 'EPSG:4326'
   };
+  selectedStyleObject.value = availableStyles.value.find(s => s.name === 'raster') || null;
   dialog.value = true;
 };
 
 const openEditDialog = (layer: ImageryLayer) => {
   isEditing.value = true;
-  editableLayer.value = { ...layer, dateCaptured: layer.dateCaptured.split('T')[0] };
+  editableLayer.value = { ...layer, dateCaptured: layer.dateCaptured ? layer.dateCaptured.split('T')[0] : new Date().toISOString().split('T')[0] };
+  selectedStyleObject.value = layer.style || null;
   dialog.value = true;
 };
 
 const saveLayer = async () => {
   const { valid } = await form.value.validate();
   if (!valid) return;
+
+  // Bind selected style object
+  editableLayer.value.style = selectedStyleObject.value || undefined;
 
   const actionPayload = {
       layerData: editableLayer.value,
@@ -174,7 +182,7 @@ const saveLayer = async () => {
 };
 
 const deleteLayer = async (id: string) => {
-  if (confirm('Are you sure you want to delete this imagery layer?')) {
+  if (confirm('Вы уверены, что хотите удалить этот растровый слой?')) {
     const actionPayload = { 
         layerId: id, 
         page: currentPage.value - 1, 

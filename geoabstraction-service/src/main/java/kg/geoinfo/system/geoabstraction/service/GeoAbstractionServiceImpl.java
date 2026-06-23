@@ -1,7 +1,6 @@
 package kg.geoinfo.system.geoabstraction.service;
 
 import kg.geoinfo.system.common.GeoAbstractJobEvent;
-import kg.geoinfo.system.geoabstraction.config.GeoServerProperties;
 import kg.geoinfo.system.geoabstraction.config.MinioProperties;
 import kg.geoinfo.system.geoabstraction.dto.GeoAbstractJobDto;
 import kg.geoinfo.system.geoabstraction.dto.TerrainLayerDto;
@@ -9,12 +8,13 @@ import kg.geoinfo.system.geoabstraction.mapper.TerrainLayerMapper;
 import kg.geoinfo.system.geoabstraction.mapper.GeoAbstractMapper;
 import kg.geoinfo.system.geoabstraction.models.GeoAbstractJob;
 import kg.geoinfo.system.geoabstraction.models.TerrainLayer;
+import kg.geoinfo.system.geoabstraction.models.RasterStyle;
 import kg.geoinfo.system.geoabstraction.models.enums.GeoAbstractJobStatus;
 import kg.geoinfo.system.geoabstraction.repository.GeoAbstractJobRepository;
 import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
 import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
+import kg.geoinfo.system.geoabstraction.repository.RasterStyleRepository;
 import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
-import kg.geoinfo.system.geoabstraction.service.geoserver.GeoServerClient;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -43,10 +43,9 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     private final GeoAbstractMapper geoAbstractMapper;
     private final TerrainLayerMapper terrainLayerMapper;
     private final MinioProperties minioProperties;
-    private final GeoServerClient geoServerClient;
-    private final GeoServerProperties geoServerProperties;
     private final ImageryLayerService imageryLayerService;
     private final ImageryLayerRepository imageryLayerRepository;
+    private final RasterStyleRepository rasterStyleRepository;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -170,9 +169,6 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         String objectKey = UUID.randomUUID().toString() + extension;
         String url = fileStoreService.generateUploadUrl(objectKey);
         
-        // Rewrite internal MinIO URL to public /minio/ prefix
-        // From: http://minio:9000/bucket/object...
-        // To:   /minio/bucket/object...
         if (url.contains("/" + minioProperties.getBucket() + "/")) {
             url = "/minio" + url.substring(url.indexOf("/" + minioProperties.getBucket() + "/"));
         }
@@ -185,7 +181,6 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     public GeoAbstractJobDto createJobConfirm(String name, String objectKey, Long fileSize, String taskType, List<String> channels, String indexType, UUID projectId) {
         log.info("Confirming job creation for {} with objectKey {} and taskType {} for project {}", name, objectKey, taskType, projectId);
         
-        // Validate object existence in MinIO
         if (!fileStoreService.exists(objectKey)) {
             throw new RuntimeException("File does not exist in store: " + objectKey);
         }
@@ -212,7 +207,6 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
         job = jobRepository.save(job);
 
-        // Send event to Kafka
         GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
                 .jobId(job.getId())
                 .projectId(job.getProjectId())
@@ -255,7 +249,6 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     public void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType, MultiPolygon bbox) {
         log.info("Updating job {} status to {} (Task: {})", jobId, status, taskType);
 
-        // Handle TERRAIN_COG separately as it targets an existing layer created by TERRAIN_MESH
         if ("TERRAIN_COG".equals(taskType) && "READY".equals(status)) {
             layerRepository.findByJobId(jobId).ifPresent(layer -> {
                 layer.setCogObjectKey(cogObjectKey);
@@ -268,13 +261,11 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         GeoAbstractJob job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobId));
 
-        // If job is already in a final state, don't update it (prevents re-processing noise)
         if (job.getStatus() == GeoAbstractJobStatus.READY) {
             log.info("Job {} is already READY, ignoring update to {}", jobId, status);
             return;
         }
 
-        // Normalize terrainUrl: Cesium needs the directory, not the layer.json file path
         if (terrainUrl != null && terrainUrl.endsWith("/layer.json")) {
             terrainUrl = terrainUrl.substring(0, terrainUrl.length() - 10);
         } else if (terrainUrl != null && terrainUrl.endsWith("/layer.json/")) {
@@ -290,9 +281,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         jobRepository.save(job);
 
         if (jobStatus == GeoAbstractJobStatus.READY && "TERRAIN_MESH".equals(job.getTaskType())) {
-            // Check if layer already exists
             if (!layerRepository.existsByJobId(jobId)) {
-                // Create TerrainLayer
                 TerrainLayer layer = new TerrainLayer();
                 layer.setJob(job);
                 layer.setProjectId(job.getProjectId());
@@ -302,7 +291,6 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
                 layer.setStatus("READY");
                 layerRepository.save(layer);
 
-                // Trigger COG generation in geoabstract-worker if not provided by terrain-worker
                 if (cogObjectKey == null) {
                     log.info("Triggering COG optimization for terrain job {}", jobId);
                     GeoAbstractJobEvent cogEvent = GeoAbstractJobEvent.builder()
@@ -324,10 +312,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         if (jobStatus == GeoAbstractJobStatus.READY && 
            ("SENTINEL_COG".equals(job.getTaskType()) || "LANDSAT_COG".equals(job.getTaskType()) || "RAW_GEOTIFF_OPTIMIZE".equals(job.getTaskType()))) {
             
-            String workspace = geoServerProperties.getWorkspace();
-            String storeName = job.getOutputPrefix();
             String layerName = job.getOutputPrefix();
-            String filePath = "uploads/" + job.getOutputPrefix() + ".tif";
             
             // Determine style
             String styleName = "raster"; // default
@@ -346,23 +331,20 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
                 }
             }
 
-            // 1. Create CoverageStore in GeoServer
-            geoServerClient.createCoverageStore(workspace, storeName, filePath);
-            
-            // 2. Publish Layer
-            geoServerClient.publishLayer(workspace, storeName, layerName, styleName);
-            
-            // 3. Create ImageryLayer in DB via Service (to trigger Kafka event)
+            // Find RasterStyle from DB
+            RasterStyle rasterStyle = rasterStyleRepository.findByName(styleName)
+                    .orElseGet(() -> rasterStyleRepository.findByName("raster")
+                            .orElseThrow(() -> new RuntimeException("Default style 'raster' not found")));
+
+            // Create ImageryLayer in DB via Service (to trigger Kafka event)
             kg.geoinfo.system.geoabstraction.models.ImageryLayer imageryLayer = new kg.geoinfo.system.geoabstraction.models.ImageryLayer();
             imageryLayer.setJobId(job.getId());
             imageryLayer.setProjectId(job.getProjectId());
             imageryLayer.setName(job.getName());
             imageryLayer.setDescription("Automatically published layer from job " + job.getId());
-            imageryLayer.setWorkspace(workspace);
             imageryLayer.setLayerName(layerName);
-            imageryLayer.setServiceUrl(geoServerProperties.getUrl() + "/wms/" + workspace);
             imageryLayer.setStatus(kg.geoinfo.system.geoabstraction.models.enums.Status.ACTIVE);
-            imageryLayer.setStyle(styleName);
+            imageryLayer.setStyle(rasterStyle);
             imageryLayer.setDateCaptured(new java.util.Date());
             imageryLayer.setCrs(job.getCrs() != null ? job.getCrs() : "EPSG:4326");
             imageryLayer.setCharacteristics(job.getCharacteristics());
@@ -373,8 +355,6 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         }
 
         if (jobStatus == GeoAbstractJobStatus.READY || jobStatus == GeoAbstractJobStatus.FAILED) {
-            // Cleanup source TIFF after terminal state reached
-            // Special case for Terrain: source is needed for both MESH and COG tasks
             if ("TERRAIN_MESH".equals(job.getTaskType()) && jobStatus == GeoAbstractJobStatus.READY) {
                 log.info("Keeping source file for job {} to allow TERRAIN_COG processing", jobId);
             } else {
@@ -402,9 +382,6 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
         String url = fileStoreService.generateDownloadUrl(layer.getCogObjectKey());
 
-        // Rewrite internal MinIO URL to public /terrain/cog/ prefix
-        // From: http://minio:9000/geo-abstraction-input/terrain-cog/uuid.tif?X-Amz...
-        // To:   /terrain/cog/uuid.tif?X-Amz...
         String bucketPath = "/" + minioProperties.getBucket() + "/terrain-cog/";
         if (url.contains(bucketPath)) {
             url = "/terrain/cog/" + url.split(bucketPath)[1];
@@ -424,7 +401,6 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
         GeoAbstractJob job = layer.getJob();
         if (job != null) {
-            // Send event to Kafka to delete generated terrain files from local store
             log.info("Sending DELETED event for job {} with prefix {}", job.getId(), job.getOutputPrefix());
             GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
                     .jobId(job.getId())
@@ -434,11 +410,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
                     .build();
 
             kafkaProducerService.sendGeoAbstractJobEvent(event);
-            
-            // Delete the layer
             layerRepository.delete(layer);
-            
-            // Delete the job record
             jobRepository.delete(job);
         } else {
             layerRepository.delete(layer);

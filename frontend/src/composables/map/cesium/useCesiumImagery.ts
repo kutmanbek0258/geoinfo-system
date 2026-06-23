@@ -1,6 +1,7 @@
 import { ref, watch, shallowRef, toRaw, type Ref } from 'vue';
 import * as Cesium from 'cesium';
 import type { ImageryLayer, TerrainLayer } from '@/types/api';
+import { buildTiTilerColormap, getExtentFromGeometry } from '@/util/titiler-style-builder';
 
 export function useCesiumImagery(
   viewer: Ref<Cesium.Viewer | null>,
@@ -28,10 +29,28 @@ export function useCesiumImagery(
     if (isVisible) {
       if (activeImageryLayers.value[layerInfo.id]) return;
 
-      const provider = new Cesium.WebMapServiceImageryProvider({
-        url: layerInfo.serviceUrl,
-        layers: layerInfo.workspace + ":" + layerInfo.layerName,
-        parameters: { transparent: 'true', format: 'image/png' },
+      let colormapParam = "";
+      if (layerInfo.style && layerInfo.style.config) {
+        const colormapStr = buildTiTilerColormap(layerInfo.style.config);
+        if (colormapStr) {
+          colormapParam = "&colormap=" + encodeURIComponent(colormapStr);
+        }
+      }
+
+      const s3Url = `s3://geo-abstraction-input/${layerInfo.cogObjectKey}`;
+      const tileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}${colormapParam}`;
+
+      let cesiumRectangle: Cesium.Rectangle | undefined;
+      if (layerInfo.bbox) {
+        const extent = getExtentFromGeometry(layerInfo.bbox);
+        if (extent) {
+          cesiumRectangle = Cesium.Rectangle.fromDegrees(extent[0], extent[1], extent[2], extent[3]);
+        }
+      }
+
+      const provider = new Cesium.UrlTemplateImageryProvider({
+        url: tileUrl,
+        rectangle: cesiumRectangle
       });
       const layer = v.imageryLayers.addImageryProvider(provider);
       layer.alpha = (layerOpacities.value[layerInfo.id] || 100) / 100;

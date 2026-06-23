@@ -19,11 +19,9 @@ public class ImageryLayerDto extends AbstractDto<UUID> {
     private UUID jobId;
     private String name;
     private String description;
-    private String workspace;
     private String layerName;
-    private String serviceUrl;
     private Status status;
-    private String style;
+    private RasterStyleDto style;
     private Date dateCaptured;
     private String crs;
     private Map<String, Object> characteristics;
