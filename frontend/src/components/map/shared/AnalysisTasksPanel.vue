@@ -34,91 +34,114 @@
         <div
           v-for="task in sortedTasks"
           :key="task.id"
-          class="analysis-panel__task"
-          :class="{ 'analysis-panel__task--completed': task.status === 'COMPLETED' }"
+          class="d-flex flex-column"
+          style="border-bottom: 1px solid rgba(0,0,0,0.05)"
         >
-          <!-- Status icon + plugin name -->
-          <div class="d-flex align-center gap-2 flex-1 min-w-0">
-            <v-progress-circular
-              v-if="task.status === 'PROCESSING' || task.status === 'PENDING'"
-              size="14"
-              width="2"
-              indeterminate
-              color="warning"
-            />
-            <v-icon v-else-if="task.status === 'COMPLETED'" size="14" color="success">mdi-check-circle</v-icon>
-            <v-icon v-else-if="task.status === 'FAILED'" size="14" color="error">mdi-alert-circle</v-icon>
-
-            <div class="min-w-0">
-              <div class="text-caption font-weight-medium text-truncate" :title="pluginLabel(task.pluginName)">
-                {{ pluginLabel(task.pluginName) }}
-              </div>
-              <div class="text-caption text-grey" style="font-size:10px">
-                {{ task.id.slice(0, 8) }}
+          <div
+            class="analysis-panel__task"
+            :class="{ 'analysis-panel__task--completed': task.status === 'COMPLETED' }"
+          >
+            <!-- Status icon + plugin name -->
+            <div class="d-flex align-center gap-2 flex-1 min-w-0">
+              <v-progress-circular
+                v-if="task.status === 'PROCESSING' || task.status === 'PENDING'"
+                size="14"
+                width="2"
+                indeterminate
+                color="warning"
+              />
+              <v-icon v-else-if="task.status === 'COMPLETED'" size="14" color="success">mdi-check-circle</v-icon>
+              <v-icon v-else-if="task.status === 'FAILED'" size="14" color="error">mdi-alert-circle</v-icon>
+  
+              <div class="min-w-0">
+                <div class="text-caption font-weight-medium text-truncate" :title="pluginLabel(task.pluginName)">
+                  {{ pluginLabel(task.pluginName) }}
+                </div>
+                <div class="text-caption text-grey" style="font-size:10px">
+                  {{ task.id.slice(0, 8) }}
+                </div>
               </div>
             </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="d-flex align-center gap-1 flex-shrink-0">
-            <!-- Layer visibility toggle for VECTOR / RASTER -->
-            <template v-if="task.status === 'COMPLETED' && getStagingLayer(task.id)">
-              <v-btn
-                :icon="isLayerVisible(task.id) ? 'mdi-eye' : 'mdi-eye-off'"
-                size="x-small"
-                variant="text"
-                :color="isLayerVisible(task.id) ? layerColor(task.id) : 'grey'"
-                :title="isLayerVisible(task.id) ? 'Скрыть слой' : 'Показать слой'"
-                @click="toggleLayerVisibility(task.id)"
-              />
-              <!-- Commit button -->
-              <v-btn
-                icon="mdi-content-save-outline"
-                size="x-small"
-                variant="text"
-                color="success"
-                title="Сохранить в проект"
-                @click="openCommitDialog(task)"
-              />
-              <!-- Reject button -->
-              <v-btn
-                icon="mdi-delete-sweep-outline"
-                size="x-small"
-                variant="text"
-                color="error"
-                title="Отклонить и удалить результаты"
-                @click="confirmReject(task)"
-              />
-            </template>
-
-            <!-- JSON stats table button (zonal_statistics) -->
-            <v-btn
-              v-if="task.status === 'COMPLETED' && hasJsonOutput(task)"
-              icon="mdi-table"
-              size="x-small"
-              variant="text"
-              color="blue"
-              title="Просмотр таблицы статистики"
-              :loading="loadingStats === task.id"
-              @click="openStatsDialog(task)"
-            />
-
-            <!-- Error tooltip -->
-            <v-tooltip v-if="task.status === 'FAILED'" :text="task.errorMessage || 'Ошибка'" location="left">
-              <template #activator="{ props }">
-                <v-icon v-bind="props" size="14" color="error">mdi-information-outline</v-icon>
+  
+            <!-- Actions -->
+            <div class="d-flex align-center gap-1 flex-shrink-0">
+              <!-- Layer visibility toggle for VECTOR / RASTER -->
+              <template v-if="task.status === 'COMPLETED' && getStagingLayer(task.id)">
+                <v-btn
+                  :icon="isLayerVisible(task.id) ? 'mdi-eye' : 'mdi-eye-off'"
+                  size="x-small"
+                  variant="text"
+                  :color="isLayerVisible(task.id) ? layerColor(task.id) : 'grey'"
+                  :title="isLayerVisible(task.id) ? 'Скрыть слой' : 'Показать слой'"
+                  @click="toggleLayerVisibility(task.id)"
+                />
+                <!-- Commit button -->
+                <v-btn
+                  icon="mdi-content-save-outline"
+                  size="x-small"
+                  variant="text"
+                  color="success"
+                  title="Сохранить в проект"
+                  @click="openCommitDialog(task)"
+                />
+                <!-- Reject button -->
+                <v-btn
+                  icon="mdi-delete-sweep-outline"
+                  size="x-small"
+                  variant="text"
+                  color="error"
+                  title="Отклонить и удалить результаты"
+                  @click="confirmReject(task)"
+                />
               </template>
-            </v-tooltip>
-
-            <!-- Remove staging layer -->
-            <v-btn
-              v-if="getStagingLayer(task.id)"
-              icon="mdi-close"
-              size="x-small"
-              variant="text"
-              color="grey"
-              title="Убрать слой с карты"
-              @click="removeLayer(task.id)"
+  
+              <!-- JSON stats table button (zonal_statistics) -->
+              <v-btn
+                v-if="task.status === 'COMPLETED' && hasJsonOutput(task)"
+                icon="mdi-table"
+                size="x-small"
+                variant="text"
+                color="blue"
+                title="Просмотр таблицы статистики"
+                :loading="loadingStats === task.id"
+                @click="openStatsDialog(task)"
+              />
+  
+              <!-- Error tooltip -->
+              <v-tooltip v-if="task.status === 'FAILED'" :text="task.errorMessage || 'Ошибка'" location="left">
+                <template #activator="{ props }">
+                  <v-icon v-bind="props" size="14" color="error">mdi-information-outline</v-icon>
+                </template>
+              </v-tooltip>
+  
+              <!-- Remove staging layer -->
+              <v-btn
+                v-if="getStagingLayer(task.id)"
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                color="grey"
+                title="Убрать слой с карты"
+                @click="removeLayer(task.id)"
+              />
+            </div>
+          </div>
+          <!-- Style select for raster staging layers -->
+          <div v-if="getStagingLayer(task.id)?.type === 'RASTER' && isLayerVisible(task.id)" class="px-7 pb-2 mt-n1">
+            <v-select
+              :model-value="getStyleValue(task.id)"
+              :items="styleSelectItems"
+              item-title="title"
+              item-value="id"
+              label="Стиль интерполяции"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="font-size: 11px; max-width: 190px;"
+              class="style-select"
+              clearable
+              placeholder="Без стиля (Полутоновый)"
+              @update:model-value="changeRasterStyle(task.id, $event)"
             />
           </div>
         </div>
@@ -263,11 +286,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import axios from 'axios';
-import type { AnalysisTask } from '@/types/api';
+import type { AnalysisTask, RasterStyle } from '@/types/api';
 import geoAbstractionService from '@/services/geo-abstraction.service';
+import RasterStyleService from '@/services/raster-style.service';
+import { buildTiTilerColormap } from '@/util/titiler-style-builder';
 
 const props = defineProps<{
   /** Ref to map staging layer visibility toggle from useStagingLayers */
@@ -307,7 +332,7 @@ const folderItems = computed(() => {
 
 // ── Getters ───────────────────────────────────────────────────────────────────
 const analysisTasks = computed<AnalysisTask[]>(() => store.state.geodata.analysisTasks || []);
-const stagingLayers = computed<{ taskId: string; type: string; url: string; label: string }[]>(
+const stagingLayers = computed<{ taskId: string; type: string; url: string; s3Url?: string; interpolation?: string; colormap?: string; styleId?: string | null; label: string; pluginName?: string }[]>(
   () => store.state.geodata.stagingLayers || []
 );
 
@@ -342,11 +367,151 @@ function hasJsonOutput(task: AnalysisTask): boolean {
   return !!(task.s3OutputPaths?.statistics_json);
 }
 
+// ── Interpolation & Styles ─────────────────────────────────────────────────────
+const interpolationMethods = [
+  { title: 'Ближайший сосед', value: 'nearest' },
+  { title: 'Билинейная', value: 'bilinear' },
+  { title: 'Кубическая', value: 'cubic' },
+  { title: 'Кубический сплайн', value: 'cubic_spline' },
+  { title: 'Ланцош', value: 'lanczos' },
+  { title: 'Среднее', value: 'average' },
+  { title: 'Мода', value: 'mode' }
+];
+
+const availableStyles = ref<RasterStyle[]>([]);
+
+const styleSelectItems = computed(() => {
+  return availableStyles.value.map(s => ({
+    title: s.title,
+    id: s.id
+  }));
+});
+
+const fetchAvailableStyles = async () => {
+  try {
+    const response = await RasterStyleService.getRasterStyles(0, 100);
+    availableStyles.value = response.data.content;
+  } catch (err) {
+    console.error('Failed to fetch raster styles for analysis panel:', err);
+  }
+};
+
+onMounted(() => {
+  fetchAvailableStyles();
+});
+
+// Auto-apply specialized style for new raster staging layers
+watch(
+  [stagingLayers, availableStyles],
+  ([layers, styles]) => {
+    if (!layers || !styles || styles.length === 0) return;
+    
+    layers.forEach(l => {
+      // If it is a RASTER layer and styleId is not set yet (undefined)
+      if (l.type === 'RASTER' && l.styleId === undefined) {
+        const task = analysisTasks.value.find(t => t.id === l.taskId);
+        let targetStyleName = '';
+        
+        if (l.pluginName === 'aspect') {
+          targetStyleName = 'aspect_orientation';
+        } else if (l.pluginName === 'slope') {
+          targetStyleName = 'slope_steepness';
+        } else if (l.pluginName === 'viewshed_analysis') {
+          targetStyleName = 'viewshed_visibility';
+        } else if (l.pluginName === 'watershed_delineation') {
+          targetStyleName = 'watershed_streams';
+        } else if (l.pluginName === 'unsupervised_class') {
+          targetStyleName = 'unsupervised_kmeans';
+        } else if (l.pluginName === 'spectral_indices') {
+          const idx = task?.inputParams?.index_type;
+          if (idx) {
+            switch (idx.toUpperCase()) {
+              case 'NDVI':
+              case 'SAVI':
+              case 'EVI':
+                targetStyleName = 'vegetation_index';
+                break;
+              case 'NDWI':
+                targetStyleName = 'ndwi_water';
+                break;
+              case 'NBR':
+                targetStyleName = 'nbr_burn';
+                break;
+              case 'NDRE':
+                targetStyleName = 'ndre_index';
+                break;
+              case 'GNDVI':
+                targetStyleName = 'gndvi';
+                break;
+              case 'NDMI':
+                targetStyleName = 'ndmi_moisture';
+                break;
+              case 'NDSI':
+                targetStyleName = 'ndsi_snow';
+                break;
+              case 'NDBI':
+                targetStyleName = 'ndbi_urban';
+                break;
+            }
+          }
+        }
+        
+        if (targetStyleName) {
+          const matchedStyle = styles.find(s => s.name === targetStyleName);
+          if (matchedStyle) {
+            changeRasterStyle(l.taskId, matchedStyle.id);
+            return;
+          }
+        }
+        
+        // Default fallback: clear style to null so we don't check again
+        store.commit('geodata/UPDATE_STAGING_LAYER_COLORMAP', { taskId: l.taskId, colormap: '', styleId: null });
+      }
+    });
+  },
+  { immediate: true, deep: true }
+);
+
+function getInterpolationValue(taskId: string): string {
+  return getStagingLayer(taskId)?.interpolation || 'bilinear';
+}
+
+function changeInterpolation(taskId: string, val: string) {
+  store.commit('geodata/UPDATE_STAGING_LAYER_INTERPOLATION', { taskId, interpolation: val });
+}
+
+function getStyleValue(taskId: string): string | null {
+  return getStagingLayer(taskId)?.styleId || null;
+}
+
+function changeRasterStyle(taskId: string, styleId: string | null) {
+  let colormapStr = '';
+  if (styleId) {
+    const style = availableStyles.value.find(s => s.id === styleId);
+    if (style && style.config) {
+      colormapStr = buildTiTilerColormap(style.config);
+    }
+  }
+  store.commit('geodata/UPDATE_STAGING_LAYER_COLORMAP', { taskId, colormap: colormapStr, styleId });
+}
+
 // ── Labels ────────────────────────────────────────────────────────────────────
 const PLUGIN_LABELS: Record<string, string> = {
-  terrain_contours:   'Изолинии рельефа',
-  zonal_statistics:   'Зональная статистика',
-  clip_raster_by_mask:'Обрезка растра',
+  terrain_contours:    'Изолинии рельефа',
+  zonal_statistics:    'Зональная статистика',
+  clip_raster_by_mask: 'Обрезка растра',
+  slope:               'Крутизна склонов',
+  aspect:              'Экспозиция склонов',
+  hillshade:           'Теневая отмывка',
+  viewshed_analysis:   'Анализ видимости',
+  spectral_indices:    'Спектральные индексы',
+  raster_reclass:      'Реклассификация растра',
+  raster_algebra:      'Алгебра карт',
+  polygonize_raster:   'Векторизация растра',
+  rasterize_vector:    'Растеризация векторов',
+  raster_mosaic:       'Сшивка мозаики',
+  unsupervised_class:  'Неконтролируемая классификация',
+  watershed_delineation:'Выделение водосборов'
 };
 
 function pluginLabel(name: string): string {

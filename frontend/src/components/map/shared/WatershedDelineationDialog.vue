@@ -32,12 +32,11 @@ watch(() => props.show, (newVal) => {
 });
 
 const formData = ref({
-  terrainSource: null as any,
+  demSource: null as any,
   parameters: {
-    observer_x: null as number | null,
-    observer_y: null as number | null,
-    observer_height: 2.0,
-    max_distance: 10000.0
+    target_point_x: null as number | null,
+    target_point_y: null as number | null,
+    threshold: 1000
   } as Record<string, any>
 });
 
@@ -46,11 +45,12 @@ const isWaitingForPoint = ref(false);
 // Наблюдение за выбором точки на карте
 watch(() => store.state.geodata.selectedPoint, (newPoint) => {
   if (newPoint && isWaitingForPoint.value) {
-    formData.value.parameters.observer_x = Number(newPoint.x.toFixed(6));
-    formData.value.parameters.observer_y = Number(newPoint.y.toFixed(6));
+    formData.value.parameters.target_point_x = Number(newPoint.x.toFixed(6));
+    formData.value.parameters.target_point_y = Number(newPoint.y.toFixed(6));
     isWaitingForPoint.value = false;
     // Сбрасываем выбранную точку во Vuex, чтобы можно было выбрать её заново
     store.commit('geodata/SET_SELECTED_POINT', null);
+    // Деактивируем режим выбора
     store.commit('geodata/SET_POINT_SELECTION_ACTIVE', false);
     // Возвращаем диалоговое окно на экран
     internalShow.value = true;
@@ -73,6 +73,14 @@ const PLUGIN_LABELS: Record<string, string> = {
   aspect:             'Направление экспозиции',
   hillshade:          'Теневая отмывка',
   viewshed_analysis:  'Зоны видимости',
+  spectral_indices:   'Спектральные индексы',
+  unsupervised_class: 'Классификация K-Means',
+  watershed_delineation: 'Выделение водосборов',
+  polygonize_raster:  'Векторизация растра',
+  rasterize_vector:   'Растеризация вектора',
+  raster_algebra:     'Алгебра растров',
+  raster_mosaic:      'Мозаика растров',
+  raster_reclass:     'Реклассификация растра'
 };
 
 const pluginLabel = (name: string) => PLUGIN_LABELS[name] || name;
@@ -108,11 +116,11 @@ async function runAnalysis() {
   loading.value = true;
   try {
     const inputs: Record<string, AnalysisDataSource> = {
-      'dem_file': formData.value.terrainSource
+      'dem_raster': formData.value.demSource
     };
 
     const dto: CreateAnalysisTaskDto = {
-      pluginName: 'viewshed_analysis',
+      pluginName: 'watershed_delineation',
       projectId: store.state.geodata.selectedProjectId ?? undefined,
       inputs,
       parameters: formData.value.parameters
@@ -122,7 +130,7 @@ async function runAnalysis() {
     emit('task-created', task);
     internalShow.value = false;
   } catch (err) {
-    console.error('Failed to run viewshed analysis:', err);
+    console.error('Failed to run watershed delineation analysis:', err);
   } finally {
     loading.value = false;
   }
@@ -134,14 +142,14 @@ async function runAnalysis() {
     <v-dialog v-model="internalShow" max-width="500px">
       <v-card>
         <v-card-title class="pa-4 bg-primary text-white">
-          <v-icon start icon="mdi-eye-outline"></v-icon>
-          Расчет зон видимости
+          <v-icon start icon="mdi-water-percent"></v-icon>
+          Выделение водосборов и водотоков
         </v-card-title>
         
         <v-card-text class="pa-4">
           <v-form ref="form" v-model="valid">
             <v-select
-              v-model="formData.terrainSource"
+              v-model="formData.demSource"
               :items="terrainOptions"
               label="Источник рельефа (DEM)"
               variant="outlined"
@@ -160,15 +168,15 @@ async function runAnalysis() {
                 class="w-100"
                 @click="startMapSelection"
               >
-                Указать точку наблюдателя на карте
+                Указать точку устья на карте
               </v-btn>
             </div>
 
             <v-row>
               <v-col cols="6">
                 <v-text-field
-                  v-model.number="formData.parameters.observer_x"
-                  label="Долгота (Observer X)"
+                  v-model.number="formData.parameters.target_point_x"
+                  label="Долгота (X)"
                   type="number"
                   variant="outlined"
                   density="comfortable"
@@ -178,8 +186,8 @@ async function runAnalysis() {
               </v-col>
               <v-col cols="6">
                 <v-text-field
-                  v-model.number="formData.parameters.observer_y"
-                  label="Широта (Observer Y)"
+                  v-model.number="formData.parameters.target_point_y"
+                  label="Широта (Y)"
                   type="number"
                   variant="outlined"
                   density="comfortable"
@@ -189,30 +197,20 @@ async function runAnalysis() {
               </v-col>
             </v-row>
 
-            <v-row>
-              <v-col cols="6">
-                <v-text-field
-                  v-model.number="formData.parameters.observer_height"
-                  label="Высота наблюдателя (м)"
-                  type="number"
-                  variant="outlined"
-                  density="comfortable"
-                  required
-                  :rules="[v => v !== null && v !== undefined || 'Обязательно']"
-                ></v-text-field>
-              </v-col>
-              <v-col cols="6">
-                <v-text-field
-                  v-model.number="formData.parameters.max_distance"
-                  label="Радиус обзора (м)"
-                  type="number"
-                  variant="outlined"
-                  density="comfortable"
-                  required
-                  :rules="[v => v !== null && v !== undefined || 'Обязательно']"
-                ></v-text-field>
-              </v-col>
-            </v-row>
+            <v-text-field
+              v-model.number="formData.parameters.threshold"
+              label="Порог аккумуляции стока (пикселей)"
+              type="number"
+              variant="outlined"
+              density="comfortable"
+              required
+              persistent-hint
+              hint="Чем меньше значение, тем гуще речная сеть"
+              :rules="[
+                v => v !== null && v !== undefined || 'Обязательно',
+                v => v >= 100 && v <= 50000 || 'От 100 до 50000'
+              ]"
+            ></v-text-field>
           </v-form>
         </v-card-text>
 
@@ -236,7 +234,7 @@ async function runAnalysis() {
       location="top"
     >
       <div class="d-flex align-center justify-space-between w-100">
-        <span>Кликните по карте для выбора точки наблюдателя</span>
+        <span>Кликните по карте для выбора точки устья (водосброса)</span>
         <v-btn
           color="white"
           variant="text"

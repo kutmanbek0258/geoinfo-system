@@ -6,8 +6,8 @@ import VectorTileLayer from 'ol/layer/VectorTile';
 import VectorTileSource from 'ol/source/VectorTile';
 import MVT from 'ol/format/MVT';
 import { Fill, Stroke, Style, Circle as CircleStyle } from 'ol/style';
-import WebGLTileLayer from 'ol/layer/WebGLTile';
-import GeoTIFFSource from 'ol/source/GeoTIFF';
+import TileLayer from 'ol/layer/Tile';
+import XYZ from 'ol/source/XYZ';
 import type { Layer } from 'ol/layer';
 
 /** Bright highlight style for analysis result geometries */
@@ -21,7 +21,15 @@ const stagingStyle = new Style({
     }),
 });
 
-type StagingLayerMeta = { taskId: string; type: string; url: string; label: string };
+type StagingLayerMeta = { taskId: string; type: string; url: string; s3Url?: string; interpolation?: string; colormap?: string; styleId?: string | null; label: string };
+
+function buildTiTilerUrl(s3Url: string, interpolation: string, colormap?: string): string {
+    let url = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}&resampling=${interpolation}`;
+    if (colormap) {
+        url += `&colormap=${encodeURIComponent(colormap)}`;
+    }
+    return url;
+}
 
 /**
  * Composable that watches `geodata.stagingLayers` in the Vuex store and
@@ -48,12 +56,11 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
         });
     }
 
-    function buildRasterLayer(url: string, label: string): WebGLTileLayer {
-        return new WebGLTileLayer({
-            source: new GeoTIFFSource({
-                sources: [{ url, nodata: 0 }],
-                convertToRGB: true,
-                interpolate: true,
+    function buildRasterLayer(url: string, label: string): TileLayer {
+        return new TileLayer({
+            source: new XYZ({
+                url,
+                transition: 0
             }),
             opacity: 0.85,
             properties: { isStagingLayer: true, layerType: 'RASTER', label },
@@ -77,13 +84,27 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
 
         // Add new layers
         for (const sl of stagingLayers) {
-            if (layerRegistry[sl.taskId]) continue; // already mounted
+            const existingLayer = layerRegistry[sl.taskId];
+            if (existingLayer) {
+                if (sl.type === 'RASTER' && sl.s3Url) {
+                    const currentSource = (existingLayer as any).getSource() as XYZ;
+                    const newTileUrl = buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap);
+                    if (currentSource) {
+                        const urls = currentSource.getUrls();
+                        if (!urls || !urls.includes(newTileUrl)) {
+                            currentSource.setUrl(newTileUrl);
+                        }
+                    }
+                }
+                continue; // already mounted
+            }
             if (sl.type === 'VECTOR') {
                 const olLayer = buildVectorLayer(sl.url, sl.label);
                 olMap.addLayer(olLayer);
                 layerRegistry[sl.taskId] = olLayer;
             } else if (sl.type === 'RASTER') {
-                const olLayer = buildRasterLayer(sl.url, sl.label);
+                const tileUrl = sl.s3Url ? buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap) : sl.url;
+                const olLayer = buildRasterLayer(tileUrl, sl.label);
                 olMap.addLayer(olLayer);
                 layerRegistry[sl.taskId] = olLayer;
             }

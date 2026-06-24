@@ -8,6 +8,10 @@ interface StagingLayer {
     taskId: string;
     type: 'VECTOR' | 'RASTER';
     url: string;           // MVT tile URL or presigned COG URL
+    s3Url?: string;        // Raw S3 URL for TiTiler
+    interpolation?: string; // Interpolation style (e.g. 'bilinear')
+    colormap?: string;     // TiTiler colormap string
+    styleId?: string | null; // Selected RasterStyle ID
     pluginName: string;
     label: string;
 }
@@ -137,6 +141,24 @@ const mutations = {
 
     REMOVE_STAGING_LAYER(state: GeodataState, taskId: string) {
         state.stagingLayers = state.stagingLayers.filter(l => l.taskId !== taskId);
+    },
+
+    UPDATE_STAGING_LAYER_INTERPOLATION(state: GeodataState, { taskId, interpolation }: { taskId: string, interpolation: string }) {
+        state.stagingLayers = state.stagingLayers.map(l => {
+            if (l.taskId === taskId) {
+                return { ...l, interpolation };
+            }
+            return l;
+        });
+    },
+
+    UPDATE_STAGING_LAYER_COLORMAP(state: GeodataState, { taskId, colormap, styleId }: { taskId: string, colormap: string, styleId: string | null }) {
+        state.stagingLayers = state.stagingLayers.map(l => {
+            if (l.taskId === taskId) {
+                return { ...l, colormap, styleId };
+            }
+            return l;
+        });
     },
 
     UPDATE_FEATURE(state: GeodataState, { type, data }: { type: 'Point' | 'MultiLineString' | 'Polygon', data: any }) {
@@ -348,17 +370,15 @@ const actions = {
                         } as StagingLayer);
                     }
                     if (task.s3OutputPaths?.raster_result) {
-                        geoAbstractionService.getAnalysisTaskOutputUrl(task.id, 'raster_result')
-                            .then(res => {
-                                commit('ADD_STAGING_LAYER', {
-                                    taskId: task.id,
-                                    type: 'RASTER',
-                                    url: res.data.url,
-                                    pluginName: task.pluginName,
-                                    label: `[Растр] ${task.pluginName} (${task.id.slice(0, 8)})`
-                                } as StagingLayer);
-                            })
-                            .catch(err => console.error('Failed to pre-fetch raster URL on startup:', err));
+                        commit('ADD_STAGING_LAYER', {
+                            taskId: task.id,
+                            type: 'RASTER',
+                            url: '',
+                            s3Url: task.s3OutputPaths.raster_result,
+                            interpolation: 'bilinear',
+                            pluginName: task.pluginName,
+                            label: `[Растр] ${task.pluginName} (${task.id.slice(0, 8)})`
+                        } as StagingLayer);
                     }
                 }
             });
@@ -409,21 +429,16 @@ const actions = {
                 }
                 // For raster results — fetch presigned URL and mount as RASTER staging layer
                 if (task.s3OutputPaths?.raster_result) {
-                    geoAbstractionService.getAnalysisTaskOutputUrl(task.id, 'raster_result')
-                        .then(res => {
-                            commit('ADD_STAGING_LAYER', {
-                                taskId: task.id,
-                                type: 'RASTER',
-                                url: res.data.url,
-                                pluginName: task.pluginName,
-                                label: `[Растр] ${task.pluginName} (${task.id.slice(0, 8)})`
-                            } as StagingLayer);
-                            dispatch('alert/success', `Анализ «${task.pluginName}» завершён. Растровый слой загружен.`, { root: true });
-                        })
-                        .catch(err => {
-                            console.error('Failed to get raster output URL:', err);
-                            dispatch('alert/error', `Ошибка загрузки растрового результата: ${err.message}`, { root: true });
-                        });
+                    commit('ADD_STAGING_LAYER', {
+                        taskId: task.id,
+                        type: 'RASTER',
+                        url: '',
+                        s3Url: task.s3OutputPaths.raster_result,
+                        interpolation: 'bilinear',
+                        pluginName: task.pluginName,
+                        label: `[Растр] ${task.pluginName} (${task.id.slice(0, 8)})`
+                    } as StagingLayer);
+                    dispatch('alert/success', `Анализ «${task.pluginName}» завершён. Растровый слой загружен.`, { root: true });
                 }
                 
                 // General success notice if no map layers produced

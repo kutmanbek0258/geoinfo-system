@@ -2,3 +2,6 @@ databaseChangeLog:
   - include:
       file: object/titiler_migration.sql
       relativeToChangelogFile: true
+  - include:
+      file: object/geoanalysis_styles.sql
+      relativeToChangelogFile: true

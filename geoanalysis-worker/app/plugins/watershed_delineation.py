@@ -88,29 +88,29 @@ class WatershedDelineationPlugin(GeoWorkerPlugin):
 
         # 2. Гидрологический анализ с помощью pysheds
         logger.info("Initializing pysheds grid from DEM...")
-        grid = Grid.from_raster(dem_path, data_name='dem')
+        grid = Grid.from_raster(dem_path)
         dem = grid.read_raster(dem_path)
 
         # Кондиционирование рельефа (заполнение депрессий и плоских зон)
         logger.info("Conditioning DEM (filling depressions)...")
-        grid.fill_depressions('dem', out_name='flooded_dem')
+        flooded_dem = grid.fill_depressions(dem)
         logger.info("Resolving flats...")
-        grid.resolve_flats('flooded_dem', out_name='inflated_dem')
+        inflated_dem = grid.resolve_flats(flooded_dem)
 
         # Направления стоков по D8
         logger.info("Calculating flow directions...")
         dirmap = (64, 128, 1, 2, 4, 8, 16, 32)
-        grid.flowdir(data='inflated_dem', out_name='dir', dirmap=dirmap)
+        fdir = grid.flowdir(inflated_dem, dirmap=dirmap)
 
         # Накопление потока
         logger.info("Calculating flow accumulation...")
-        grid.accumulation(data='dir', out_name='acc', dirmap=dirmap)
+        acc = grid.accumulation(fdir, dirmap=dirmap)
 
         # Выделение водосборного бассейна (catchment)
         logger.info("Delineating catchment basin...")
-        grid.catchment(
-            data='dir', x=proj_x, y=proj_y, dirmap=dirmap, 
-            out_name='catch', recursionlimit=30000, xytype='label'
+        catch = grid.catchment(
+            x=proj_x, y=proj_y, fdir=fdir, dirmap=dirmap, 
+            xytype='label', recursionlimit=30000
         )
 
         # 3. Сохранение и векторизация бассейна в GeoJSON
@@ -119,7 +119,9 @@ class WatershedDelineationPlugin(GeoWorkerPlugin):
             os.remove(temp_catch_raster)
         
         logger.info("Exporting catchment raster...")
-        grid.to_raster('catch', temp_catch_raster)
+        catch.nodata = 0
+        catch_int = catch.astype(np.int8)
+        grid.to_raster(catch_int, temp_catch_raster)
 
         # Векторизуем catchment raster в GeoJSON полигон
         logger.info("Polygonizing catchment to GeoJSON...")
@@ -130,16 +132,18 @@ class WatershedDelineationPlugin(GeoWorkerPlugin):
 
         # 4. Выделение сети водотоков (streams) по порогу
         logger.info("Extracting stream lines...")
-        acc_view = grid.view('acc')
-        streams_arr = np.where(acc_view > threshold, 1, 0).astype(np.int8)
+        from pysheds.view import Raster
+        streams_arr = np.where(acc > threshold, 1, 0).astype(np.int32)
+        streams_viewfinder = acc.viewfinder.copy()
+        streams_viewfinder.nodata = 0
+        streams = Raster(streams_arr, viewfinder=streams_viewfinder)
 
-        # Добавляем в сетку и экспортируем
-        grid.add_gridded_data(streams_arr, 'streams', check_dims=False)
+
         temp_streams_path = os.path.join(workspace, "streams_temp.tif")
         if os.path.exists(temp_streams_path):
             os.remove(temp_streams_path)
 
-        grid.to_raster('streams', temp_streams_path)
+        grid.to_raster(streams, temp_streams_path)
 
         #  Транслируем streams_temp в COG для отображения на фронтенде
         if os.path.exists(streams_raster_file):
