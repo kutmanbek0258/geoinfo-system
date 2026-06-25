@@ -35,10 +35,18 @@ class SlopePlugin(GeoWorkerPlugin):
         if src_ds is None:
             raise RuntimeError(f"Could not open source file: {src_file}")
 
+        # Detect geographic coordinate system (degrees) and apply scale factor for elevation in meters
+        scale = 1.0
+        srs = src_ds.GetSpatialRef()
+        if srs and srs.IsGeographic():
+            scale = 111120
+            logger.info("Input DEM is in geographic coordinate system. Applying scale=111120 for slope calculation.")
+
         # Опции для расчета уклона с конвертацией в COG
         dem_options = gdal.DEMProcessingOptions(
             format="COG",
             slopeFormat=units,
+            scale=scale,
             creationOptions=[
                 "COMPRESS=DEFLATE",
                 "PREDICTOR=2",

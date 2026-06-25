@@ -8,7 +8,7 @@ class RasterStyleService {
   async getTiTilerColorMaps(): Promise<string[]> {
     const response = await axios.get<any>('/raster/cog/colorMaps?f=json');
     if (response.data && response.data.colormaps && Array.isArray(response.data.colormaps)) {
-      return response.data.colormaps.map((c: any) => c.id);
+      return response.data.colormaps.map((c: any) => c.id).sort((a: string, b: string) => a.localeCompare(b));
     }
     return [];
   }

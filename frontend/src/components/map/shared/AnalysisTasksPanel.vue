@@ -424,7 +424,7 @@ const fetchTiTilerColormaps = async () => {
     titilerColormaps.value = await RasterStyleService.getTiTilerColorMaps();
   } catch (err) {
     console.error('Failed to fetch TiTiler colormaps for analysis panel:', err);
-    titilerColormaps.value = ['viridis', 'magma', 'inferno', 'plasma', 'cividis', 'terrain', 'rdylgn', 'spectral'];
+    titilerColormaps.value = ['cividis', 'inferno', 'magma', 'plasma', 'rdylgn', 'spectral', 'terrain', 'viridis'];
   }
 };
 
