@@ -13,6 +13,12 @@ class RasterStyleService {
     return [];
   }
 
+  async getRasterValueAtPoint(s3Url: string, lon: number, lat: number): Promise<any> {
+    const url = `/raster/cog/cog/point/${lon},${lat}?url=${encodeURIComponent(s3Url)}`;
+    const response = await axios.get<any>(url);
+    return response.data;
+  }
+
   getRasterStyles(page = 0, size = 10, name?: string, title?: string) {
     return api.get<Page<RasterStyle>>(API_URL + "/page-query", {
       params: { page, size, name, title }

@@ -70,6 +70,18 @@
       </v-list>
     </v-menu>
 
+    <!-- Raster Value Button -->
+    <v-btn
+      icon="mdi-eyedropper"
+      :color="isRasterValueMode ? 'primary' : 'white'"
+      class="mb-2"
+      elevation="2"
+      @click="emit('update:isRasterValueMode', !isRasterValueMode)"
+      title="Значение растра"
+    >
+      <v-icon :color="isRasterValueMode ? 'white' : 'primary'">mdi-eyedropper</v-icon>
+    </v-btn>
+
     <!-- Swipe / Compare Button -->
     <v-btn
       icon="mdi-compare"
@@ -89,7 +101,8 @@ defineProps<{
   activeTool: boolean;
   measureMode: 'length' | 'area' | null;
   isBufferMode: boolean;
+  isRasterValueMode: boolean;
 }>();
 
-const emit = defineEmits(['stop', 'import', 'update:measureMode', 'update:isBufferMode', 'clear', 'swipe', 'analysis']);
+const emit = defineEmits(['stop', 'import', 'update:measureMode', 'update:isBufferMode', 'update:isRasterValueMode', 'clear', 'swipe', 'analysis']);
 </script>

@@ -2,7 +2,7 @@
   <MapBaseLayout>
     <template #engine>
       <div ref="mapParent" class="map-container">
-        <div id="map" ref="mapContainer" class="map"></div>
+        <div id="map" ref="mapContainer" class="map" :style="{ cursor: isRasterValueMode ? 'crosshair' : 'default' }"></div>
       </div>
     </template>
 
@@ -70,9 +70,10 @@
       <div class="d-flex flex-column align-end">
         <MapAnalysisMenu class="mb-2" @select-tool="onSelectAnalysisTool" />
         <MapToolsMenu
-          :active-tool="!!(measureMode || isBufferMode || drawMode)"
+          :active-tool="!!(measureMode || isBufferMode || drawMode || isRasterValueMode)"
           v-model:measureMode="measureMode"
           v-model:isBufferMode="isBufferMode"
+          v-model:isRasterValueMode="isRasterValueMode"
           @stop="stopActiveTool"
           @import="openImportFileDialog"
           @clear="clearMeasurements"
@@ -130,6 +131,92 @@
       <SwipeMapDialog v-model="swipeMapVisible" />
       <TerrainUploadDialog v-model="showTerrainDialog" :project-id="projectId" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
       <SatelliteImageryUploadDialog v-model="showSatelliteDialog" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
+
+      <!-- Dialog for choosing the raster layer -->
+      <v-dialog v-model="rasterValueSelectionDialog" max-width="500px" persistent>
+        <v-card>
+          <v-card-title class="text-h6">Выбор растрового слоя</v-card-title>
+          <v-card-text>
+            <div class="mb-4 text-body-2 text-medium-emphasis">
+              На карте активно несколько растровых слоев. Выберите слой для запроса значения:
+            </div>
+            <v-radio-group v-model="selectedRasterLayer">
+              <v-radio
+                v-for="layer in activeRasterLayers"
+                :key="layer.id"
+                :label="layer.label"
+                :value="layer"
+              ></v-radio>
+            </v-radio-group>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn variant="text" color="error" @click="cancelRasterSelection">Отмена</v-btn>
+            <v-btn variant="elevated" color="primary" :disabled="!selectedRasterLayer" @click="confirmRasterSelection">Выбрать</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- Dialog for showing the raster value result -->
+      <v-dialog v-model="rasterValueResultDialog" max-width="450px" persistent>
+        <v-card>
+          <v-card-title class="text-h6 d-flex align-center">
+            <v-icon start color="primary" class="mr-2">mdi-eyedropper</v-icon>
+            Значение растра
+          </v-card-title>
+          
+          <v-card-text>
+            <div v-if="rasterValueLoading" class="d-flex flex-column align-center py-6">
+              <v-progress-circular indeterminate color="primary" size="48" class="mb-4"></v-progress-circular>
+              <div class="text-body-2 text-medium-emphasis">Запрос значения растра...</div>
+            </div>
+            
+            <div v-else-if="rasterQueryError" class="py-4">
+              <v-alert type="error" variant="tonal" class="mb-4">
+                {{ rasterQueryError }}
+              </v-alert>
+            </div>
+            
+            <div v-else-if="rasterQueryResult" class="py-2">
+              <v-list density="compact" class="bg-transparent">
+                <v-list-item>
+                  <v-list-item-title class="text-caption text-medium-emphasis">Слой</v-list-item-title>
+                  <v-list-item-subtitle class="text-body-1 font-weight-bold text-high-emphasis">
+                    {{ selectedRasterLayer?.label }}
+                  </v-list-item-subtitle>
+                </v-list-item>
+                
+                <v-list-item>
+                  <v-list-item-title class="text-caption text-medium-emphasis">Координаты</v-list-item-title>
+                  <v-list-item-subtitle class="text-body-1 text-high-emphasis">
+                    {{ queriedPoint?.lat.toFixed(6) }}, {{ queriedPoint?.lon.toFixed(6) }}
+                  </v-list-item-subtitle>
+                </v-list-item>
+                
+                <v-list-item>
+                  <v-list-item-title class="text-caption text-medium-emphasis">Значение</v-list-item-title>
+                  <v-list-item-subtitle class="text-h5 font-weight-bold text-primary">
+                    {{ getDisplayValue(rasterQueryResult.values) }}
+                  </v-list-item-subtitle>
+                </v-list-item>
+              </v-list>
+            </div>
+          </v-card-text>
+          
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn variant="text" @click="rasterValueResultDialog = false">Закрыть</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- Snackbar for Raster Value notices -->
+      <v-snackbar v-model="rasterSnackbar" color="info" timeout="3000" location="bottom right">
+        {{ rasterSnackbarText }}
+        <template v-slot:actions>
+          <v-btn variant="text" @click="rasterSnackbar = false">Закрыть</v-btn>
+        </template>
+      </v-snackbar>
     </template>
   </MapBaseLayout>
 </template>
@@ -167,6 +254,7 @@ import RasterAlgebraDialog from './shared/RasterAlgebraDialog.vue';
 import RasterMosaicDialog from './shared/RasterMosaicDialog.vue';
 import RasterReclassDialog from './shared/RasterReclassDialog.vue';
 import { toLonLat } from 'ol/proj';
+import RasterStyleService from '@/services/raster-style.service';
 import MapToolsMenu from './controls/MapToolsMenu.vue';
 import MapImportDialog from './shared/MapImportDialog.vue';
 import MapMetadataDialog from './shared/MapMetadataDialog.vue';
@@ -276,6 +364,113 @@ const {
   isZoomHighEnough, enterGeometryEditMode, confirmGeometryEdit, cancelGeometryEdit
 } = useOlShotFrame(map, projectIdRef, selectedFeatureId, selectedFeature, isGeometryEditMode, tempSource);
 
+// --- Raster Value Tool Setup ---
+const isRasterValueMode = ref(false);
+const rasterValueSelectionDialog = ref(false);
+const rasterValueResultDialog = ref(false);
+const rasterValueLoading = ref(false);
+const rasterSnackbar = ref(false);
+const rasterSnackbarText = ref('');
+const selectedRasterLayer = ref<{ id: string; label: string; s3Url: string; layerType: 'imagery' | 'staging' } | null>(null);
+const queriedPoint = ref<{ lon: number; lat: number } | null>(null);
+const rasterQueryResult = ref<{ coordinates: number[]; values: number[]; band_names?: string[] } | null>(null);
+const rasterQueryError = ref<string | null>(null);
+
+const activeRasterLayers = computed(() => {
+  const projectLayers = (imageryLayers.value || []).filter((l: any) => 
+    visibleLayerIds.value.includes(l.id) && l.cogObjectKey
+  ).map((l: any) => ({
+    id: l.id,
+    label: l.name,
+    s3Url: `s3://geo-abstraction-input/${l.cogObjectKey}`,
+    layerType: 'imagery' as const
+  }));
+
+  const stagingRasters = (store.state.geodata.stagingLayers || []).filter((l: any) => 
+    l.type === 'RASTER' && 
+    l.s3Url &&
+    (stagingControl.visibleStagingLayerIds.value[l.taskId] !== false)
+  ).map((l: any) => ({
+    id: l.taskId,
+    label: l.label,
+    s3Url: l.s3Url,
+    layerType: 'staging' as const
+  }));
+
+  return [...projectLayers, ...stagingRasters];
+});
+
+watch([measureMode, isBufferMode, drawMode], ([m, b, d]) => {
+  if (m || b || d) {
+    isRasterValueMode.value = false;
+  }
+});
+
+watch(isRasterValueMode, (newVal) => {
+  if (newVal) {
+    measureMode.value = null;
+    isBufferMode.value = false;
+    drawMode.value = null;
+    
+    const layers = activeRasterLayers.value;
+    if (layers.length === 0) {
+      rasterSnackbarText.value = 'Нет активных растровых слоев на карте.';
+      rasterSnackbar.value = true;
+      isRasterValueMode.value = false;
+      return;
+    }
+    if (layers.length === 1) {
+      selectedRasterLayer.value = layers[0];
+      rasterSnackbarText.value = `Выбран слой: ${layers[0].label}. Кликните на карту.`;
+      rasterSnackbar.value = true;
+    } else {
+      rasterValueSelectionDialog.value = true;
+    }
+  } else {
+    selectedRasterLayer.value = null;
+  }
+});
+
+const cancelRasterSelection = () => {
+  rasterValueSelectionDialog.value = false;
+  isRasterValueMode.value = false;
+  selectedRasterLayer.value = null;
+};
+
+const confirmRasterSelection = () => {
+  rasterValueSelectionDialog.value = false;
+  if (selectedRasterLayer.value) {
+    rasterSnackbarText.value = `Выбран слой: ${selectedRasterLayer.value.label}. Кликните на карту.`;
+    rasterSnackbar.value = true;
+  }
+};
+
+const queryRasterValue = async (lon: number, lat: number) => {
+  if (!selectedRasterLayer.value) return;
+  rasterValueLoading.value = true;
+  rasterQueryError.value = null;
+  rasterQueryResult.value = null;
+  queriedPoint.value = { lon, lat };
+  rasterValueResultDialog.value = true;
+
+  try {
+    const res = await RasterStyleService.getRasterValueAtPoint(selectedRasterLayer.value.s3Url, lon, lat);
+    rasterQueryResult.value = res;
+  } catch (err: any) {
+    console.error('Failed to query raster value:', err);
+    rasterQueryError.value = err.response?.data?.detail || err.message || 'Ошибка при запросе значения растра';
+  } finally {
+    rasterValueLoading.value = false;
+  }
+};
+
+const getDisplayValue = (values: any[]) => {
+  if (!values || values.length === 0 || values[0] === null || values[0] === undefined) {
+    return 'Без данных (NoData)';
+  }
+  return values.map(v => typeof v === 'number' ? v.toFixed(4).replace(/\.?0+$/, '') : v).join(', ');
+};
+
 // --- 3. Style Functions for local layers ---
 const tempLayerStyleFunction = (feature: any) => {
   const styles = [
@@ -324,11 +519,20 @@ const stopActiveTool = () => {
   measureMode.value = null;
   isBufferMode.value = false;
   drawMode.value = null;
+  isRasterValueMode.value = false;
+  selectedRasterLayer.value = null;
   clearMeasurements();
 };
 
 const handleMapClick = (event: any) => {
   if (isGeometryEditMode.value || measureMode.value || isBufferMode.value) return;
+
+  if (isRasterValueMode.value && selectedRasterLayer.value) {
+    const coords = event.coordinate;
+    const lonLat = toLonLat(coords);
+    queryRasterValue(lonLat[0], lonLat[1]);
+    return;
+  }
 
   // Перехват клика для выбора точки на карте (для Viewshed и др.)
   if (store.state.geodata.pointSelectionActive) {

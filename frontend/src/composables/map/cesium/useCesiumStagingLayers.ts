@@ -1,4 +1,4 @@
-import { watch, onBeforeUnmount, type Ref } from 'vue';
+import { watch, onBeforeUnmount, ref, type Ref } from 'vue';
 import { useStore } from 'vuex';
 import * as Cesium from 'cesium';
 // @ts-ignore
@@ -32,7 +32,7 @@ function buildTiTilerUrl(s3Url: string, interpolation: string, colormap?: string
 export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
     const store = useStore();
     const layerRegistry: Record<string, Cesium.ImageryLayer> = {};
-    const layerVisibility: Record<string, boolean> = {};
+    const visibleStagingLayerIds = ref<Record<string, boolean>>({});
 
     function syncLayers(stagingLayers: StagingLayerMeta[]) {
         const v = viewer.value;
@@ -45,14 +45,14 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
             if (!incomingIds.has(taskId)) {
                 v.imageryLayers.remove(layerRegistry[taskId]);
                 delete layerRegistry[taskId];
-                delete layerVisibility[taskId];
+                delete visibleStagingLayerIds.value[taskId];
             }
         }
 
         // Add or update layers
         for (const sl of stagingLayers) {
             const existingLayer = layerRegistry[sl.taskId];
-            const isVisible = layerVisibility[sl.taskId] !== false;
+            const isVisible = visibleStagingLayerIds.value[sl.taskId] !== false;
 
             if (existingLayer) {
                 // If it is RASTER and url changes
@@ -95,7 +95,7 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
                 const layer = v.imageryLayers.addImageryProvider(provider);
                 layer.show = isVisible;
                 layerRegistry[sl.taskId] = layer;
-                layerVisibility[sl.taskId] = isVisible;
+                visibleStagingLayerIds.value[sl.taskId] = isVisible;
             } else if (sl.type === 'RASTER') {
                 const tileUrl = sl.s3Url ? buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId) : sl.url;
                 const provider = new Cesium.UrlTemplateImageryProvider({
@@ -104,13 +104,13 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
                 const layer = v.imageryLayers.addImageryProvider(provider);
                 layer.show = isVisible;
                 layerRegistry[sl.taskId] = layer;
-                layerVisibility[sl.taskId] = isVisible;
+                visibleStagingLayerIds.value[sl.taskId] = isVisible;
             }
         }
     }
 
     function setVisible(taskId: string, visible: boolean) {
-        layerVisibility[taskId] = visible;
+        visibleStagingLayerIds.value[taskId] = visible;
         const layer = layerRegistry[taskId];
         if (layer) {
             layer.show = visible;
@@ -140,6 +140,7 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
     });
 
     return {
-        setVisible
+        setVisible,
+        visibleStagingLayerIds
     };
 }

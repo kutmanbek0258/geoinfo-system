@@ -1,4 +1,4 @@
-import { watch, onBeforeUnmount } from 'vue';
+import { watch, onBeforeUnmount, ref } from 'vue';
 import { useStore } from 'vuex';
 import type { Ref } from 'vue';
 import type OlMap from 'ol/Map';
@@ -45,6 +45,7 @@ function buildTiTilerUrl(s3Url: string, interpolation: string, colormap?: string
 export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
     const store = useStore();
     const layerRegistry: Record<string, Layer> = {};
+    const visibleStagingLayerIds = ref<Record<string, boolean>>({});
 
     function getMap(): OlMap | null {
         return (mapOrRef && typeof (mapOrRef as Ref<OlMap | null>).value !== 'undefined')
@@ -84,6 +85,7 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
             if (!incomingIds.has(taskId)) {
                 olMap.removeLayer(layerRegistry[taskId]);
                 delete layerRegistry[taskId];
+                delete visibleStagingLayerIds.value[taskId];
             }
         }
 
@@ -103,13 +105,20 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
                 }
                 continue; // already mounted
             }
+            if (visibleStagingLayerIds.value[sl.taskId] === undefined) {
+                visibleStagingLayerIds.value[sl.taskId] = true;
+            }
+            const isVisible = visibleStagingLayerIds.value[sl.taskId] !== false;
+
             if (sl.type === 'VECTOR') {
                 const olLayer = buildVectorLayer(sl.url, sl.label);
+                olLayer.setVisible(isVisible);
                 olMap.addLayer(olLayer);
                 layerRegistry[sl.taskId] = olLayer;
              } else if (sl.type === 'RASTER') {
                 const tileUrl = sl.s3Url ? buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId) : sl.url;
                 const olLayer = buildRasterLayer(tileUrl, sl.label);
+                olLayer.setVisible(isVisible);
                 olMap.addLayer(olLayer);
                 layerRegistry[sl.taskId] = olLayer;
             }
@@ -118,6 +127,7 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
 
     /** Toggle map layer visibility by taskId */
     function setVisible(taskId: string, visible: boolean) {
+        visibleStagingLayerIds.value[taskId] = visible;
         const layer = layerRegistry[taskId];
         if (layer) layer.setVisible(visible);
     }
@@ -155,6 +165,7 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
     return {
         /** Toggle visibility of a staging layer on the OL map */
         setVisible,
+        visibleStagingLayerIds,
         /** Remove a staging layer from both the OL map and the store */
         remove(taskId: string) {
             store.dispatch('geodata/removeStagingLayer', taskId);
