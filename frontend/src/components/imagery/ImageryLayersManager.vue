@@ -57,7 +57,29 @@
                     <v-select v-model="editableLayer.status" :items="['COMPLETED', 'IN_PROCESS', 'REJECTED']" label="Статус" variant="outlined" density="comfortable" :rules="[v => !!v || 'Статус обязателен']"></v-select>
                 </v-col>
             </v-row>
-            <v-row align="center">
+            <v-row>
+                <v-col cols="12">
+                    <v-checkbox
+                        v-model="useTiTilerColormap"
+                        label="Использовать встроенную шкалу TiTiler"
+                        density="comfortable"
+                        hide-details
+                        class="mb-3"
+                    ></v-checkbox>
+                </v-col>
+            </v-row>
+            <v-row v-if="useTiTilerColormap" align="center">
+                <v-col cols="12">
+                    <v-select
+                        v-model="editableLayer.colormapId"
+                        :items="titilerColormaps"
+                        label="Встроенная шкала TiTiler"
+                        variant="outlined"
+                        density="comfortable"
+                    ></v-select>
+                </v-col>
+            </v-row>
+            <v-row v-else align="center">
                 <v-col cols="10">
                     <v-select
                         v-model="selectedStyleObject"
@@ -72,6 +94,17 @@
                 </v-col>
                 <v-col cols="2" class="text-right">
                     <v-btn icon="mdi-palette" color="primary" @click="showStyleEditor = true" title="Редактор стилей"></v-btn>
+                </v-col>
+            </v-row>
+            <v-row align="center">
+                <v-col cols="12">
+                    <v-select
+                        v-model="editableLayer.resampling"
+                        :items="['nearest', 'bilinear', 'cubic', 'cubic_spline', 'lanczos', 'average', 'mode']"
+                        label="Метод resampling (пересчет)"
+                        variant="outlined"
+                        density="comfortable"
+                    ></v-select>
                 </v-col>
             </v-row>
             <v-row>
@@ -113,6 +146,9 @@ const pageSize = ref(10);
 const availableStyles = ref<RasterStyle[]>([]);
 const selectedStyleObject = ref<RasterStyle | null>(null);
 
+const useTiTilerColormap = ref(false);
+const titilerColormaps = ref<string[]>([]);
+
 const isLoading = computed(() => store.state.geodata.isLoading);
 const imageryLayers = computed<ImageryLayer[]>(() => store.state.geodata.imageryLayers?.content || []);
 const totalPages = computed(() => store.state.geodata.imageryLayers?.totalPages || 0);
@@ -130,9 +166,19 @@ const fetchStyles = async () => {
     }
 }
 
+const fetchTiTilerColormaps = async () => {
+    try {
+        titilerColormaps.value = await RasterStyleService.getTiTilerColorMaps();
+    } catch (e) {
+        console.error("Failed to fetch TiTiler colorMaps", e);
+        titilerColormaps.value = ['viridis', 'magma', 'inferno', 'plasma', 'cividis', 'terrain', 'rdylgn', 'spectral'];
+    }
+}
+
 onMounted(async () => {
   fetchCurrentPage();
   await fetchStyles();
+  await fetchTiTilerColormaps();
 });
 
 watch(currentPage, () => {
@@ -146,8 +192,11 @@ const openCreateDialog = () => {
     description: '',
     dateCaptured: new Date().toISOString().split('T')[0],
     status: 'COMPLETED',
-    crs: 'EPSG:4326'
+    crs: 'EPSG:4326',
+    colormapId: null,
+    resampling: 'nearest'
   };
+  useTiTilerColormap.value = false;
   selectedStyleObject.value = availableStyles.value.find(s => s.name === 'raster') || null;
   dialog.value = true;
 };
@@ -155,6 +204,7 @@ const openCreateDialog = () => {
 const openEditDialog = (layer: ImageryLayer) => {
   isEditing.value = true;
   editableLayer.value = { ...layer, dateCaptured: layer.dateCaptured ? layer.dateCaptured.split('T')[0] : new Date().toISOString().split('T')[0] };
+  useTiTilerColormap.value = !!layer.colormapId;
   selectedStyleObject.value = layer.style || null;
   dialog.value = true;
 };
@@ -163,8 +213,12 @@ const saveLayer = async () => {
   const { valid } = await form.value.validate();
   if (!valid) return;
 
-  // Bind selected style object
-  editableLayer.value.style = selectedStyleObject.value || undefined;
+  if (useTiTilerColormap.value) {
+    editableLayer.value.style = undefined;
+  } else {
+    editableLayer.value.colormapId = null;
+    editableLayer.value.style = selectedStyleObject.value || undefined;
+  }
 
   const actionPayload = {
       layerData: editableLayer.value,

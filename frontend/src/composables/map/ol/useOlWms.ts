@@ -3,7 +3,7 @@ import { Map } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import XYZ from 'ol/source/XYZ';
 import type { ImageryLayer } from '@/types/api';
-import { buildTiTilerColormap, getExtentFromGeometry } from '@/util/titiler-style-builder';
+import { buildTiTilerStyleParams, getExtentFromGeometry } from '@/util/titiler-style-builder';
 import { transformExtent } from 'ol/proj';
 
 export function useOlWms(map: Ref<Map | null>) {
@@ -27,13 +27,7 @@ export function useOlWms(map: Ref<Map | null>) {
     if (isVisible) {
       if (activeImageLayers.value[layerInfo.id]) return;
 
-      let colormapParam = "";
-      if (layerInfo.style && layerInfo.style.config) {
-        const colormapStr = buildTiTilerColormap(layerInfo.style.config);
-        if (colormapStr) {
-          colormapParam = "&colormap=" + encodeURIComponent(colormapStr);
-        }
-      }
+      const colormapParam = buildTiTilerStyleParams(layerInfo.style, layerInfo.colormapId, layerInfo.resampling);
 
       const s3Url = `s3://geo-abstraction-input/${layerInfo.cogObjectKey}`;
       const tileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}${colormapParam}`;

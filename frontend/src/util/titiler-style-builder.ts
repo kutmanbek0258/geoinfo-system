@@ -66,3 +66,24 @@ export function getExtentFromGeometry(geom: any): [number, number, number, numbe
   return [minX, minY, maxX, maxY];
 }
 
+export function buildTiTilerStyleParams(
+  style: any,
+  colormapId?: string | null,
+  resampling?: string | null
+): string {
+  let params = "";
+  const res = resampling || 'nearest';
+  if (colormapId) {
+    params = `&colormap_name=${colormapId}&resampling=${res}`;
+  } else {
+    params = `&resampling=${res}`;
+    if (style && style.config) {
+      const colormapStr = buildTiTilerColormap(style.config);
+      if (colormapStr) {
+        params += "&colormap=" + encodeURIComponent(colormapStr);
+      }
+    }
+  }
+  return params;
+}
+

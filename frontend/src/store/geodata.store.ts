@@ -152,10 +152,10 @@ const mutations = {
         });
     },
 
-    UPDATE_STAGING_LAYER_COLORMAP(state: GeodataState, { taskId, colormap, styleId }: { taskId: string, colormap: string, styleId: string | null }) {
+    UPDATE_STAGING_LAYER_COLORMAP(state: GeodataState, { taskId, colormap, styleId, colormapId }: { taskId: string, colormap: string, styleId: string | null, colormapId?: string | null }) {
         state.stagingLayers = state.stagingLayers.map(l => {
             if (l.taskId === taskId) {
-                return { ...l, colormap, styleId };
+                return { ...l, colormap, styleId, colormapId: colormapId || null };
             }
             return l;
         });

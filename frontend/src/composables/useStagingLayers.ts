@@ -21,12 +21,17 @@ const stagingStyle = new Style({
     }),
 });
 
-type StagingLayerMeta = { taskId: string; type: string; url: string; s3Url?: string; interpolation?: string; colormap?: string; styleId?: string | null; label: string };
+type StagingLayerMeta = { taskId: string; type: string; url: string; s3Url?: string; interpolation?: string; colormap?: string; styleId?: string | null; colormapId?: string | null; label: string };
 
-function buildTiTilerUrl(s3Url: string, interpolation: string, colormap?: string): string {
-    let url = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}&resampling=${interpolation}`;
-    if (colormap) {
-        url += `&colormap=${encodeURIComponent(colormap)}`;
+function buildTiTilerUrl(s3Url: string, interpolation: string, colormap?: string, colormapId?: string | null): string {
+    let url = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}`;
+    if (colormapId) {
+        url += `&colormap_name=${colormapId}&resampling=${interpolation}`;
+    } else {
+        url += `&resampling=${interpolation}`;
+        if (colormap) {
+            url += `&colormap=${encodeURIComponent(colormap)}`;
+        }
     }
     return url;
 }
@@ -88,7 +93,7 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
             if (existingLayer) {
                 if (sl.type === 'RASTER' && sl.s3Url) {
                     const currentSource = (existingLayer as any).getSource() as XYZ;
-                    const newTileUrl = buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap);
+                    const newTileUrl = buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId);
                     if (currentSource) {
                         const urls = currentSource.getUrls();
                         if (!urls || !urls.includes(newTileUrl)) {
@@ -102,8 +107,8 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
                 const olLayer = buildVectorLayer(sl.url, sl.label);
                 olMap.addLayer(olLayer);
                 layerRegistry[sl.taskId] = olLayer;
-            } else if (sl.type === 'RASTER') {
-                const tileUrl = sl.s3Url ? buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap) : sl.url;
+             } else if (sl.type === 'RASTER') {
+                const tileUrl = sl.s3Url ? buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId) : sl.url;
                 const olLayer = buildRasterLayer(tileUrl, sl.label);
                 olMap.addLayer(olLayer);
                 layerRegistry[sl.taskId] = olLayer;

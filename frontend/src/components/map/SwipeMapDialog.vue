@@ -91,7 +91,7 @@ import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
 import type { ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon } from '@/types/api';
-import { buildTiTilerColormap, getExtentFromGeometry } from '@/util/titiler-style-builder';
+import { buildTiTilerStyleParams, getExtentFromGeometry } from '@/util/titiler-style-builder';
 
 import { getRenderPixel } from 'ol/render';
 import { createEmpty, extend } from 'ol/extent';
@@ -159,13 +159,7 @@ const initMap = () => {
 
   if (!leftInfo || !rightInfo) return;
 
-  let leftColormapParam = "";
-  if (leftInfo.style && leftInfo.style.config) {
-    const colormapStr = buildTiTilerColormap(leftInfo.style.config);
-    if (colormapStr) {
-      leftColormapParam = "&colormap=" + encodeURIComponent(colormapStr);
-    }
-  }
+  const leftColormapParam = buildTiTilerStyleParams(leftInfo.style, leftInfo.colormapId, leftInfo.resampling);
   const leftS3Url = `s3://geo-abstraction-input/${leftInfo.cogObjectKey}`;
   const leftTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(leftS3Url)}${leftColormapParam}`;
 
@@ -185,13 +179,7 @@ const initMap = () => {
     extent: leftOlExtent
   });
 
-  let rightColormapParam = "";
-  if (rightInfo.style && rightInfo.style.config) {
-    const colormapStr = buildTiTilerColormap(rightInfo.style.config);
-    if (colormapStr) {
-      rightColormapParam = "&colormap=" + encodeURIComponent(colormapStr);
-    }
-  }
+  const rightColormapParam = buildTiTilerStyleParams(rightInfo.style, rightInfo.colormapId, rightInfo.resampling);
   const rightS3Url = `s3://geo-abstraction-input/${rightInfo.cogObjectKey}`;
   const rightTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(rightS3Url)}${rightColormapParam}`;
 

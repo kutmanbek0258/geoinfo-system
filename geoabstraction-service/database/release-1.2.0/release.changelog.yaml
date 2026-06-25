@@ -5,3 +5,6 @@ databaseChangeLog:
   - include:
       file: object/geoanalysis_styles.sql
       relativeToChangelogFile: true
+  - include:
+      file: object/titiler_colormap_id.sql
+      relativeToChangelogFile: true

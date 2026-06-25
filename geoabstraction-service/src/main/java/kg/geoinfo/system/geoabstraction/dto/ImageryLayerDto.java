@@ -24,6 +24,8 @@ public class ImageryLayerDto extends AbstractDto<UUID> {
     private RasterStyleDto style;
     private Date dateCaptured;
     private String crs;
+    private String colormapId;
+    private String resampling;
     private Map<String, Object> characteristics;
     private String cogObjectKey;
     private MultiPolygon bbox;

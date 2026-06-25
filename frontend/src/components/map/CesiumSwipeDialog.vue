@@ -97,7 +97,7 @@ import { ref, computed, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import * as Cesium from 'cesium';
 import type { ImageryLayer, TerrainLayer } from '@/types/api';
-import { buildTiTilerColormap, getExtentFromGeometry } from '@/util/titiler-style-builder';
+import { buildTiTilerStyleParams, getExtentFromGeometry } from '@/util/titiler-style-builder';
 
 const props = defineProps({
   modelValue: Boolean,
@@ -186,13 +186,7 @@ const initCesium = async () => {
   }
 
   // Add Left Layer
-  let leftColormapParam = "";
-  if (leftInfo.style && leftInfo.style.config) {
-    const colormapStr = buildTiTilerColormap(leftInfo.style.config);
-    if (colormapStr) {
-      leftColormapParam = "&colormap=" + encodeURIComponent(colormapStr);
-    }
-  }
+  const leftColormapParam = buildTiTilerStyleParams(leftInfo.style, leftInfo.colormapId, leftInfo.resampling);
   const leftS3Url = `s3://geo-abstraction-input/${leftInfo.cogObjectKey}`;
   const leftTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(leftS3Url)}${leftColormapParam}`;
 
@@ -211,13 +205,7 @@ const initCesium = async () => {
   leftLayer.splitDirection = Cesium.SplitDirection.LEFT;
 
   // Add Right Layer
-  let rightColormapParam = "";
-  if (rightInfo.style && rightInfo.style.config) {
-    const colormapStr = buildTiTilerColormap(rightInfo.style.config);
-    if (colormapStr) {
-      rightColormapParam = "&colormap=" + encodeURIComponent(colormapStr);
-    }
-  }
+  const rightColormapParam = buildTiTilerStyleParams(rightInfo.style, rightInfo.colormapId, rightInfo.resampling);
   const rightS3Url = `s3://geo-abstraction-input/${rightInfo.cogObjectKey}`;
   const rightTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(rightS3Url)}${rightColormapParam}`;
 

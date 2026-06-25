@@ -58,6 +58,12 @@ public class ImageryLayer extends AuditableCustom<String> {
     @Column(name = "crs", nullable = false, length = 32)
     private String crs;
 
+    @Column(name = "colormap_id", length = 100)
+    private String colormapId;
+
+    @Column(name = "resampling", length = 50)
+    private String resampling;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "characteristics", columnDefinition = "jsonb")
     private Map<String, Object> characteristics;

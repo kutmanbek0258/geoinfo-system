@@ -53,6 +53,8 @@ export interface ImageryLayer {
     style?: RasterStyle;
     dateCaptured: string; // Date -> string
     crs: string;
+    colormapId?: string | null;
+    resampling?: string | null;
     characteristics?: Record<string, any>;
     cogObjectKey?: string;
     bbox?: GeoGeometry;

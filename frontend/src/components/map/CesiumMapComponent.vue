@@ -11,6 +11,11 @@
       <v-card class="mt-2 feature-list-card" max-height="60vh">
         <GeoObjectTree />
       </v-card>
+
+      <!-- Analysis tasks panel (under object tree) -->
+      <v-card class="mt-2" elevation="2" style="background: rgba(255,255,255,0.93)">
+        <AnalysisTasksPanel :set-visible="stagingControl.setVisible" />
+      </v-card>
     </template>
 
     <template #top-right>
@@ -158,6 +163,8 @@ import { useCesiumMvt } from '@/composables/map/cesium/useCesiumMvt';
 import { useCesiumImagery } from '@/composables/map/cesium/useCesiumImagery';
 import { useCesiumInteractions } from '@/composables/map/cesium/useCesiumInteractions';
 import { useCesiumShotFrame } from '@/composables/map/cesium/useCesiumShotFrame';
+import AnalysisTasksPanel from './shared/AnalysisTasksPanel.vue';
+import { useCesiumStagingLayers } from '@/composables/map/cesium/useCesiumStagingLayers';
 
 const props = defineProps<{ projectId: string }>();
 const store = useStore();
@@ -216,6 +223,7 @@ const lastSelectionSource = computed(() => store.state.geodata.lastSelectionSour
 
 const { refreshMvtSources, initMvtLayers, raiseMvtLayersToTop } = useCesiumMvt(viewer, projectIdRef, selectedFeatureId, hiddenFeatureIds, isGeometryEditMode);
 const { visibleLayerIds, layerOpacities, selectedTerrainId, setLayerOpacity, toggleImageryLayer, clearImageryLayers } = useCesiumImagery(viewer, terrainLayers, raiseMvtLayersToTop);
+const stagingControl = useCesiumStagingLayers(viewer);
 
 const sampleHeights = async (cartesianPoints: Cesium.Cartesian3[]) => {
   const v = viewer.value;

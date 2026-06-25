@@ -127,8 +127,30 @@
             </div>
           </div>
           <!-- Style select for raster staging layers -->
-          <div v-if="getStagingLayer(task.id)?.type === 'RASTER' && isLayerVisible(task.id)" class="px-7 pb-2 mt-n1">
+          <div v-if="getStagingLayer(task.id)?.type === 'RASTER' && isLayerVisible(task.id)" class="px-7 pb-2 mt-n1 d-flex flex-column gap-1">
+            <v-checkbox
+              :model-value="getUseTiTilerColormap(task.id)"
+              label="Встроенная шкала TiTiler"
+              density="compact"
+              hide-details
+              class="mt-0 mb-1"
+              style="font-size: 11px;"
+              @update:model-value="toggleStagingTiTilerColormap(task.id, $event)"
+            />
             <v-select
+              v-if="getUseTiTilerColormap(task.id)"
+              :model-value="getStagingColormapId(task.id)"
+              :items="titilerColormaps"
+              label="Шкала TiTiler"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="font-size: 11px; max-width: 190px;"
+              class="style-select mb-1"
+              @update:model-value="changeStagingColormapId(task.id, $event)"
+            />
+            <v-select
+              v-else
               :model-value="getStyleValue(task.id)"
               :items="styleSelectItems"
               item-title="title"
@@ -138,10 +160,21 @@
               variant="outlined"
               hide-details
               style="font-size: 11px; max-width: 190px;"
-              class="style-select"
+              class="style-select mb-1"
               clearable
               placeholder="Без стиля (Полутоновый)"
               @update:model-value="changeRasterStyle(task.id, $event)"
+            />
+            <v-select
+              :model-value="getInterpolationValue(task.id)"
+              :items="['nearest', 'bilinear', 'cubic', 'cubic_spline', 'lanczos', 'average', 'mode']"
+              label="Метод resampling"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="font-size: 11px; max-width: 190px;"
+              class="style-select"
+              @update:model-value="changeInterpolation(task.id, $event)"
             />
           </div>
         </div>
@@ -332,7 +365,7 @@ const folderItems = computed(() => {
 
 // ── Getters ───────────────────────────────────────────────────────────────────
 const analysisTasks = computed<AnalysisTask[]>(() => store.state.geodata.analysisTasks || []);
-const stagingLayers = computed<{ taskId: string; type: string; url: string; s3Url?: string; interpolation?: string; colormap?: string; styleId?: string | null; label: string; pluginName?: string }[]>(
+const stagingLayers = computed<{ taskId: string; type: string; url: string; s3Url?: string; interpolation?: string; colormap?: string; styleId?: string | null; colormapId?: string | null; style?: any; label: string; pluginName?: string }[]>(
   () => store.state.geodata.stagingLayers || []
 );
 
@@ -367,18 +400,8 @@ function hasJsonOutput(task: AnalysisTask): boolean {
   return !!(task.s3OutputPaths?.statistics_json);
 }
 
-// ── Interpolation & Styles ─────────────────────────────────────────────────────
-const interpolationMethods = [
-  { title: 'Ближайший сосед', value: 'nearest' },
-  { title: 'Билинейная', value: 'bilinear' },
-  { title: 'Кубическая', value: 'cubic' },
-  { title: 'Кубический сплайн', value: 'cubic_spline' },
-  { title: 'Ланцош', value: 'lanczos' },
-  { title: 'Среднее', value: 'average' },
-  { title: 'Мода', value: 'mode' }
-];
-
 const availableStyles = ref<RasterStyle[]>([]);
+const titilerColormaps = ref<string[]>([]);
 
 const styleSelectItems = computed(() => {
   return availableStyles.value.map(s => ({
@@ -396,8 +419,18 @@ const fetchAvailableStyles = async () => {
   }
 };
 
+const fetchTiTilerColormaps = async () => {
+  try {
+    titilerColormaps.value = await RasterStyleService.getTiTilerColorMaps();
+  } catch (err) {
+    console.error('Failed to fetch TiTiler colormaps for analysis panel:', err);
+    titilerColormaps.value = ['viridis', 'magma', 'inferno', 'plasma', 'cividis', 'terrain', 'rdylgn', 'spectral'];
+  }
+};
+
 onMounted(() => {
   fetchAvailableStyles();
+  fetchTiTilerColormaps();
 });
 
 // Auto-apply specialized style for new raster staging layers
@@ -484,6 +517,26 @@ function getStyleValue(taskId: string): string | null {
   return getStagingLayer(taskId)?.styleId || null;
 }
 
+function getUseTiTilerColormap(taskId: string): boolean {
+  return !!getStagingLayer(taskId)?.colormapId;
+}
+
+function getStagingColormapId(taskId: string): string | null {
+  return getStagingLayer(taskId)?.colormapId || null;
+}
+
+function toggleStagingTiTilerColormap(taskId: string, checked: boolean | null) {
+  if (checked) {
+    store.commit('geodata/UPDATE_STAGING_LAYER_COLORMAP', { taskId, colormap: '', styleId: null, colormapId: 'viridis' });
+  } else {
+    store.commit('geodata/UPDATE_STAGING_LAYER_COLORMAP', { taskId, colormap: '', styleId: null, colormapId: null });
+  }
+}
+
+function changeStagingColormapId(taskId: string, colormapId: string | null) {
+  store.commit('geodata/UPDATE_STAGING_LAYER_COLORMAP', { taskId, colormap: '', styleId: null, colormapId });
+}
+
 function changeRasterStyle(taskId: string, styleId: string | null) {
   let colormapStr = '';
   if (styleId) {
@@ -492,7 +545,7 @@ function changeRasterStyle(taskId: string, styleId: string | null) {
       colormapStr = buildTiTilerColormap(style.config);
     }
   }
-  store.commit('geodata/UPDATE_STAGING_LAYER_COLORMAP', { taskId, colormap: colormapStr, styleId });
+  store.commit('geodata/UPDATE_STAGING_LAYER_COLORMAP', { taskId, colormap: colormapStr, styleId, colormapId: null });
 }
 
 // ── Labels ────────────────────────────────────────────────────────────────────

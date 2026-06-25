@@ -1,7 +1,7 @@
 import { ref, watch, shallowRef, toRaw, type Ref } from 'vue';
 import * as Cesium from 'cesium';
 import type { ImageryLayer, TerrainLayer } from '@/types/api';
-import { buildTiTilerColormap, getExtentFromGeometry } from '@/util/titiler-style-builder';
+import { buildTiTilerStyleParams, getExtentFromGeometry } from '@/util/titiler-style-builder';
 
 export function useCesiumImagery(
   viewer: Ref<Cesium.Viewer | null>,
@@ -29,13 +29,7 @@ export function useCesiumImagery(
     if (isVisible) {
       if (activeImageryLayers.value[layerInfo.id]) return;
 
-      let colormapParam = "";
-      if (layerInfo.style && layerInfo.style.config) {
-        const colormapStr = buildTiTilerColormap(layerInfo.style.config);
-        if (colormapStr) {
-          colormapParam = "&colormap=" + encodeURIComponent(colormapStr);
-        }
-      }
+      const colormapParam = buildTiTilerStyleParams(layerInfo.style, layerInfo.colormapId, layerInfo.resampling);
 
       const s3Url = `s3://geo-abstraction-input/${layerInfo.cogObjectKey}`;
       const tileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}${colormapParam}`;

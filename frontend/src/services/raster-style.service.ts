@@ -1,9 +1,18 @@
+import axios from "axios";
 import api from "./api";
 import type { Page, RasterStyle } from '@/types/api';
 
 const API_URL = "/geo-abstraction/raster-style";
 
 class RasterStyleService {
+  async getTiTilerColorMaps(): Promise<string[]> {
+    const response = await axios.get<any>('/raster/cog/colorMaps?f=json');
+    if (response.data && response.data.colormaps && Array.isArray(response.data.colormaps)) {
+      return response.data.colormaps.map((c: any) => c.id);
+    }
+    return [];
+  }
+
   getRasterStyles(page = 0, size = 10, name?: string, title?: string) {
     return api.get<Page<RasterStyle>>(API_URL + "/page-query", {
       params: { page, size, name, title }
