@@ -131,6 +131,7 @@ export interface Document {
     uploadDate: string;
     isLatestVersion: boolean;
     tags: { id: number; name: string }[];
+    minioObjectKey?: string;
 }
 
 export interface SearchResult {

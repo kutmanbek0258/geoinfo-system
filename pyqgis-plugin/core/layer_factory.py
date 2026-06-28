@@ -24,22 +24,33 @@ class LayerFactory:
         self.api = api_client
 
     def add_wms_layer(self, layer_metadata):
-        """Adds a WMS layer from GeoServer."""
-        base_url = layer_metadata.get('serviceUrl', 'http://localhost/geoserver/wms')
-        workspace = layer_metadata.get('workspace')
-        layer_name = layer_metadata.get('layerName')
-        full_layer_name = f"{workspace}:{layer_name}" if workspace else layer_name
-        title = layer_metadata.get('name', layer_name)
+        """Adds an XYZ Tiles layer from TiTiler instead of legacy WMS."""
+        from urllib.parse import quote
         
-        # QGIS WMS connection string
-        uri = f"url={base_url}&layers={full_layer_name}&format=image/png&styles=&crs=EPSG:3857"
+        cog_key = layer_metadata.get('cogObjectKey')
+        layer_name = layer_metadata.get('layerName')
+        title = layer_metadata.get('name', layer_name or 'Unnamed XYZ Tiles')
+        
+        if not cog_key:
+            QgsMessageLog.logMessage("XYZ Tiles layer cannot be added: cogObjectKey is missing", "GeoInfoSystem", Qgis.Critical)
+            return None
+
+        # Формируем S3 URL для TiTiler
+        s3_url = f"s3://geo-abstraction-input/{cog_key}"
+        encoded_s3_url = quote(s3_url)
+        
+        # QGIS XYZ Tiles connection string: type=xyz&url=...
+        gateway_url = self.api.gateway_url
+        uri = f"type=xyz&url={gateway_url}/raster/cog/cog/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}?url={encoded_s3_url}"
+        
+        QgsMessageLog.logMessage(f"Adding XYZ Tiles layer from TiTiler: {uri}", "GeoInfoSystem", Qgis.Info)
         
         rlayer = QgsRasterLayer(uri, title, "wms")
         if rlayer.isValid():
             QgsProject.instance().addMapLayer(rlayer)
             return rlayer
         else:
-            QgsMessageLog.logMessage(f"WMS layer {layer_name} is invalid", "GeoInfoSystem", Qgis.Critical)
+            QgsMessageLog.logMessage(f"XYZ Tiles layer {title} is invalid", "GeoInfoSystem", Qgis.Critical)
             return None
 
     def add_vector_collection(self, project_id, layer_type, title):

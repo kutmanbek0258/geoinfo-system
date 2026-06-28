@@ -27,6 +27,7 @@ const categorizedTools = [
   {
     title: 'Векторно-растровые преобразования',
     items: [
+      { name: 'import_dxf', title: 'Импорт DXF', icon: 'mdi-file-cad', description: 'Импорт слоев DXF чертежей в векторный GeoJSON' },
       { name: 'polygonize_raster', title: 'Векторизация растра', icon: 'mdi-vector-polygon', description: 'Преобразование растра в векторный формат' },
       { name: 'rasterize_vector', title: 'Растеризация вектора', icon: 'mdi-grid-large', description: 'Преобразование вектора в растровый формат' },
       { name: 'clip_raster_by_mask', title: 'Обрезка растра', icon: 'mdi-crop-free', description: 'Обрезка растра по векторной маске' },

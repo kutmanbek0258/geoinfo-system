@@ -307,10 +307,10 @@ class GeoInfoDockWidget(QDockWidget):
             l_item.setEditable(False)
             wms_root.appendRow([l_item, QStandardItem("Imagery")])
             
-            # Sub-options for Imagery: WMS and COG
-            wms_sub = QStandardItem("WMS (Visual)")
+            # Sub-options for Imagery: XYZ Tiles and COG
+            wms_sub = QStandardItem("XYZ Tiles (Visual)")
             wms_sub.setData({**l, 'layer_mode': 'wms'}, Qt.UserRole)
-            l_item.appendRow([wms_sub, QStandardItem("WMS")])
+            l_item.appendRow([wms_sub, QStandardItem("XYZ Tiles")])
             
             cog_sub = QStandardItem("COG (Analytics)")
             cog_sub.setData({**l, 'layer_mode': 'cog'}, Qt.UserRole)

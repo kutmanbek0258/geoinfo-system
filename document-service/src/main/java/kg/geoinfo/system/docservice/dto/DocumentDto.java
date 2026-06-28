@@ -24,4 +24,5 @@ public class DocumentDto {
     private ZonedDateTime uploadDate;
     private boolean isLatestVersion;
     private Set<TagDto> tags;
+    private String minioObjectKey;
 }

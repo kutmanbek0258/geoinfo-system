@@ -134,6 +134,7 @@
       <UnsupervisedClassDialog v-model:show="showUnsupervisedClassDialog" @task-created="onAnalysisTaskCreated" />
       <WatershedDelineationDialog v-model:show="showWatershedDelineationDialog" @task-created="onAnalysisTaskCreated" />
       <PolygonizeRasterDialog v-model:show="showPolygonizeRasterDialog" @task-created="onAnalysisTaskCreated" />
+      <ImportDxfDialog v-model:show="showImportDxfDialog" @task-created="onAnalysisTaskCreated" />
       <RasterizeVectorDialog v-model:show="showRasterizeVectorDialog" @task-created="onAnalysisTaskCreated" />
       <RasterAlgebraDialog v-model:show="showRasterAlgebraDialog" @task-created="onAnalysisTaskCreated" />
       <RasterMosaicDialog v-model:show="showRasterMosaicDialog" @task-created="onAnalysisTaskCreated" />
@@ -257,6 +258,7 @@ import SpectralIndicesDialog from './shared/SpectralIndicesDialog.vue';
 import UnsupervisedClassDialog from './shared/UnsupervisedClassDialog.vue';
 import WatershedDelineationDialog from './shared/WatershedDelineationDialog.vue';
 import PolygonizeRasterDialog from './shared/PolygonizeRasterDialog.vue';
+import ImportDxfDialog from './shared/ImportDxfDialog.vue';
 import RasterizeVectorDialog from './shared/RasterizeVectorDialog.vue';
 import RasterAlgebraDialog from './shared/RasterAlgebraDialog.vue';
 import RasterMosaicDialog from './shared/RasterMosaicDialog.vue';
@@ -299,6 +301,7 @@ const showRasterizeVectorDialog = ref(false);
 const showRasterAlgebraDialog = ref(false);
 const showRasterMosaicDialog = ref(false);
 const showRasterReclassDialog = ref(false);
+const showImportDxfDialog = ref(false);
 
 function onSelectAnalysisTool(pluginName: string) {
   if (pluginName === 'terrain_contours') showContoursDialog.value = true;
@@ -316,6 +319,7 @@ function onSelectAnalysisTool(pluginName: string) {
   else if (pluginName === 'raster_algebra') showRasterAlgebraDialog.value = true;
   else if (pluginName === 'raster_mosaic') showRasterMosaicDialog.value = true;
   else if (pluginName === 'raster_reclass') showRasterReclassDialog.value = true;
+  else if (pluginName === 'import_dxf') showImportDxfDialog.value = true;
 }
 
 function onAnalysisTaskCreated(task: any) {
