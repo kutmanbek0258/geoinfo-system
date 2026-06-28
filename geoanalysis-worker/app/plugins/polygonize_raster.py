@@ -17,6 +17,7 @@ class PolygonizeRasterPlugin(GeoWorkerPlugin):
         connectivity = int(params.get("connectivity", 4))
         mask_zero = bool(params.get("mask_zero", True))
         output_format = params.get("format", "GeoJSON")
+        group_by_class = bool(params.get("group_by_class", False))
 
         if output_format.lower() == "geojson":
             extension = "geojson"
@@ -32,14 +33,14 @@ class PolygonizeRasterPlugin(GeoWorkerPlugin):
         output_path = os.path.join(workspace, output_filename)
 
         logger.info(
-            f"Polygonizing raster {raster_path} (connectivity: {connectivity}, mask_zero: {mask_zero}, format: {output_format})"
+            f"Polygonizing raster {raster_path} (connectivity: {connectivity}, mask_zero: {mask_zero}, format: {output_format}, group_by_class: {group_by_class})"
         )
 
-        self._polygonize(raster_path, output_path, connectivity, mask_zero, driver_name)
+        self._polygonize(raster_path, output_path, connectivity, mask_zero, driver_name, group_by_class)
 
         return {"vector_result": output_path}
 
-    def _polygonize(self, src_file: str, dst_file: str, connectivity: int, mask_zero: bool, driver_name: str):
+    def _polygonize(self, src_file: str, dst_file: str, connectivity: int, mask_zero: bool, driver_name: str, group_by_class: bool):
         gdal.UseExceptions()
 
         src_ds = gdal.Open(src_file)
@@ -92,6 +93,18 @@ class PolygonizeRasterPlugin(GeoWorkerPlugin):
             out_ds = None
 
             logger.info("Polygonization completed successfully")
+
+            # Группировка полигонов по значению класса
+            if group_by_class:
+                logger.info("Grouping (dissolving) polygons by class values...")
+                import geopandas as gpd
+                gdf = gpd.read_file(dst_file)
+                if not gdf.empty:
+                    # Группируем по полю 'val' (класс пикселя)
+                    dissolved = gdf.dissolve(by='val', as_index=False)
+                    # Перезаписываем файл сгруппированным набором
+                    dissolved.to_file(dst_file, driver=driver_name, engine="pyogrio")
+                    logger.info(f"Grouped into {len(dissolved)} MultiPolygon features.")
 
         except Exception as e:
             logger.error(f"Polygonize failed: {e}")

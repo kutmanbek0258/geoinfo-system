@@ -2,3 +2,7 @@ databaseChangeLog:
   - include:
       file: object/change_temp_analysis_geom_to_z.sql
       relativeToChangelogFile: true
+  - include:
+      file: object/fix_area_length_triggers.sql
+      relativeToChangelogFile: true
+

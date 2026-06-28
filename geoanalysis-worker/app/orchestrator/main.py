@@ -13,6 +13,62 @@ from ..core.config import (
 from .s3_client import S3Client
 from .plugin_manager import PluginManager
 
+def ensure_vector_in_4326(local_path: str) -> str:
+    from osgeo import ogr, osr, gdal
+    
+    try:
+        # Check if it's a vector file by attempting to open it
+        ds = ogr.Open(local_path)
+        if ds is None:
+            return local_path
+        
+        layer = ds.GetLayer()
+        if layer is None:
+            ds = None
+            return local_path
+            
+        srs = layer.GetSpatialRef()
+        if srs is None:
+            ds = None
+            return local_path
+            
+        # Target SRS: EPSG:4326
+        target_srs = osr.SpatialReference()
+        target_srs.ImportFromEPSG(4326)
+        
+        if srs.IsSame(target_srs):
+            ds = None
+            return local_path
+            
+        logger.info(f"Centrally reprojecting vector {local_path} from {srs.GetName()} to EPSG:4326")
+        ds = None # Close to allow writing
+        
+        temp_reprojected_path = local_path + ".4326"
+        ext = os.path.splitext(local_path)[1].lower()
+        if ext == '.geojson':
+            driver_name = 'GeoJSON'
+        elif ext == '.gpkg':
+            driver_name = 'GPKG'
+        else:
+            driver_name = 'ESRI Shapefile'
+            
+        # Reproject using high-level GDAL utility
+        gdal.VectorTranslate(
+            temp_reprojected_path,
+            local_path,
+            format=driver_name,
+            dstSRS='EPSG:4326'
+        )
+        
+        if os.path.exists(temp_reprojected_path):
+            os.replace(temp_reprojected_path, local_path)
+            logger.info(f"Successfully reprojected vector {local_path} to EPSG:4326")
+            
+    except Exception as e:
+        logger.warning(f"Failed to check or reproject vector file {local_path}: {e}")
+        
+    return local_path
+
 class Orchestrator:
     def __init__(self):
         self.s3_client = S3Client()
@@ -92,6 +148,7 @@ class Orchestrator:
             # Push outputs to S3 (Staging bucket)
             s3_outputs = {}
             for key, local_path in local_outputs.items():
+                local_path = ensure_vector_in_4326(local_path)
                 file_name = os.path.basename(local_path)
                 # Согласно стратегии: temp/{taskId}/...
                 s3_key = f"temp/{task_id}/{file_name}"

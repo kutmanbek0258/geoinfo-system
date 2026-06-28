@@ -39,7 +39,8 @@ const formData = ref({
   parameters: {
     connectivity: 4,
     mask_zero: true,
-    format: 'GeoJSON'
+    format: 'GeoJSON',
+    group_by_class: false
   } as Record<string, any>
 });
 
@@ -173,6 +174,14 @@ async function runAnalysis() {
             label="Игнорировать нулевые пиксели (маскировать 0)"
             density="compact"
             hide-details
+          ></v-checkbox>
+
+          <v-checkbox
+            v-model="formData.parameters.group_by_class"
+            label="Группировать полигоны по значениям (в MultiPolygon)"
+            density="compact"
+            hide-details
+            class="mt-2"
           ></v-checkbox>
         </v-form>
       </v-card-text>

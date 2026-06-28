@@ -9,6 +9,7 @@ import kg.geoinfo.system.geodataservice.repository.TempAnalysisGeometryRepositor
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Geometry;
+import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,7 +54,7 @@ public class AnalysisStagingService {
 
                     TempAnalysisGeometry tempGeom = new TempAnalysisGeometry();
                     tempGeom.setTaskId(taskId);
-                    tempGeom.setGeom(geom);
+                    tempGeom.setGeom(GeometryUtils.ensure3D(geom));
                     tempGeom.setProperties(props);
                     tempGeom.setCreatedAt(OffsetDateTime.now());
                     geometries.add(tempGeom);
