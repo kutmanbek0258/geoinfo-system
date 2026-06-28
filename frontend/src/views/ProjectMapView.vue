@@ -20,13 +20,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useStore } from 'vuex';
 import MapComponentMVT from '@/components/map/MapComponentMVT.vue';
 import CesiumMapComponent from '@/components/map/CesiumMapComponent.vue';
 
 const route = useRoute();
 const router = useRouter();
+const store = useStore();
 const projectId = route.params.id as string;
 const mode = ref(route.query.mode as string || '2D');
 
@@ -37,6 +39,11 @@ watch(mode, (newVal) => {
       mode: newVal
     }
   });
+});
+
+onUnmounted(() => {
+  // Сброс выбранного проекта и всех привязанных данных при выходе из карты
+  store.commit('geodata/SET_SELECTED_PROJECT_ID', null);
 });
 </script>
 

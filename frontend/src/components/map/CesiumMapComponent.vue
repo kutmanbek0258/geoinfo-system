@@ -123,6 +123,14 @@
       <AspectDialog v-model:show="showAspectDialog" @task-created="onAnalysisTaskCreated" />
       <HillshadeDialog v-model:show="showHillshadeDialog" @task-created="onAnalysisTaskCreated" />
       <ViewshedDialog v-model:show="showViewshedDialog" @task-created="onAnalysisTaskCreated" />
+      <SpectralIndicesDialog v-model:show="showSpectralIndicesDialog" @task-created="onAnalysisTaskCreated" />
+      <UnsupervisedClassDialog v-model:show="showUnsupervisedClassDialog" @task-created="onAnalysisTaskCreated" />
+      <WatershedDelineationDialog v-model:show="showWatershedDelineationDialog" @task-created="onAnalysisTaskCreated" />
+      <PolygonizeRasterDialog v-model:show="showPolygonizeRasterDialog" @task-created="onAnalysisTaskCreated" />
+      <RasterizeVectorDialog v-model:show="showRasterizeVectorDialog" @task-created="onAnalysisTaskCreated" />
+      <RasterAlgebraDialog v-model:show="showRasterAlgebraDialog" @task-created="onAnalysisTaskCreated" />
+      <RasterMosaicDialog v-model:show="showRasterMosaicDialog" @task-created="onAnalysisTaskCreated" />
+      <RasterReclassDialog v-model:show="showRasterReclassDialog" @task-created="onAnalysisTaskCreated" />
       <TerrainUploadDialog v-model="showTerrainDialog" :project-id="projectId" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
       <SatelliteImageryUploadDialog v-model="showSatelliteDialog" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
 
@@ -237,6 +245,14 @@ import SlopeDialog from './shared/SlopeDialog.vue';
 import AspectDialog from './shared/AspectDialog.vue';
 import HillshadeDialog from './shared/HillshadeDialog.vue';
 import ViewshedDialog from './shared/ViewshedDialog.vue';
+import SpectralIndicesDialog from './shared/SpectralIndicesDialog.vue';
+import UnsupervisedClassDialog from './shared/UnsupervisedClassDialog.vue';
+import WatershedDelineationDialog from './shared/WatershedDelineationDialog.vue';
+import PolygonizeRasterDialog from './shared/PolygonizeRasterDialog.vue';
+import RasterizeVectorDialog from './shared/RasterizeVectorDialog.vue';
+import RasterAlgebraDialog from './shared/RasterAlgebraDialog.vue';
+import RasterMosaicDialog from './shared/RasterMosaicDialog.vue';
+import RasterReclassDialog from './shared/RasterReclassDialog.vue';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeoObjectTree from './GeoObjectTree.vue';
@@ -265,6 +281,14 @@ const showSlopeDialog = ref(false);
 const showAspectDialog = ref(false);
 const showHillshadeDialog = ref(false);
 const showViewshedDialog = ref(false);
+const showSpectralIndicesDialog = ref(false);
+const showUnsupervisedClassDialog = ref(false);
+const showWatershedDelineationDialog = ref(false);
+const showPolygonizeRasterDialog = ref(false);
+const showRasterizeVectorDialog = ref(false);
+const showRasterAlgebraDialog = ref(false);
+const showRasterMosaicDialog = ref(false);
+const showRasterReclassDialog = ref(false);
 
 function onSelectAnalysisTool(pluginName: string) {
   if (pluginName === 'terrain_contours') showContoursDialog.value = true;
@@ -274,6 +298,14 @@ function onSelectAnalysisTool(pluginName: string) {
   else if (pluginName === 'aspect') showAspectDialog.value = true;
   else if (pluginName === 'hillshade') showHillshadeDialog.value = true;
   else if (pluginName === 'viewshed_analysis') showViewshedDialog.value = true;
+  else if (pluginName === 'spectral_indices') showSpectralIndicesDialog.value = true;
+  else if (pluginName === 'unsupervised_class') showUnsupervisedClassDialog.value = true;
+  else if (pluginName === 'watershed_delineation') showWatershedDelineationDialog.value = true;
+  else if (pluginName === 'polygonize_raster') showPolygonizeRasterDialog.value = true;
+  else if (pluginName === 'rasterize_vector') showRasterizeVectorDialog.value = true;
+  else if (pluginName === 'raster_algebra') showRasterAlgebraDialog.value = true;
+  else if (pluginName === 'raster_mosaic') showRasterMosaicDialog.value = true;
+  else if (pluginName === 'raster_reclass') showRasterReclassDialog.value = true;
 }
 
 function onAnalysisTaskCreated(task: any) {

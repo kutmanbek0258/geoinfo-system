@@ -85,8 +85,25 @@ const mutations = {
     },
     SET_SELECTED_PROJECT_ID(state: GeodataState, projectId: string | null) {
         state.selectedProjectId = projectId;
-        state.selectedFolderId = null; // Reset folder when project changes
         state.initialZoomDone = false; // Reset initial zoom for new project
+        
+        // Сброс проектных данных при изменении или выходе из проекта
+        state.currentProject = null;
+        state.folders = [];
+        state.points = [];
+        state.multilines = [];
+        state.polygons = [];
+        state.selectedFeatureId = null;
+        state.selectedFolderId = null;
+        state.lastSelectionSource = null;
+        state.imageryLayers = null;
+        state.terrainLayers = null;
+        state.terrainJobs = null;
+        state.analysisTasks = [];
+        state.stagingLayers = [];
+        state.activeCameraStream = null;
+        state.pointSelectionActive = false;
+        state.selectedPoint = null;
     },
     SET_SELECTED_FEATURE_ID(state: GeodataState, payload: { id: string | null, source?: 'map' | 'list' }) {
         state.selectedFeatureId = payload.id;
