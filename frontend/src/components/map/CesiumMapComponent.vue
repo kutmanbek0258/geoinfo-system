@@ -67,6 +67,13 @@
         <v-btn icon="mdi-close" color="error" @click="exitEditMode(refreshMvtSources)" title="Cancel Changes"></v-btn>
       </div>
 
+      <v-btn
+          icon="mdi-information-outline"
+          color="white"
+          class="mb-2"
+          @click="showProjectProperties = true"
+          title="Свойства проекта"
+      ></v-btn>
       <MapAnalysisMenu class="mb-2" @select-tool="onSelectAnalysisTool" />
       <MapToolsMenu
         :active-tool="!!(measureMode || isBufferMode || drawMode || isRasterValueMode)"
@@ -131,6 +138,7 @@
       <RasterAlgebraDialog v-model:show="showRasterAlgebraDialog" @task-created="onAnalysisTaskCreated" />
       <RasterMosaicDialog v-model:show="showRasterMosaicDialog" @task-created="onAnalysisTaskCreated" />
       <RasterReclassDialog v-model:show="showRasterReclassDialog" @task-created="onAnalysisTaskCreated" />
+      <ProjectPropertiesDialog v-model="showProjectProperties" :project="currentProject" />
       <TerrainUploadDialog v-model="showTerrainDialog" :project-id="projectId" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
       <SatelliteImageryUploadDialog v-model="showSatelliteDialog" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
 
@@ -256,6 +264,7 @@ import RasterReclassDialog from './shared/RasterReclassDialog.vue';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeoObjectTree from './GeoObjectTree.vue';
+import ProjectPropertiesDialog from '../projects/ProjectPropertiesDialog.vue';
 import TerrainUploadDialog from '@/components/geo-abstraction/TerrainUploadDialog.vue';
 import SatelliteImageryUploadDialog from '@/components/geo-abstraction/SatelliteImageryUploadDialog.vue';
 
@@ -281,6 +290,7 @@ const showSlopeDialog = ref(false);
 const showAspectDialog = ref(false);
 const showHillshadeDialog = ref(false);
 const showViewshedDialog = ref(false);
+const showProjectProperties = ref(false);
 const showSpectralIndicesDialog = ref(false);
 const showUnsupervisedClassDialog = ref(false);
 const showWatershedDelineationDialog = ref(false);

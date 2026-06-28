@@ -1,7 +1,8 @@
 import geodataService from "@/services/geodata.service";
 import streamService from "@/services/stream.service";
 import geoAbstractionService from "@/services/geo-abstraction.service";
-import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, AnalysisTask, CreateAnalysisTaskDto } from "@/types/api";
+import documentService from "@/services/document.service";
+import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, AnalysisTask, CreateAnalysisTaskDto, Document } from "@/types/api";
 import type { ActionContext } from "vuex";
 
 interface StagingLayer {
@@ -38,6 +39,7 @@ interface GeodataState {
     activeCameraStream: { geoObjectId: string, streamHlsUrl: string } | null;
     pointSelectionActive: boolean;
     selectedPoint: { x: number, y: number } | null;
+    documents: Document[];
 }
 
 const state: GeodataState = {
@@ -62,6 +64,7 @@ const state: GeodataState = {
     activeCameraStream: null,
     pointSelectionActive: false,
     selectedPoint: null,
+    documents: [],
 };
 
 const mutations = {
@@ -104,6 +107,10 @@ const mutations = {
         state.activeCameraStream = null;
         state.pointSelectionActive = false;
         state.selectedPoint = null;
+        state.documents = [];
+    },
+    SET_DOCUMENTS(state: GeodataState, documents: Document[]) {
+        state.documents = documents;
     },
     SET_SELECTED_FEATURE_ID(state: GeodataState, payload: { id: string | null, source?: 'map' | 'list' }) {
         state.selectedFeatureId = payload.id;
@@ -839,7 +846,6 @@ const actions = {
         commit('UPDATE_FEATURE', { type: typeForMutation, data: response.data });
     },
 
-    // Stream Actions
     async startCameraStream({ commit, dispatch }: ActionContext<GeodataState, any>, geoObjectId: string) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
@@ -854,12 +860,57 @@ const actions = {
         }
     },
 
-    async stopCameraStream({ commit }: ActionContext<GeodataState, any>, geoObjectId: string) {
+    async stopCameraStream({ commit }: ActionContext<GeodataState, any>, streamToStopId: string) {
+        if (streamToStopId) {
+            try {
+                await streamService.stopStream(streamToStopId);
+                commit('SET_ACTIVE_CAMERA_STREAM', null);
+            } catch (err) {
+                commit('SET_ERROR', 'Failed to stop camera stream.');
+            }
+        }
+    },
+
+    // Document Actions for Project
+    async fetchDocuments({ commit }: ActionContext<GeodataState, any>, projectId: string) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
         try {
-            await streamService.stopStream(geoObjectId);
-            commit('SET_ACTIVE_CAMERA_STREAM', null);
+            const response = await documentService.getDocumentsByGeoObjectId(projectId);
+            commit('SET_DOCUMENTS', response.data);
         } catch (err) {
-            console.error('Failed to stop camera stream:', err);
+            commit('SET_ERROR', 'Failed to fetch project documents.');
+            commit('SET_DOCUMENTS', []);
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
+    async uploadProjectDocument({ commit, dispatch }: ActionContext<GeodataState, any>, { file, projectId, description, tags }: { file: File, projectId: string, description?: string, tags?: string }) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            await documentService.uploadDocument(projectId, file, description, tags);
+            dispatch('fetchDocuments', projectId);
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to upload project document.');
+            throw err;
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
+    async deleteProjectDocument({ commit, dispatch }: ActionContext<GeodataState, any>, { docId, projectId }: { docId: string, projectId: string }) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            await documentService.deleteDocument(docId);
+            dispatch('fetchDocuments', projectId);
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to delete project document.');
+            throw err;
+        } finally {
+            commit('SET_LOADING', false);
         }
     },
 };

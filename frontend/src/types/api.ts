@@ -12,6 +12,8 @@ export interface Project {
     id: string; // UUID
     name: string;
     description?: string;
+    startDate?: string;
+    endDate?: string;
     bbox?: GeoGeometry;
 }
 

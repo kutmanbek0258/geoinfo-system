@@ -68,6 +68,13 @@
       </div>
 
       <div class="d-flex flex-column align-end">
+        <v-btn
+            icon="mdi-information-outline"
+            color="white"
+            class="mb-2"
+            @click="showProjectProperties = true"
+            title="Свойства проекта"
+        ></v-btn>
         <MapAnalysisMenu class="mb-2" @select-tool="onSelectAnalysisTool" />
         <MapToolsMenu
           :active-tool="!!(measureMode || isBufferMode || drawMode || isRasterValueMode)"
@@ -113,6 +120,7 @@
       <RasterMosaicDialog v-model:show="showRasterMosaicDialog" @task-created="onAnalysisTaskCreated" />
       <RasterReclassDialog v-model:show="showRasterReclassDialog" @task-created="onAnalysisTaskCreated" />
       <MapImportDialog v-model="importFileDialog" v-model:file="importFile" :loading="isImporting" @execute="executeFileImport" />
+      <ProjectPropertiesDialog v-model="showProjectProperties" :project="currentProject" />
       <MapMetadataDialog
         v-model="metadataDialog"
         :drawing-type="drawingType"
@@ -263,6 +271,7 @@ import SwipeMapDialog from './SwipeMapDialog.vue';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeoObjectTree from './GeoObjectTree.vue';
+import ProjectPropertiesDialog from '../projects/ProjectPropertiesDialog.vue';
 import AnalysisTasksPanel from './shared/AnalysisTasksPanel.vue';
 import PrintDialog from '@/components/print/PrintDialog.vue';
 import TerrainUploadDialog from '@/components/geo-abstraction/TerrainUploadDialog.vue';
@@ -303,6 +312,7 @@ const mapContainer = ref<HTMLElement | null>(null);
 const mapParent = ref<HTMLElement | null>(null);
 const map = shallowRef<Map | null>(null);
 const geoJsonFormat = new GeoJSON();
+const showProjectProperties = ref(false);
 const swipeMapVisible = ref(false);
 const showTerrainDialog = ref(false);
 const showSatelliteDialog = ref(false);
