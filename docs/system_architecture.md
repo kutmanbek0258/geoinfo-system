@@ -59,7 +59,7 @@
     *   **Topic:** `geoabstraction.terrain.events`
 2.  **GeoAbstract Worker:** Обработка спутниковых снимков Sentinel-2, создание Cloud Optimized GeoTIFF (COG), расчет спектральных индексов (NDVI, NDWI и др.).
     *   **Topic:** `geoabstraction.raster.events`
-3.  **GeoAnalysis Worker:** Выполнение тяжелых пространственных операций (буферы, изолинии, зональная статистика). Использует GDAL, GeoPandas и `tmpfs` для ускорения. — *В стадии активной разработки*
+3.  **GeoAnalysis Worker:** Выполнение тяжелых пространственных операций (буферы, изолинии, зональная статистика, импорт DXF). Использует GDAL, GeoPandas и `tmpfs` для ускорения.
     *   **Topic:** `geoabstraction.tasks` / `geoabstraction.results`
 
 #### **4.3. Асинхронная Индексация (Kafka)**

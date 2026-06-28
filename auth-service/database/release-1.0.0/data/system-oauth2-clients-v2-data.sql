@@ -52,3 +52,13 @@ VALUES ('j-service-client', '$2a$10$VUGAIiHoa1y8fuk/gjwVr.n5Rp4oP7PELX8Egpgk5.jQ
 UPDATE sso.system_oauth2_clients_v2
 SET authorization_grant_types = '{refresh_token,client_credentials,authorization_code,password}'
 WHERE client_id = 'test-client';
+
+--changeSet daivanov:system-oauth2-clients-v2-data-07
+UPDATE sso.system_oauth2_clients
+SET redirect_uris = 'http://localhost:8080/code,http://localhost/code,http://localhost:5678/code'
+WHERE client_id = 'test-client';
+
+UPDATE sso.system_oauth2_clients_v2
+SET redirect_uris = '{http://localhost:8080/code,http://localhost/code,http://localhost:5678/code}'
+WHERE client_id = 'test-client';
+
