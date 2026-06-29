@@ -143,9 +143,15 @@ public class MinioFileStoreServiceImpl implements FileStoreService {
     @Override
     @SneakyThrows
     public void delete(String key) {
+        delete(minioProperties.getBucket(), key);
+    }
+
+    @Override
+    @SneakyThrows
+    public void delete(String bucket, String key) {
         minioClient.removeObject(
                 RemoveObjectArgs.builder()
-                        .bucket(minioProperties.getBucket())
+                        .bucket(bucket)
                         .object(key)
                         .build());
     }
@@ -197,5 +203,29 @@ public class MinioFileStoreServiceImpl implements FileStoreService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to overwrite file in MinIO", e);
         }
+    }
+
+    @Override
+    @SneakyThrows
+    public void copy(String sourceKey, String destinationKey) {
+        copy(minioProperties.getBucket(), sourceKey, minioProperties.getBucket(), destinationKey);
+    }
+
+    @Override
+    @SneakyThrows
+    public void copy(String sourceBucket, String sourceKey, String destinationBucket, String destinationKey) {
+        minioClient.copyObject(
+                CopyObjectArgs.builder()
+                        .bucket(destinationBucket)
+                        .object(destinationKey)
+                        .source(
+                                CopySource.builder()
+                                        .bucket(sourceBucket)
+                                        .object(sourceKey)
+                                        .build()
+                        )
+                        .build()
+        );
+        log.info("Copied object in MinIO from bucket {} key {} to bucket {} key {}", sourceBucket, sourceKey, destinationBucket, destinationKey);
     }
 }

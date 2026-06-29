@@ -11,8 +11,10 @@ import kg.geoinfo.system.geoabstraction.models.AnalysisTask;
 import kg.geoinfo.system.geoabstraction.models.ImageryLayer;
 import kg.geoinfo.system.geoabstraction.models.TerrainLayer;
 import kg.geoinfo.system.geoabstraction.models.enums.AnalysisTaskStatus;
+import kg.geoinfo.system.geoabstraction.models.RasterStyle;
 import kg.geoinfo.system.geoabstraction.repository.AnalysisTaskRepository;
 import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
+import kg.geoinfo.system.geoabstraction.repository.RasterStyleRepository;
 import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
 import kg.geoinfo.system.geoabstraction.dto.CommitAnalysisTaskRequestDto;
 import kg.geoinfo.system.geoabstraction.service.client.GeoDataServiceClient;
@@ -41,6 +43,8 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     private final KafkaProducerService kafkaProducerService;
     private final MinioProperties minioProperties;
     private final GeoDataServiceClient geoDataServiceClient;
+    private final ImageryLayerService imageryLayerService;
+    private final RasterStyleRepository rasterStyleRepository;
 
 
     @Override
@@ -230,7 +234,74 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             throw new IllegalStateException("Only COMPLETED tasks can be committed. Current status: " + task.getStatus());
         }
 
+        // 1. Commit vector parts via geodata-service
         geoDataServiceClient.commitTask(taskId, dto);
+
+        // 2. Commit raster parts (if any)
+        if (task.getS3OutputPaths() != null && task.getS3OutputPaths().containsKey("raster_result")) {
+            String s3Url = task.getS3OutputPaths().get("raster_result");
+            if (s3Url != null && s3Url.startsWith("s3://")) {
+                try {
+                    String path = s3Url.substring(5); // Remove "s3://"
+                    int slashIndex = path.indexOf("/");
+                    if (slashIndex != -1) {
+                        String sourceBucket = path.substring(0, slashIndex);
+                        String sourceKey = path.substring(slashIndex + 1);
+                        String destinationKey = "imagery-cog/" + UUID.randomUUID() + ".tif";
+
+                        // Copy file to permanent storage and delete the staging one
+                        fileStoreService.copy(sourceBucket, sourceKey, minioProperties.getBucket(), destinationKey);
+                        fileStoreService.delete(sourceBucket, sourceKey);
+
+                        // Create metadata for ImageryLayer
+                        ImageryLayer imageryLayer = new ImageryLayer();
+                        imageryLayer.setProjectId(task.getProjectId());
+                        
+                        String layerTitle = dto.getTaskName() != null ? dto.getTaskName() : task.getPluginName() + " Result";
+                        imageryLayer.setName(layerTitle);
+                        imageryLayer.setDescription("Committed raster result from analysis task " + taskId);
+                        
+                        String cleanPluginName = task.getPluginName().toLowerCase().replaceAll("[^a-z0-9_]", "_");
+                        String generatedLayerName = "analysis_" + cleanPluginName + "_" + UUID.randomUUID().toString().substring(0, 8);
+                        imageryLayer.setLayerName(generatedLayerName);
+                        
+                        imageryLayer.setStatus(kg.geoinfo.system.geoabstraction.models.enums.Status.ACTIVE);
+                        imageryLayer.setDateCaptured(new java.util.Date());
+                        imageryLayer.setCrs("EPSG:3857");
+                        imageryLayer.setCogObjectKey(destinationKey);
+
+                        // Match style based on indexType (if present)
+                        String styleName = "raster";
+                        if (task.getInputParams() != null && task.getInputParams().containsKey("indexType")) {
+                            String indexType = (String) task.getInputParams().get("indexType");
+                            if (indexType != null) {
+                                switch (indexType.toUpperCase()) {
+                                    case "NDVI", "SAVI", "EVI" -> styleName = "vegetation_index";
+                                    case "GNDVI" -> styleName = "gndvi";
+                                    case "NDWI" -> styleName = "ndwi_water";
+                                    case "NDMI" -> styleName = "ndmi_moisture";
+                                    case "NBR" -> styleName = "nbr_burn";
+                                    case "NDSI" -> styleName = "ndsi_snow";
+                                    case "NDBI" -> styleName = "ndbi_urban";
+                                }
+                            }
+                        }
+                        
+                        RasterStyle rasterStyle = rasterStyleRepository.findByName(styleName)
+                                .orElseGet(() -> rasterStyleRepository.findByName("raster")
+                                        .orElseThrow(() -> new RuntimeException("Default style 'raster' not found")));
+                        imageryLayer.setStyle(rasterStyle);
+
+                        // Save imagery layer and trigger Kafka event via service
+                        imageryLayerService.save(imageryLayer);
+                        log.info("Successfully committed raster result for task {} to project {}", taskId, task.getProjectId());
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to commit raster result for task {}: {}", taskId, e.getMessage(), e);
+                    throw new RuntimeException("Failed to commit raster result: " + e.getMessage(), e);
+                }
+            }
+        }
 
         task.setStatus(AnalysisTaskStatus.COMMITTED);
         repository.save(task);
@@ -250,9 +321,10 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                         String path = s3Url.substring(5); // Remove "s3://"
                         int slashIndex = path.indexOf("/");
                         if (slashIndex != -1) {
+                            String bucket = path.substring(0, slashIndex);
                             String key = path.substring(slashIndex + 1);
-                            fileStoreService.delete(key);
-                            log.info("Deleted staging file from S3: {}", key);
+                            fileStoreService.delete(bucket, key);
+                            log.info("Deleted staging file from S3: bucket={}, key={}", bucket, key);
                         }
                     } catch (Exception e) {
                         log.error("Failed to delete staging file {} from S3: {}", s3Url, e.getMessage());

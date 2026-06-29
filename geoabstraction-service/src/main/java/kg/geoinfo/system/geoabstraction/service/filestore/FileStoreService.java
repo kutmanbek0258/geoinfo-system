@@ -12,6 +12,9 @@ public interface FileStoreService {
     boolean exists(String objectKey);
     Optional<byte[]> find(String key);
     void delete(String key);
+    void delete(String bucket, String key);
     void deleteByPrefix(String prefix);
     void overwrite(String fileKey, InputStream in);
+    void copy(String sourceKey, String destinationKey);
+    void copy(String sourceBucket, String sourceKey, String destinationBucket, String destinationKey);
 }
