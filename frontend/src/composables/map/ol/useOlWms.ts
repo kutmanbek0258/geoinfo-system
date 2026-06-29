@@ -19,13 +19,19 @@ export function useOlWms(map: Ref<Map | null>) {
     }
   };
 
-  const toggleImageryLayer = (layerInfo: ImageryLayer) => {
+  const toggleImageryLayer = (layerInfo: ImageryLayer, forceReload = false) => {
     const m = map.value;
     if (!m) return;
     const isVisible = visibleLayerIds.value.includes(layerInfo.id);
 
     if (isVisible) {
-      if (activeImageLayers.value[layerInfo.id]) return;
+      if (activeImageLayers.value[layerInfo.id]) {
+        if (!forceReload) return;
+        m.removeLayer(toRaw(activeImageLayers.value[layerInfo.id]));
+        const nextLayers = { ...activeImageLayers.value };
+        delete nextLayers[layerInfo.id];
+        activeImageLayers.value = nextLayers;
+      }
 
       const colormapParam = buildTiTilerStyleParams(layerInfo.style, layerInfo.colormapId, layerInfo.resampling);
 

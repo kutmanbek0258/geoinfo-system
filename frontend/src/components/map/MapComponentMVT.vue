@@ -34,6 +34,9 @@
           :opacities="layerOpacities"
           @toggle="toggleImageryLayer"
           @update:opacity="({id, value}) => setLayerOpacity(id, value)"
+          @update:style="handleLayerStyleChange"
+          @update:colormapId="handleLayerColormapChange"
+          @update:resampling="handleLayerResamplingChange"
         />
 
         <v-btn icon="mdi-magnify-scan" color="white" class="mb-2" elevation="2" @click="zoomToExtent" title="Zoom to extent">
@@ -369,6 +372,44 @@ const lastSelectionSource = computed(() => store.state.geodata.lastSelectionSour
 
 const { refreshMvtSources, initMvtLayers } = useOlMvt(map, projectIdRef, selectedFeatureId, hiddenFeatureIds, isGeometryEditMode);
 const { visibleLayerIds, layerOpacities, setLayerOpacity, toggleImageryLayer, clearWmsLayers } = useOlWms(map);
+
+const handleLayerStyleChange = async ({ layerId, styleId }: { layerId: string; styleId: string | null }) => {
+  let styleObj = null;
+  if (styleId) {
+    try {
+      const response = await RasterStyleService.getRasterStyles(0, 100);
+      const found = response.data.content.find((s: any) => s.id === styleId);
+      if (found) styleObj = found;
+    } catch (err) {
+      console.error('Failed to fetch style detail for layer update:', err);
+      styleObj = { id: styleId };
+    }
+  }
+  store.commit('geodata/UPDATE_IMAGERY_LAYER_STYLE', { layerId, style: styleObj });
+  
+  const layerInfo = imageryLayers.value.find((l: any) => l.id === layerId);
+  if (layerInfo) {
+    toggleImageryLayer(layerInfo, true);
+  }
+};
+
+const handleLayerColormapChange = ({ layerId, colormapId }: { layerId: string; colormapId: string | null }) => {
+  store.commit('geodata/UPDATE_IMAGERY_LAYER_STYLE', { layerId, colormapId });
+  
+  const layerInfo = imageryLayers.value.find((l: any) => l.id === layerId);
+  if (layerInfo) {
+    toggleImageryLayer(layerInfo, true);
+  }
+};
+
+const handleLayerResamplingChange = ({ layerId, resampling }: { layerId: string; resampling: string }) => {
+  store.commit('geodata/UPDATE_IMAGERY_LAYER_STYLE', { layerId, resampling });
+  
+  const layerInfo = imageryLayers.value.find((l: any) => l.id === layerId);
+  if (layerInfo) {
+    toggleImageryLayer(layerInfo, true);
+  }
+};
 const {
   tempSource, measureSource, clearMeasurements, updateSnapSource,
   bufferSourceFeature, bufferCenterCoords

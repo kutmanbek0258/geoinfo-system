@@ -21,13 +21,19 @@ export function useCesiumImagery(
     }
   };
 
-  const toggleImageryLayer = (layerInfo: ImageryLayer) => {
+  const toggleImageryLayer = (layerInfo: ImageryLayer, forceReload = false) => {
     const v = viewer.value;
     if (!v) return;
     const isVisible = visibleLayerIds.value.includes(layerInfo.id);
 
     if (isVisible) {
-      if (activeImageryLayers.value[layerInfo.id]) return;
+      if (activeImageryLayers.value[layerInfo.id]) {
+        if (!forceReload) return;
+        v.imageryLayers.remove(toRaw(activeImageryLayers.value[layerInfo.id]));
+        const nextLayers = { ...activeImageryLayers.value };
+        delete nextLayers[layerInfo.id];
+        activeImageryLayers.value = nextLayers;
+      }
 
       const colormapParam = buildTiTilerStyleParams(layerInfo.style, layerInfo.colormapId, layerInfo.resampling);
 

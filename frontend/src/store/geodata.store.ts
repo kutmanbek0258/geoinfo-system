@@ -185,6 +185,22 @@ const mutations = {
         });
     },
 
+    UPDATE_IMAGERY_LAYER_STYLE(state: GeodataState, { layerId, style, colormapId, resampling }: { layerId: string, style?: any, colormapId?: string | null, resampling?: string }) {
+        if (state.imageryLayers && state.imageryLayers.content) {
+            state.imageryLayers.content = state.imageryLayers.content.map(l => {
+                if (l.id === layerId) {
+                    return {
+                        ...l,
+                        style: style !== undefined ? style : l.style,
+                        colormapId: colormapId !== undefined ? colormapId : l.colormapId,
+                        resampling: resampling !== undefined ? resampling : l.resampling
+                    };
+                }
+                return l;
+            });
+        }
+    },
+
     UPDATE_FEATURE(state: GeodataState, { type, data }: { type: 'Point' | 'MultiLineString' | 'Polygon', data: any }) {
         let targetArrayName: 'points' | 'multilines' | 'polygons';
         if (type === 'Point') {
