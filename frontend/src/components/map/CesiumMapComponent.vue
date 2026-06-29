@@ -355,9 +355,15 @@ const bufferDistance = ref(100);
 const initialZoomDone = computed(() => store.state.geodata.initialZoomDone);
 const lastSelectionSource = computed(() => store.state.geodata.lastSelectionSource);
 
-const { refreshMvtSources, initMvtLayers, raiseMvtLayersToTop } = useCesiumMvt(viewer, projectIdRef, selectedFeatureId, hiddenFeatureIds, isGeometryEditMode);
-const { visibleLayerIds, layerOpacities, selectedTerrainId, setLayerOpacity, toggleImageryLayer, clearImageryLayers } = useCesiumImagery(viewer, terrainLayers, raiseMvtLayersToTop);
 const stagingControl = useCesiumStagingLayers(viewer);
+const { refreshMvtSources, initMvtLayers, raiseMvtLayersToTop } = useCesiumMvt(viewer, projectIdRef, selectedFeatureId, hiddenFeatureIds, isGeometryEditMode);
+
+const raiseLayers = () => {
+  stagingControl.raiseStagingLayersToTop();
+  raiseMvtLayersToTop();
+};
+
+const { visibleLayerIds, layerOpacities, selectedTerrainId, setLayerOpacity, toggleImageryLayer, clearImageryLayers } = useCesiumImagery(viewer, terrainLayers, raiseLayers);
 
 // --- Raster Value Tool Setup ---
 const isRasterValueMode = ref(false);
@@ -793,6 +799,7 @@ watch(() => props.projectId, (newId) => {
     store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchFolders', newId);
+    store.dispatch('geodata/fetchAnalysisTasksByProject', newId);
   }
 }, { immediate: true });
 
@@ -805,6 +812,12 @@ watch([points, multilines, polygons, currentProject], (newData) => {
   }
   refreshMvtSources();
 });
+
+watch(() => store.state.geodata.stagingLayers, () => {
+  setTimeout(() => {
+    raiseLayers();
+  }, 100);
+}, { deep: true });
 
 watch(selectedFeatureId, (newId) => {
   const v = viewer.value;

@@ -52,8 +52,6 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
         // Add or update layers
         for (const sl of stagingLayers) {
             const existingLayer = layerRegistry[sl.taskId];
-            const isVisible = visibleStagingLayerIds.value[sl.taskId] !== false;
-
             if (existingLayer) {
                 // If it is RASTER and url changes
                 if (sl.type === 'RASTER' && sl.s3Url) {
@@ -66,12 +64,17 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
                             url: newTileUrl
                         });
                         const layer = v.imageryLayers.addImageryProvider(provider);
-                        layer.show = isVisible;
+                        layer.show = visibleStagingLayerIds.value[sl.taskId] !== false;
                         layerRegistry[sl.taskId] = layer;
                     }
                 }
                 continue;
             }
+
+            if (visibleStagingLayerIds.value[sl.taskId] === undefined) {
+                visibleStagingLayerIds.value[sl.taskId] = true;
+            }
+            const isVisible = visibleStagingLayerIds.value[sl.taskId] !== false;
 
             // Create new layer
             if (sl.type === 'VECTOR') {
@@ -83,6 +86,7 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
 
                 const provider = new CesiumMVTImageryProvider({
                     urlTemplate: urlTemplate as any,
+                    layerName: 'geodata.staging_layer',
                     style: () => ({
                         strokeStyle: '#ff6b35',
                         fillStyle: 'rgba(255, 107, 53, 0.15)',
@@ -107,6 +111,34 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
                 visibleStagingLayerIds.value[sl.taskId] = isVisible;
             }
         }
+        raiseStagingLayersToTop();
+    }
+
+    function raiseStagingLayersToTop() {
+        const v = viewer.value;
+        if (!v) return;
+
+        const layers = store.state.geodata.stagingLayers as StagingLayerMeta[];
+        
+        // First raise rasters
+        for (const sl of layers) {
+            if (sl.type === 'RASTER') {
+                const layer = layerRegistry[sl.taskId];
+                if (layer && v.imageryLayers.contains(layer)) {
+                    v.imageryLayers.raiseToTop(layer);
+                }
+            }
+        }
+
+        // Then raise vectors
+        for (const sl of layers) {
+            if (sl.type === 'VECTOR') {
+                const layer = layerRegistry[sl.taskId];
+                if (layer && v.imageryLayers.contains(layer)) {
+                    v.imageryLayers.raiseToTop(layer);
+                }
+            }
+        }
     }
 
     function setVisible(taskId: string, visible: boolean) {
@@ -123,11 +155,14 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
         { immediate: true, deep: false }
     );
 
-    watch(viewer, (newViewer) => {
-        if (newViewer) {
-            syncLayers(store.state.geodata.stagingLayers);
+    watch(
+        () => viewer.value,
+        (newViewer) => {
+            if (newViewer) {
+                syncLayers(store.state.geodata.stagingLayers);
+            }
         }
-    });
+    );
 
     onBeforeUnmount(() => {
         stopStagingWatcher();
@@ -141,6 +176,10 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
 
     return {
         setVisible,
-        visibleStagingLayerIds
+        visibleStagingLayerIds,
+        raiseStagingLayersToTop,
+        remove(taskId: string) {
+            store.dispatch('geodata/removeStagingLayer', taskId);
+        }
     };
 }
