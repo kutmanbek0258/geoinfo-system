@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Динамическая реклассификация растра",
+  "pluginName": "raster_reclass_dynamic",
+  "icon": "mdi-palette-swatch-outline",
+  "type": "object",
+  "properties": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "source_raster": {
+          "type": "string",
+          "format": "raster-layer",
+          "title": "Исходный растровый слой"
+        }
+      },
+      "required": ["source_raster"]
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "default_value": {
+          "type": "number",
+          "title": "Значение по умолчанию (вне диапазонов)",
+          "default": 0
+        },
+        "rules": {
+          "type": "array",
+          "title": "Правила реклассификации (Диапазоны [Min, Max, NewValue))",
+          "ui:widget": "reclass_rules",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "default": [[0, 100, 1]]
+        }
+      },
+      "required": ["default_value", "rules"]
+    }
+  }
+}

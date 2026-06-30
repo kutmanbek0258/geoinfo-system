@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
 
 const emit = defineEmits(['select-tool']);
 
+const store = useStore();
 const menuOpen = ref(false);
 
 const categorizedTools = [
@@ -44,6 +46,30 @@ const categorizedTools = [
   }
 ];
 
+onMounted(() => {
+  store.dispatch('geodata/fetchPluginSchemas');
+});
+
+const dynamicTools = computed(() => {
+  return store.state.geodata.pluginSchemas || [];
+});
+
+const allCategories = computed(() => {
+  const categories = [...categorizedTools];
+  if (dynamicTools.value.length > 0) {
+    categories.push({
+      title: 'Устанавливаемые модули (Динамические)',
+      items: dynamicTools.value.map((s: any) => ({
+        name: s.pluginName,
+        title: s.title,
+        icon: s.icon || 'mdi-puzzle-outline',
+        description: s.schema?.title || 'Динамический ГИС модуль геоанализа'
+      }))
+    });
+  }
+  return categories;
+});
+
 function onToolClick(pluginName: string) {
   emit('select-tool', pluginName);
   menuOpen.value = false;
@@ -66,7 +92,7 @@ function onToolClick(pluginName: string) {
       <v-list width="350" class="pa-2 dropdown-scroll" max-height="550" style="overflow-y: auto;">
         <v-list-subheader class="text-uppercase font-weight-bold text-grey-darken-2">Геоаналитика</v-list-subheader>
         
-        <template v-for="category in categorizedTools" :key="category.title">
+        <template v-for="category in allCategories" :key="category.title">
           <v-divider class="my-1"></v-divider>
           <v-list-subheader class="font-weight-bold text-primary text-caption pb-1">{{ category.title }}</v-list-subheader>
           

@@ -3,11 +3,13 @@ import shutil
 import uuid
 import time
 import json
+import threading
 from datetime import datetime
 from kafka import KafkaConsumer, KafkaProducer
 from osgeo import gdal
 from ..core.config import (
     KAFKA_BOOTSTRAP_SERVERS, KAFKA_TASKS_TOPIC, KAFKA_RESULTS_TOPIC, KAFKA_GROUP_ID,
+    KAFKA_SCHEMA_REQUEST_TOPIC, KAFKA_SCHEMA_RESPONSE_TOPIC,
     WORKSPACE_DIR, logger
 )
 from .s3_client import S3Client
@@ -94,6 +96,12 @@ class Orchestrator:
 
     def start(self):
         logger.info(f"GeoAnalysis Orchestrator started. Listening on {KAFKA_TASKS_TOPIC}")
+        
+        # Start background schema request listener thread
+        schema_thread = threading.Thread(target=self._schema_listener_loop, daemon=True)
+        schema_thread.start()
+        logger.info("Background schema listener thread started.")
+
         for message in self.consumer:
             task = message.value
             task_id = task.get("taskId", str(uuid.uuid4()))
@@ -113,6 +121,45 @@ class Orchestrator:
                 self.producer.send(KAFKA_RESULTS_TOPIC, error_result)
             finally:
                 self.consumer.commit()
+
+    def _schema_listener_loop(self):
+        logger.info(f"Schema listener loop started. Listening on {KAFKA_SCHEMA_REQUEST_TOPIC}")
+        consumer = KafkaConsumer(
+            KAFKA_SCHEMA_REQUEST_TOPIC,
+            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+            group_id=KAFKA_GROUP_ID + "-schema",
+            auto_offset_reset="latest"
+        )
+        
+        for message in consumer:
+            try:
+                request = message.value
+                logger.info(f"Received schema request: {request}")
+                action = request.get("action")
+                if action == "GET_SCHEMAS":
+                    self.publish_schemas()
+            except Exception as e:
+                logger.error(f"Error in schema listener loop: {e}")
+
+    def publish_schemas(self):
+        logger.info("Publishing all active dynamic schemas...")
+        for name, plugin_cls in self.plugin_manager.plugins.items():
+            try:
+                plugin_instance = plugin_cls()
+                schema = plugin_instance.get_schema()
+                if schema:
+                    logger.info(f"Publishing schema for plugin: {name}")
+                    response = {
+                        "pluginName": name,
+                        "title": schema.get("title", name),
+                        "icon": schema.get("icon", "mdi-puzzle-outline"),
+                        "schema": schema,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    self.producer.send(KAFKA_SCHEMA_RESPONSE_TOPIC, response)
+            except Exception as e:
+                logger.error(f"Failed to publish schema for plugin {name}: {e}")
 
     def process_task(self, task: dict, task_id: str):
         start_time = time.time()

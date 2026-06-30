@@ -142,6 +142,7 @@
       <RasterAlgebraDialog v-model:show="showRasterAlgebraDialog" @task-created="onAnalysisTaskCreated" />
       <RasterMosaicDialog v-model:show="showRasterMosaicDialog" @task-created="onAnalysisTaskCreated" />
       <RasterReclassDialog v-model:show="showRasterReclassDialog" @task-created="onAnalysisTaskCreated" />
+      <DynamicAnalysisDialog v-model:show="showDynamicDialog" :plugin-name="activeDynamicPlugin" @task-created="onAnalysisTaskCreated" />
       <ProjectPropertiesDialog v-model="showProjectProperties" :project="currentProject" />
       <TerrainUploadDialog v-model="showTerrainDialog" :project-id="projectId" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
       <SatelliteImageryUploadDialog v-model="showSatelliteDialog" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
@@ -266,6 +267,7 @@ import RasterizeVectorDialog from './shared/RasterizeVectorDialog.vue';
 import RasterAlgebraDialog from './shared/RasterAlgebraDialog.vue';
 import RasterMosaicDialog from './shared/RasterMosaicDialog.vue';
 import RasterReclassDialog from './shared/RasterReclassDialog.vue';
+import DynamicAnalysisDialog from './shared/DynamicAnalysisDialog.vue';
 import ObjectDetails from './ObjectDetails.vue';
 import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeoObjectTree from './GeoObjectTree.vue';
@@ -305,8 +307,17 @@ const showRasterAlgebraDialog = ref(false);
 const showRasterMosaicDialog = ref(false);
 const showRasterReclassDialog = ref(false);
 const showImportDxfDialog = ref(false);
+const showDynamicDialog = ref(false);
+const activeDynamicPlugin = ref('');
 
 function onSelectAnalysisTool(pluginName: string) {
+  const dynamicExists = store.state.geodata.pluginSchemas.some((s: any) => s.pluginName === pluginName);
+  if (dynamicExists) {
+    activeDynamicPlugin.value = pluginName;
+    showDynamicDialog.value = true;
+    return;
+  }
+
   if (pluginName === 'terrain_contours') showContoursDialog.value = true;
   else if (pluginName === 'zonal_statistics') showZonalStatsDialog.value = true;
   else if (pluginName === 'clip_raster_by_mask') showClipRasterDialog.value = true;

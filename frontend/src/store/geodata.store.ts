@@ -40,6 +40,7 @@ interface GeodataState {
     pointSelectionActive: boolean;
     selectedPoint: { x: number, y: number } | null;
     documents: Document[];
+    pluginSchemas: any[];
 }
 
 const state: GeodataState = {
@@ -65,6 +66,7 @@ const state: GeodataState = {
     pointSelectionActive: false,
     selectedPoint: null,
     documents: [],
+    pluginSchemas: [],
 };
 
 const mutations = {
@@ -73,6 +75,9 @@ const mutations = {
     },
     SET_SELECTED_POINT(state: GeodataState, point: { x: number, y: number } | null) {
         state.selectedPoint = point;
+    },
+    SET_PLUGIN_SCHEMAS(state: GeodataState, schemas: any[]) {
+        state.pluginSchemas = schemas;
     },
     SET_PROJECTS(state: GeodataState, projects: Page<Project> | null) {
         state.projects = projects;
@@ -440,6 +445,18 @@ const actions = {
         } catch (err) {
             commit('SET_ERROR', 'Failed to trigger analysis.');
             throw err;
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+
+    async fetchPluginSchemas({ commit }: ActionContext<GeodataState, any>) {
+        commit('SET_LOADING', true);
+        try {
+            const response = await geoAbstractionService.getPluginSchemas();
+            commit('SET_PLUGIN_SCHEMAS', response.data);
+        } catch (err) {
+            console.error('Failed to fetch plugin schemas:', err);
         } finally {
             commit('SET_LOADING', false);
         }

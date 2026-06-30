@@ -123,6 +123,7 @@
       <RasterAlgebraDialog v-model:show="showRasterAlgebraDialog" @task-created="onAnalysisTaskCreated" />
       <RasterMosaicDialog v-model:show="showRasterMosaicDialog" @task-created="onAnalysisTaskCreated" />
       <RasterReclassDialog v-model:show="showRasterReclassDialog" @task-created="onAnalysisTaskCreated" />
+      <DynamicAnalysisDialog v-model:show="showDynamicDialog" :plugin-name="activeDynamicPlugin" @task-created="onAnalysisTaskCreated" />
       <MapImportDialog v-model="importFileDialog" v-model:file="importFile" :loading="isImporting" @execute="executeFileImport" />
       <ProjectPropertiesDialog v-model="showProjectProperties" :project="currentProject" />
       <MapMetadataDialog
@@ -266,6 +267,7 @@ import RasterizeVectorDialog from './shared/RasterizeVectorDialog.vue';
 import RasterAlgebraDialog from './shared/RasterAlgebraDialog.vue';
 import RasterMosaicDialog from './shared/RasterMosaicDialog.vue';
 import RasterReclassDialog from './shared/RasterReclassDialog.vue';
+import DynamicAnalysisDialog from './shared/DynamicAnalysisDialog.vue';
 import { toLonLat } from 'ol/proj';
 import RasterStyleService from '@/services/raster-style.service';
 import MapToolsMenu from './controls/MapToolsMenu.vue';
@@ -340,11 +342,20 @@ const showRasterAlgebraDialog = ref(false);
 const showRasterMosaicDialog = ref(false);
 const showRasterReclassDialog = ref(false);
 const showImportDxfDialog = ref(false);
+const showDynamicDialog = ref(false);
+const activeDynamicPlugin = ref('');
 
 // Staging layer OL synchronisation — called at setup level so setVisible is available
 const stagingControl = useStagingLayers(map);
 
 function onSelectAnalysisTool(pluginName: string) {
+  const dynamicExists = store.state.geodata.pluginSchemas.some((s: any) => s.pluginName === pluginName);
+  if (dynamicExists) {
+    activeDynamicPlugin.value = pluginName;
+    showDynamicDialog.value = true;
+    return;
+  }
+
   if (pluginName === 'terrain_contours') showContoursDialog.value = true;
   else if (pluginName === 'zonal_statistics') showZonalStatsDialog.value = true;
   else if (pluginName === 'clip_raster_by_mask') showClipRasterDialog.value = true;

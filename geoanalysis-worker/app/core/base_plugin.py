@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class GeoWorkerPlugin(ABC):
     @property
@@ -20,3 +20,9 @@ class GeoWorkerPlugin(ABC):
         :return: Словарь локальных путей к созданным артефактам.
         """
         pass
+
+    def get_schema(self) -> Optional[dict]:
+        """
+        Возвращает схему UI плагина. По умолчанию None (системный плагин).
+        """
+        return None

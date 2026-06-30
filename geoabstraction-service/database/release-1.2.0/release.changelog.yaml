@@ -8,3 +8,6 @@ databaseChangeLog:
   - include:
       file: object/titiler_colormap_id.sql
       relativeToChangelogFile: true
+  - include:
+      file: object/schema_driven_ui.sql
+      relativeToChangelogFile: true

@@ -4,6 +4,7 @@ import kg.geoinfo.system.geoabstraction.dto.CommitAnalysisTaskRequestDto;
 import kg.geoinfo.system.geoabstraction.dto.AnalysisTaskDto;
 import kg.geoinfo.system.geoabstraction.dto.CreateAnalysisTaskDto;
 import kg.geoinfo.system.geoabstraction.service.AnalysisTaskService;
+import kg.geoinfo.system.geoabstraction.models.PluginSchema;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -53,5 +54,10 @@ public class AnalysisTaskController {
     public ResponseEntity<Void> rollbackTask(@PathVariable UUID id) {
         service.rollbackTask(id);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/plugins")
+    public ResponseEntity<List<PluginSchema>> getPlugins() {
+        return ResponseEntity.ok(service.getRegisteredSchemas());
     }
 }

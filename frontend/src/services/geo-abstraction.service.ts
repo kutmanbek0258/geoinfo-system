@@ -203,6 +203,10 @@ class GeoAbstractionService {
   rejectAnalysisTask(id: string) {
     return api.post<void>(`${ANALYSIS_URL}/tasks/${id}/reject`);
   }
+
+  getPluginSchemas() {
+    return api.get<any[]>(`${ANALYSIS_URL}/plugins`);
+  }
 }
 
 export default new GeoAbstractionService();

@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Динамическая алгебра растров",
+  "pluginName": "raster_algebra_dynamic",
+  "icon": "mdi-calculator-variant",
+  "type": "object",
+  "properties": {
+    "inputs": {
+      "type": "object",
+      "title": "Переменные формулы",
+      "ui:widget": "variables_array",
+      "properties": {},
+      "additionalProperties": {
+        "type": "string",
+        "format": "raster-layer"
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "expression": {
+          "type": "string",
+          "title": "Математическое выражение",
+          "pattern": "^[a-zA-Z0-9_\\+\\-\\*/\\(\\)\\.\\s]+$",
+          "placeholder": "A * 2 + B"
+        }
+      },
+      "required": ["expression"]
+    }
+  }
+}

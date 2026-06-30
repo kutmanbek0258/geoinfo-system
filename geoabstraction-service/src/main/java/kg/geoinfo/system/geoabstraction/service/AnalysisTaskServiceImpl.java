@@ -20,6 +20,9 @@ import kg.geoinfo.system.geoabstraction.dto.CommitAnalysisTaskRequestDto;
 import kg.geoinfo.system.geoabstraction.service.client.GeoDataServiceClient;
 import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
+import kg.geoinfo.system.geoabstraction.models.PluginSchema;
+import kg.geoinfo.system.geoabstraction.repository.PluginSchemaRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,11 +48,15 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
     private final GeoDataServiceClient geoDataServiceClient;
     private final ImageryLayerService imageryLayerService;
     private final RasterStyleRepository rasterStyleRepository;
+    private final PluginSchemaRepository pluginSchemaRepository;
+    private final ObjectMapper objectMapper;
 
 
     @Override
     @Transactional
     public AnalysisTaskDto createTask(CreateAnalysisTaskDto dto) {
+        validateTaskParameters(dto.getPluginName(), dto.getInputs(), dto.getParameters());
+        
         UUID taskId = UUID.randomUUID();
         
         AnalysisTask task = new AnalysisTask();
@@ -351,5 +358,47 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
         dto.setUserId(entity.getUserId());
         dto.setProjectId(entity.getProjectId());
         return dto;
+    }
+
+    @Override
+    public List<PluginSchema> getRegisteredSchemas() {
+        return pluginSchemaRepository.findAll();
+    }
+
+    private void validateTaskParameters(String pluginName, Map<String, CreateAnalysisTaskDto.AnalysisDataSource> inputs, Map<String, Object> parameters) {
+        pluginSchemaRepository.findById(pluginName).ifPresent(pluginSchema -> {
+            try {
+                Map<String, Object> payloadToValidate = new HashMap<>();
+                
+                Map<String, String> inputsPlaceholder = new HashMap<>();
+                if (inputs != null) {
+                    for (String key : inputs.keySet()) {
+                        inputsPlaceholder.put(key, "layer_id_placeholder");
+                    }
+                }
+                
+                payloadToValidate.put("inputs", inputsPlaceholder);
+                payloadToValidate.put("parameters", parameters != null ? parameters : Map.of());
+
+                com.fasterxml.jackson.databind.JsonNode payloadNode = objectMapper.valueToTree(payloadToValidate);
+                com.fasterxml.jackson.databind.JsonNode schemaNode = objectMapper.valueToTree(pluginSchema.getSchema());
+
+                com.networknt.schema.JsonSchemaFactory factory = com.networknt.schema.JsonSchemaFactory.getInstance(com.networknt.schema.SpecVersion.VersionFlag.V7);
+                com.networknt.schema.JsonSchema jsonSchema = factory.getSchema(schemaNode);
+
+                java.util.Set<com.networknt.schema.ValidationMessage> errors = jsonSchema.validate(payloadNode);
+                if (!errors.isEmpty()) {
+                    StringBuilder sb = new StringBuilder("Ошибка валидации параметров задачи: ");
+                    for (com.networknt.schema.ValidationMessage error : errors) {
+                        sb.append(error.getMessage()).append("; ");
+                    }
+                    throw new IllegalArgumentException(sb.toString());
+                }
+            } catch (IllegalArgumentException e) {
+                throw e;
+            } catch (Exception e) {
+                log.error("Failed to perform JSON schema validation for plugin {}: {}", pluginName, e.getMessage(), e);
+            }
+        });
     }
 }
