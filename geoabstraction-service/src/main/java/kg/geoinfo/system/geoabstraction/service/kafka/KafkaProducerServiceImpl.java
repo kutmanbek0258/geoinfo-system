@@ -31,6 +31,8 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
             if ("SENTINEL_COG".equals(event.getTaskType()) || 
                 "LANDSAT_COG".equals(event.getTaskType()) || 
                 "RAW_GEOTIFF_OPTIMIZE".equals(event.getTaskType()) ||
+                "NETCDF_COG".equals(event.getTaskType()) ||
+                "VERIFY_FILE".equals(event.getTaskType()) ||
                 "TERRAIN_COG".equals(event.getTaskType())) {
                 topic = RASTER_TOPIC;
             }

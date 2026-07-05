@@ -4,6 +4,8 @@ public enum GeoAbstractJobStatus {
     NEW,
     UPLOADING,
     UPLOADED,
+    VERIFYING,
+    VERIFIED,
     QUEUED,
     PROCESSING,
     READY,

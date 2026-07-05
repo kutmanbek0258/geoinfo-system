@@ -78,6 +78,23 @@ public class GeoAbstractionController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/jobs/verify-upload")
+    public ResponseEntity<GeoAbstractJobDto> verifyUpload(
+            @RequestParam("name") String name,
+            @RequestParam("objectKey") String objectKey,
+            @RequestParam("fileSize") Long fileSize,
+            @RequestParam("dataType") String dataType,
+            @RequestParam(value = "projectId", required = false) UUID projectId) {
+        return ResponseEntity.ok(geoAbstractionService.createJobVerify(name, objectKey, fileSize, dataType, projectId));
+    }
+
+    @PostMapping("/jobs/{id}/import")
+    public ResponseEntity<GeoAbstractJobDto> startImport(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> params) {
+        return ResponseEntity.ok(geoAbstractionService.startImport(id, params));
+    }
+
     @PostMapping("/jobs/confirm")
     public ResponseEntity<GeoAbstractJobDto> confirmJob(
             @RequestParam("name") String name,

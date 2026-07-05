@@ -62,7 +62,8 @@ public class KafkaConsumerService {
                     terrainUrl,
                     event.getCogObjectKey(),
                     event.getTaskType(),
-                    bbox
+                    bbox,
+                    event.getCharacteristics()
             );
         } else if (event.getEventType() == GeoAbstractJobEvent.EventType.DELETED) {
             // Confirmation from worker that files are deleted

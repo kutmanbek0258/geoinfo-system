@@ -226,6 +226,96 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     }
 
     @Override
+    @Transactional
+    public GeoAbstractJobDto createJobVerify(String name, String objectKey, Long fileSize, String dataType, UUID projectId) {
+        log.info("Creating verification job for {} with objectKey {} and dataType {} for project {}", name, objectKey, dataType, projectId);
+        
+        if (!fileStoreService.exists(objectKey)) {
+            throw new RuntimeException("File does not exist in store: " + objectKey);
+        }
+
+        GeoAbstractJob job = new GeoAbstractJob();
+        job.setName(name);
+        job.setProjectId(projectId);
+        job.setStatus(GeoAbstractJobStatus.VERIFYING);
+        job.setTaskType("VERIFY_FILE");
+        job.setSourceBucket(minioProperties.getBucket());
+        job.setSourceObjectKey(objectKey);
+        job.setFileSize(fileSize);
+        job.setOutputBucket(minioProperties.getBucket());
+        job.setOutputPrefix(job.getName() + "-" + UUID.randomUUID().toString().substring(0, 8));
+
+        Map<String, Object> characteristics = new HashMap<>();
+        characteristics.put("dataType", dataType);
+        job.setCharacteristics(characteristics);
+
+        job = jobRepository.save(job);
+
+        GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
+                .jobId(job.getId())
+                .projectId(job.getProjectId())
+                .name(job.getName())
+                .eventType(GeoAbstractJobEvent.EventType.QUEUED)
+                .taskType(job.getTaskType())
+                .characteristics(job.getCharacteristics())
+                .sourceBucket(job.getSourceBucket())
+                .sourceObjectKey(job.getSourceObjectKey())
+                .outputBucket(job.getOutputBucket())
+                .outputPrefix(job.getOutputPrefix())
+                .build();
+
+        kafkaProducerService.sendGeoAbstractJobEvent(event);
+
+        return geoAbstractMapper.toDto(job);
+    }
+
+    @Override
+    @Transactional
+    public GeoAbstractJobDto startImport(UUID jobId, Map<String, Object> params) {
+        log.info("Starting import for job {} with params {}", jobId, params);
+
+        GeoAbstractJob job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new RuntimeException("Job not found: " + jobId));
+
+        if (job.getStatus() != GeoAbstractJobStatus.VERIFIED) {
+            throw new RuntimeException("Job must be in VERIFIED status to start import. Current status: " + job.getStatus());
+        }
+
+        String taskType = (String) params.get("taskType");
+        if (taskType == null || taskType.trim().isEmpty()) {
+            throw new RuntimeException("taskType is required for starting import");
+        }
+
+        job.setStatus(GeoAbstractJobStatus.QUEUED);
+        job.setTaskType(taskType);
+        
+        // Merge import parameters
+        if (job.getCharacteristics() == null) {
+            job.setCharacteristics(new HashMap<>());
+        }
+        job.getCharacteristics().putAll(params);
+
+        job = jobRepository.save(job);
+
+        GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
+                .jobId(job.getId())
+                .projectId(job.getProjectId())
+                .name(job.getName())
+                .eventType(GeoAbstractJobEvent.EventType.QUEUED)
+                .taskType(job.getTaskType())
+                .characteristics(job.getCharacteristics())
+                .sourceBucket(job.getSourceBucket())
+                .sourceObjectKey(job.getSourceObjectKey())
+                .outputBucket(job.getOutputBucket())
+                .outputPrefix(job.getOutputPrefix())
+                .build();
+
+        kafkaProducerService.sendGeoAbstractJobEvent(event);
+
+        return geoAbstractMapper.toDto(job);
+    }
+
+    @Override
     public GeoAbstractJobDto getJob(UUID jobId) {
         GeoAbstractJob job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobId));
@@ -246,7 +336,7 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
     @Override
     @Transactional
-    public void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType, MultiPolygon bbox) {
+    public void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType, MultiPolygon bbox, Map<String, Object> characteristics) {
         log.info("Updating job {} status to {} (Task: {})", jobId, status, taskType);
 
         if ("TERRAIN_COG".equals(taskType) && "READY".equals(status)) {
@@ -263,6 +353,24 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
         if (job.getStatus() == GeoAbstractJobStatus.READY) {
             log.info("Job {} is already READY, ignoring update to {}", jobId, status);
+            return;
+        }
+
+        if ("VERIFY_FILE".equals(taskType)) {
+            if ("READY".equals(status)) {
+                job.setStatus(GeoAbstractJobStatus.VERIFIED);
+                job.setBbox(bbox);
+                if (characteristics != null) {
+                    if (job.getCharacteristics() == null) {
+                        job.setCharacteristics(new HashMap<>());
+                    }
+                    job.getCharacteristics().putAll(characteristics);
+                }
+            } else if ("FAILED".equals(status)) {
+                job.setStatus(GeoAbstractJobStatus.FAILED);
+                job.setErrorMessage(errorMessage);
+            }
+            jobRepository.save(job);
             return;
         }
 
@@ -310,13 +418,15 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         }
 
         if (jobStatus == GeoAbstractJobStatus.READY && 
-           ("SENTINEL_COG".equals(job.getTaskType()) || "LANDSAT_COG".equals(job.getTaskType()) || "RAW_GEOTIFF_OPTIMIZE".equals(job.getTaskType()))) {
+           ("SENTINEL_COG".equals(job.getTaskType()) || "LANDSAT_COG".equals(job.getTaskType()) || "NETCDF_COG".equals(job.getTaskType()) || "RAW_GEOTIFF_OPTIMIZE".equals(job.getTaskType()))) {
             
             String layerName = job.getOutputPrefix();
             
             // Determine style
             String styleName = "raster"; // default
-            if (job.getCharacteristics() != null) {
+            if ("NETCDF_COG".equals(job.getTaskType())) {
+                styleName = "environmental_spectral";
+            } else if (job.getCharacteristics() != null) {
                 String indexType = (String) job.getCharacteristics().get("indexType");
                 if (indexType != null) {
                     switch (indexType.toUpperCase()) {

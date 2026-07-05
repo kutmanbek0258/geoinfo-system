@@ -92,7 +92,7 @@
 *   **Фронтенд:** Vue.js 3, Vite, TypeScript, Vuetify 3, OpenLayers (MVT), CesiumJS.
 *   **Хранилища:** PostgreSQL/PostGIS, Elasticsearch, MinIO, Redis.
 *   **ГИС-серверы:** 
-    *   **GeoServer:** Публикация растровых слоев, SLD-стили, WMS/WMTS.
+    *   **TiTiler:** Динамическая публикация растровых слоев (COG) напрямую из S3 по протоколу XYZ.
     *   **pg_tileserv:** Динамическая публикация векторных тайлов (MVT).
 *   **Инфраструктура:** Docker, Docker Compose, Nginx (кэширование MVT и HLS), MediaMTX.
 

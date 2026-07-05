@@ -4,7 +4,7 @@
 
 ### **1. Таблица imagery_layers (Слои снимков)**
 
-Хранит метаданные опубликованных растровых слоев в GeoServer.
+Хранит метаданные растровых слоев, обслуживаемых через TiTiler.
 
 | Колонка | Тип данных | Описание |
 | :--- | :--- | :--- |
@@ -12,11 +12,11 @@
 | job_id | UUID | ID задачи, создавшей слой (Foreign Key) |
 | name | VARCHAR(255) | Название слоя |
 | description | TEXT | Описание |
-| workspace | VARCHAR(128) | Workspace в GeoServer |
-| layer_name | VARCHAR(256) | Имя слоя в GeoServer |
-| service_url | VARCHAR(255) | Базовый URL WMS сервиса |
+| workspace | VARCHAR(128) | (Устарело) Workspace (сохранено для совместимости) |
+| layer_name | VARCHAR(256) | Имя слоя в хранилище / префикс |
+| service_url | VARCHAR(255) | (Устарело) Базовый URL сервиса |
 | status | VARCHAR(50) | Статус (ACTIVE, DELETING и др.) |
-| style | VARCHAR(128) | Примененный стиль SLD |
+| style | VARCHAR(128) | Примененный стиль отображения |
 | date_captured | TIMESTAMP | Дата съемки |
 | crs | VARCHAR(32) | Система координат |
 | characteristics | JSONB | Доп. метаданные (индекс, каналы и др.) |
@@ -26,15 +26,15 @@
 
 ### **2. Таблица geo_abstract_jobs (Задачи обработки)**
 
-Хранит информацию о задачах обработки растров и рельефа.
+Хранит информацию о задачах верификации и обработки растров и рельефа.
 
 | Колонка | Тип данных | Описание |
 | :--- | :--- | :--- |
 | id | UUID | Primary Key |
 | project_id | UUID | ID проекта, в контексте которого запущена задача (nullable) |
 | name | VARCHAR(255) | Имя задачи |
-| status | VARCHAR(50) | Статус (QUEUED, PROCESSING, READY, FAILED) |
-| task_type | VARCHAR(50) | Тип задачи (TERRAIN_MESH, SENTINEL_COG и др.) |
+| status | VARCHAR(50) | Статус (VERIFYING, VERIFIED, QUEUED, PROCESSING, READY, FAILED) |
+| task_type | VARCHAR(50) | Тип задачи (VERIFY_FILE, TERRAIN_MESH, SENTINEL_COG, LANDSAT_COG, NETCDF_COG и др.) |
 | source_bucket | VARCHAR(255) | Бакет MinIO с исходным файлом |
 | source_object_key | VARCHAR(255) | Ключ исходного файла |
 | output_prefix | VARCHAR(255) | Префикс для выходных файлов |

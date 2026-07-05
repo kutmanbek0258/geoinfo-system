@@ -207,6 +207,27 @@ class GeoAbstractionService {
   getPluginSchemas() {
     return api.get<any[]>(`${ANALYSIS_URL}/plugins`);
   }
+
+  // --- Two-Step Upload & Verification ---
+  verifyUpload(name: string, objectKey: string, fileSize: number, dataType: string, projectId?: string) {
+    const params = new URLSearchParams();
+    params.append("name", name);
+    params.append("objectKey", objectKey);
+    params.append("fileSize", fileSize.toString());
+    params.append("dataType", dataType);
+    if (projectId) {
+      params.append("projectId", projectId);
+    }
+    return api.post(`${API_URL}/jobs/verify-upload`, params, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      }
+    });
+  }
+
+  startImport(jobId: string, params: Record<string, any>) {
+    return api.post(`${API_URL}/jobs/${jobId}/import`, params);
+  }
 }
 
 export default new GeoAbstractionService();
