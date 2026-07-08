@@ -44,15 +44,38 @@ public class VectorExportService {
             // For simplicity, we search all entities belonging to this folder/id
             // In geodata-service, folders can contain multiple types.
             
-            // Fetch geometries (either by folder ID or root project geometries)
-            if (request.getLayerId() == null || request.getLayerId().equals(new UUID(0L, 0L))) {
-                pointRepository.findAllByProjectIdAndFolderIdIsNull(request.getProjectId()).forEach(p -> features.add(convertToFeature(p)));
-                multilineRepository.findAllByProjectIdAndFolderIdIsNull(request.getProjectId()).forEach(l -> features.add(convertToFeature(l)));
-                polygonRepository.findAllByProjectIdAndFolderIdIsNull(request.getProjectId()).forEach(p -> features.add(convertToFeature(p)));
+            // Check if lists of specific IDs are provided
+            boolean hasPointIds = request.getPointIds() != null && !request.getPointIds().isEmpty();
+            boolean hasMultilineIds = request.getMultilineIds() != null && !request.getMultilineIds().isEmpty();
+            boolean hasPolygonIds = request.getPolygonIds() != null && !request.getPolygonIds().isEmpty();
+
+            if (hasPointIds || hasMultilineIds || hasPolygonIds) {
+                log.info("Exporting specific vector IDs for task {}: points={}, lines={}, polygons={}",
+                        request.getTaskId(),
+                        hasPointIds ? request.getPointIds().size() : 0,
+                        hasMultilineIds ? request.getMultilineIds().size() : 0,
+                        hasPolygonIds ? request.getPolygonIds().size() : 0);
+                
+                if (hasPointIds) {
+                    pointRepository.findAllById(request.getPointIds()).forEach(p -> features.add(convertToFeature(p)));
+                }
+                if (hasMultilineIds) {
+                    multilineRepository.findAllById(request.getMultilineIds()).forEach(l -> features.add(convertToFeature(l)));
+                }
+                if (hasPolygonIds) {
+                    polygonRepository.findAllById(request.getPolygonIds()).forEach(p -> features.add(convertToFeature(p)));
+                }
             } else {
-                pointRepository.findAllByFolderId(request.getLayerId()).forEach(p -> features.add(convertToFeature(p)));
-                multilineRepository.findAllByFolderId(request.getLayerId()).forEach(l -> features.add(convertToFeature(l)));
-                polygonRepository.findAllByFolderId(request.getLayerId()).forEach(p -> features.add(convertToFeature(p)));
+                // Fetch geometries (either by folder ID or root project geometries)
+                if (request.getLayerId() == null || request.getLayerId().equals(new UUID(0L, 0L))) {
+                    pointRepository.findAllByProjectIdAndFolderIdIsNull(request.getProjectId()).forEach(p -> features.add(convertToFeature(p)));
+                    multilineRepository.findAllByProjectIdAndFolderIdIsNull(request.getProjectId()).forEach(l -> features.add(convertToFeature(l)));
+                    polygonRepository.findAllByProjectIdAndFolderIdIsNull(request.getProjectId()).forEach(p -> features.add(convertToFeature(p)));
+                } else {
+                    pointRepository.findAllByFolderId(request.getLayerId()).forEach(p -> features.add(convertToFeature(p)));
+                    multilineRepository.findAllByFolderId(request.getLayerId()).forEach(l -> features.add(convertToFeature(l)));
+                    polygonRepository.findAllByFolderId(request.getLayerId()).forEach(p -> features.add(convertToFeature(p)));
+                }
             }
 
             featureCollection.put("features", features);

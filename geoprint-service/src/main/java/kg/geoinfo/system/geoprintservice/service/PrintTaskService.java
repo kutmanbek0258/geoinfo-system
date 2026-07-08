@@ -53,22 +53,58 @@ public class PrintTaskService {
                 .status(PrintTaskStatus.PENDING)
                 .projectId(spec.getProjectId())
                 .layout(spec.getLayout())
-                .attributes(objectMapper.convertValue(spec, Map.class))
                 .build();
 
         final PrintTask savedTask = printTaskRepository.save(task);
-        log.info("Created print task: {}", savedTask.getId());
+        final UUID taskId = savedTask.getId();
+        log.info("Created print task: {}", taskId);
 
-        final String taskIdStr = savedTask.getId().toString();
+        final List<kg.geoinfo.system.common.GeoVectorExportRequest> exportRequests = new java.util.ArrayList<>();
+        List<PrintSpecificationDto.LayerSpecDto> layers = spec.getLayers();
+        if (layers != null) {
+            for (int i = 0; i < layers.size(); i++) {
+                PrintSpecificationDto.LayerSpecDto layer = layers.get(i);
+                if ("VECTOR".equalsIgnoreCase(layer.getType()) && layer.getFeatures() == null) {
+                    String exportPath = "temp/print/" + taskId + "/layer_" + i + ".geojson";
+                    layer.setUrl("export-pending:" + exportPath);
+                    
+                    exportRequests.add(kg.geoinfo.system.common.GeoVectorExportRequest.builder()
+                            .taskId(taskId)
+                            .exportKey("layer_" + i)
+                            .layerId(layer.getLayerId())
+                            .projectId(spec.getProjectId())
+                            .s3Destination(exportPath)
+                            .pointIds(layer.getPointIds())
+                            .multilineIds(layer.getMultilineIds())
+                            .polygonIds(layer.getPolygonIds())
+                            .build());
+                }
+            }
+        }
+
+        savedTask.setAttributes(objectMapper.convertValue(spec, Map.class));
+        printTaskRepository.save(savedTask);
+
+        final String taskIdStr = taskId.toString();
+        final boolean requiresVectorExport = !exportRequests.isEmpty();
+
         org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
             new org.springframework.transaction.support.TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    Map<String, Object> event = Map.of(
-                        "taskId", taskIdStr,
-                        "spec", savedTask.getAttributes()
-                    );
-                    kafkaTemplate.send("geo.print.tasks", taskIdStr, event);
+                    if (requiresVectorExport) {
+                        for (kg.geoinfo.system.common.GeoVectorExportRequest req : exportRequests) {
+                            kafkaTemplate.send("geo.vector.export", req.getTaskId().toString(), req);
+                            log.info("Sent vector export request for print task {} key {}", req.getTaskId(), req.getExportKey());
+                        }
+                    } else {
+                        Map<String, Object> event = Map.of(
+                            "taskId", taskIdStr,
+                            "spec", savedTask.getAttributes()
+                        );
+                        kafkaTemplate.send("geo.print.tasks", taskIdStr, event);
+                        log.info("Sent print task event directly to worker for task: {}", taskIdStr);
+                    }
                 }
             }
         );

@@ -1,8 +1,6 @@
 import os
 import io
 import requests
-import rasterio
-from rasterio.plot import show as rio_show
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -74,46 +72,39 @@ def render_map(spec: dict, target_path: str):
             if not url:
                 continue
                 
-            # Generate presigned URL if it points to S3
-            if not url.startswith("http"):
-                try:
-                    # Strip s3:// prefix and any bucket name from the key
-                    if url.startswith("s3://"):
-                        url = url.replace("s3://", "")
-                        parts = url.split("/", 1)
-                        if len(parts) == 2 and parts[0] in ("geo-abstraction-input", "geo-print"):
-                            url = parts[1]
-                            
-                    url = minio_client.presigned_get_object(MINIO_BUCKET_RASTER, url)
-                except Exception as e:
-                    logger.error("Failed to sign S3 url for %s: %s", url, str(e))
-                    continue
+            try:
+                titiler_endpoint = os.getenv("TITILER_ENDPOINT", "http://titiler:8000")
+                s3_url = url if url.startswith("s3://") else f"s3://geo-abstraction-input/{url}"
+                
+                params = {
+                    "url": s3_url,
+                    "coord_crs": projection
+                }
+                
+                colormap = layer.get("colormap")
+                colormap_name = layer.get("colormapName") or layer.get("colormap_name")
+                resampling = layer.get("resampling")
+                
+                if colormap_name:
+                    params["colormap_name"] = colormap_name
+                elif colormap:
+                    params["colormap"] = colormap
                     
-            try:
-                with rasterio.open(url) as src:
-                    # Plot raster layer
-                    rio_show(src, ax=ax, alpha=opacity)
-            except Exception as e:
-                logger.error("Failed to render raster layer %s: %s", layer_name, str(e))
+                if resampling:
+                    params["resampling"] = resampling
+                    
+                bbox_str = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
+                titiler_url = f"{titiler_endpoint}/cog/bbox/{bbox_str}.png"
                 
-        elif layer_type == "WMS":
-            url = layer.get("url")
-            layer_name_param = layer.get("layerName")
-            if not url or not layer_name_param:
-                continue
-                
-            try:
-                # Build WMS GetMap request
-                wms_url = build_wms_getmap_url(url, layer_name_param, bbox, projection, dpi)
-                logger.info("Fetching WMS image: %s", wms_url)
-                response = requests.get(wms_url, timeout=30)
+                logger.info("Fetching styled COG image from TiTiler: %s with params %s", titiler_url, params)
+                response = requests.get(titiler_url, params=params, timeout=30)
                 if response.status_code == 200:
                     img = Image.open(io.BytesIO(response.content))
                     ax.imshow(img, extent=[bbox[0], bbox[2], bbox[1], bbox[3]], alpha=opacity, origin='upper')
                 else:
-                    logger.error("WMS request failed with status: %d", response.status_code)
+                    logger.error("Failed to fetch styled raster from TiTiler. Status code: %d, Response: %s", response.status_code, response.text)
             except Exception as e:
-                logger.error("Failed to render WMS layer %s: %s", layer_name, str(e))
+                logger.error("Failed to render styled raster layer %s: %s", layer_name, str(e))
 
     # Add grid lines
     ax.grid(True, which='both', color='gray', linestyle='--', linewidth=0.5, alpha=0.7)
@@ -122,7 +113,7 @@ def render_map(spec: dict, target_path: str):
     plt.savefig(target_path, bbox_inches='tight', pad_inches=0.1)
     plt.close(fig)
     logger.info("Map canvas rendered successfully to %s", target_path)
-
+ 
 def plot_styled_gdf(gdf, ax, layer_style, layer_opacity):
     default_stroke = layer_style.get("strokeColor", layer_style.get("_strokeColor", "#000000"))
     default_fill = layer_style.get("fillColor", layer_style.get("_fillColor", "none"))
@@ -149,16 +140,3 @@ def plot_styled_gdf(gdf, ax, layer_style, layer_opacity):
             linewidth=stroke_width,
             alpha=fill_opacity * layer_opacity if fill != "none" else layer_opacity
         )
-
-def build_wms_getmap_url(base_url: str, layer: str, bbox: list, crs: str, dpi: int) -> str:
-    width = 1600
-    height = 1200
-    separator = "&" if "?" in base_url else "?"
-    bbox_str = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
-    
-    url = (
-        f"{base_url}{separator}SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap"
-        f"&LAYERS={layer}&STYLES=&SRS={crs}&BBOX={bbox_str}"
-        f"&WIDTH={width}&HEIGHT={height}&FORMAT=image/png&TRANSPARENT=TRUE"
-    )
-    return url

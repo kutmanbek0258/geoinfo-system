@@ -1,10 +1,11 @@
 import os
 import shutil
 import tempfile
+import time
 from kafka import KafkaProducer
 import json
 import gc
-from ..core.config import logger, KAFKA_PRODUCE_TOPIC, MINIO_BUCKET_REPORTS
+from ..core.config import logger, KAFKA_PRODUCE_TOPIC, MINIO_BUCKET_REPORTS, MINIO_BUCKET_RASTER
 from ..core.clients import minio_client
 from .map_renderer import render_map
 from .layout_builder import build_pdf_report
@@ -33,6 +34,22 @@ class PrintManager:
         output_pdf = os.path.join(work_dir, f"{task_id}.pdf")
         
         try:
+            # Check and fetch any S3-based vector layers
+            for layer in spec.get("layers", []):
+                if layer.get("type") == "VECTOR" and not layer.get("features"):
+                    url_str = str(layer.get("url", ""))
+                    if url_str.startswith("s3://") or url_str.startswith("temp/print/"):
+                        s3_key = url_str.replace(f"s3://{MINIO_BUCKET_RASTER}/", "").replace("s3://", "")
+                        logger.info("Downloading vector layer features from S3: %s", s3_key)
+                        local_geojson = os.path.join(work_dir, f"vector_{id(layer)}.geojson")
+                        
+                        minio_client.fget_object(MINIO_BUCKET_RASTER, s3_key, local_geojson)
+                        with open(local_geojson, "r", encoding="utf-8") as f:
+                            geojson_data = json.load(f)
+                            
+                        layer["features"] = geojson_data.get("features", [])
+                        layer["url"] = None
+
             # 1. Render map to PNG
             render_map(spec, map_png)
             

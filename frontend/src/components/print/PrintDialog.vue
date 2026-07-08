@@ -78,6 +78,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, toRaw } from 'vue';
+import { useStore } from 'vuex';
 import type { Map } from 'ol';
 import Layer from 'ol/layer/Layer';
 import TileWMS from 'ol/source/TileWMS';
@@ -85,6 +86,7 @@ import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
 import Draw from 'ol/interaction/Draw';
 import VectorLayer from 'ol/layer/Vector';
+import VectorTileLayer from 'ol/layer/VectorTile';
 import { createBox } from 'ol/interaction/Draw';
 import printService, { type PrintTask, type PrintSpecification } from '@/services/print.service';
 
@@ -92,6 +94,7 @@ const props = defineProps<{
   map: Map | null;
 }>();
 
+const store = useStore();
 const dialog = ref(false);
 const loading = ref(false);
 const layout = ref('A4_LANDSCAPE');
@@ -241,7 +244,10 @@ const startPrint = async () => {
       extent = view.calculateExtent(props.map.getSize());
     }
 
-    const layers = props.map.getLayers().getArray()
+    let hasMvt = false;
+    let mvtOpacity = 1.0;
+
+    const parsedLayers = props.map.getLayers().getArray()
       .slice() // Клонируем массив, чтобы не менять порядок на живой карте
       .filter(lProxy => {
         const l = toRaw(lProxy);
@@ -258,29 +264,19 @@ const startPrint = async () => {
       .flatMap(lProxy => {
         const l = toRaw(lProxy);
         if (!l || typeof (l as any).getSource !== 'function') return [];
+
+        if (l instanceof VectorTileLayer) {
+          hasMvt = true;
+          mvtOpacity = l.getOpacity();
+          return [];
+        }
+
         const source = toRaw((l as any).getSource());
         if (!source) return [];
 
         const properties = typeof l.getProperties === 'function' ? l.getProperties() : {};
 
-        // 1. Check if source is TileWMS (WMS Layer)
-        if (typeof source.getParams === 'function') {
-          let wmsUrl = typeof source.getUrls === 'function' ? (source.getUrls() ? source.getUrls()[0] : '') : '';
-          if (!wmsUrl && typeof source.getUrl === 'function') {
-            wmsUrl = source.getUrl();
-          }
-          if (wmsUrl) {
-            wmsUrl = wmsUrl.replace('localhost', 'nginx-proxy');
-            return [{
-              type: 'WMS',
-              url: wmsUrl,
-              layerName: source.getParams().LAYERS,
-              opacity: l.getOpacity()
-            }];
-          }
-        }
-
-        // 2. Check if source is XYZ (TiTiler layer / COG)
+        // Check if source is XYZ (TiTiler layer / COG)
         if (typeof source.getUrls === 'function' || typeof source.getUrl === 'function') {
           let tileUrl = '';
           if (typeof source.getUrls === 'function' && source.getUrls()) {
@@ -291,11 +287,29 @@ const startPrint = async () => {
 
           if (tileUrl && tileUrl.includes('/raster/cog/')) {
             let relativeKey = '';
-            if (tileUrl.includes('url=')) {
-              const urlParam = tileUrl.split('url=')[1].split('&')[0];
-              const decodedUrl = decodeURIComponent(urlParam);
-              relativeKey = decodedUrl.replace('s3://geo-abstraction-input/', '').replace('s3://', '');
-            } else if (properties.cogObjectKey) {
+            let colormap = null;
+            let colormapName = null;
+            let resampling = null;
+
+            try {
+              const urlParts = tileUrl.split('?');
+              if (urlParts.length > 1) {
+                const searchParams = new URLSearchParams(urlParts[1]);
+                const urlParam = searchParams.get('url');
+                if (urlParam) {
+                  relativeKey = decodeURIComponent(urlParam)
+                    .replace('s3://geo-abstraction-input/', '')
+                    .replace('s3://', '');
+                }
+                colormap = searchParams.get('colormap');
+                colormapName = searchParams.get('colormap_name');
+                resampling = searchParams.get('resampling');
+              }
+            } catch (e) {
+              console.error('Failed to parse tile URL parameters:', e);
+            }
+
+            if (!relativeKey && properties.cogObjectKey) {
               relativeKey = properties.cogObjectKey;
             }
 
@@ -304,7 +318,10 @@ const startPrint = async () => {
                 type: 'COG',
                 url: relativeKey,
                 layerName: properties.title || properties.name || 'Raster Layer',
-                opacity: l.getOpacity()
+                opacity: l.getOpacity(),
+                colormap: colormap,
+                colormapName: colormapName,
+                resampling: resampling
               }];
             }
           }
@@ -389,6 +406,28 @@ const startPrint = async () => {
         return [];
       });
 
+    const finalLayers = [...parsedLayers];
+    if (hasMvt) {
+      const pointIds = (store.state.geodata?.points || []).map((p: any) => p.id).filter(Boolean);
+      const multilineIds = (store.state.geodata?.multilines || []).map((l: any) => l.id).filter(Boolean);
+      const polygonIds = (store.state.geodata?.polygons || []).map((p: any) => p.id).filter(Boolean);
+
+      finalLayers.push({
+        type: 'VECTOR',
+        layerName: 'Project Vectors',
+        opacity: mvtOpacity,
+        pointIds,
+        multilineIds,
+        polygonIds,
+        layerStyle: {
+          strokeColor: '#3399CC',
+          strokeWidth: 2,
+          fillColor: '#3399CC',
+          fillOpacity: 0.4
+        }
+      } as any);
+    }
+
     const spec: PrintSpecification = {
       projectId: props.map.get('projectId') || (props.map as any).getProperties().projectId,
       layout: layout.value,
@@ -398,7 +437,7 @@ const startPrint = async () => {
         bbox: extent,
         rotation: view.getRotation()
       },
-      layers: layers as any[],
+      layers: finalLayers as any[],
       attributes: {
         title: title.value,
         author: author.value,

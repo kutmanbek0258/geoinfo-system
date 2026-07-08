@@ -35,11 +35,18 @@ public class PrintSpecificationDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class LayerSpecDto {
-        private String type; // WMS, VECTOR
+        private String type; // COG, VECTOR
+        private java.util.UUID layerId;
         private String url;
         private String layerName;
         private Double opacity;
         private Object features; // GeoJSON
         private Map<String, Object> layerStyle;
+        private String colormap;
+        private String colormapName;
+        private String resampling;
+        private java.util.List<java.util.UUID> pointIds;
+        private java.util.List<java.util.UUID> multilineIds;
+        private java.util.List<java.util.UUID> polygonIds;
     }
 }
