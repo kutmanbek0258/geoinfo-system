@@ -1,45 +1,74 @@
-# GeoPrint Service
+# GeoPrint Service (Java)
 
-`geoprint-service` — это микросервис в составе архитектуры **ГеоИнфоСистема**, отвечающий за асинхронную генерацию картографических отчетов в формате PDF. Сервис комбинирует растровые WMS-слои и векторные данные (GeoJSON) в единое печатное представление с заданным масштабом, охватом и стилистикой.
+`geoprint-service` — это микросервис в составе архитектуры **ГеоИнфоСистема**, выполняющий роль REST API-интерфейса и центрального оркестратора задач печати. Он управляет жизненным циклом печатных отчетов, координирует выгрузку векторных слоев через Kafka и передает финальные задачи на обработку в Python-воркер `geoprint-worker`.
 
 ## 🚀 Основные возможности
 
-*   **Асинхронная обработка (Kafka):** Задачи на печать ставятся в очередь через Apache Kafka, что позволяет не блокировать работу фронтенда при генерации тяжелых карт форматов A0-A1.
-*   **Гибкие форматы и ориентация:** Поддержка форматов бумаги от **A4 до A0** в альбомной (Landscape) и книжной (Portrait) ориентациях с точным сохранением пропорций карты (Aspect Ratio) и учетом полей (Margins).
-*   **Рендеринг WMS-слоев:** Интеграция с Web Map Server (например, GeoServer) для отображения базовых карт и тяжелых растровых слоев.
-*   **Поддержка векторных слоев (GeoJSON):** Наложение векторных слоев (точки, линии, полигоны) поверх WMS. Поддержка корректной обработки координат стандарта `EPSG:4326` (с учетом порядка осей lon/lat).
-*   **Динамическая стилизация (SLD):** Поддержка индивидуальных стилей для каждого векторного объекта. Цвета обводки (`_strokeColor`), толщина (`_strokeWidth`), цвет заливки (`_fillColor`) и прозрачность (`_fillOpacity`) считываются из атрибутов GeoJSON и преобразуются в правила GeoTools FilterFactory на лету.
-*   **Генерация PDF:** Использование HTML/CSS шаблонов (Thymeleaf) в связке с `openhtmltopdf` для оборачивания отрендеренной карты в красивый документ формата PDF с заголовками, легендой и метаданными автора.
+*   **REST API для клиента:** Создание задач печати на основе спецификации `PrintSpecificationDto` и опрос статусов (`PrintTask`).
+*   **Оркестрация экспорта векторных данных:** 
+    *   При поступлении задачи с активными векторными слоями (`VECTOR`), требующими выгрузки, микросервис приостанавливает отправку задачи печати.
+    *   Он отправляет асинхронные запросы `GeoVectorExportRequest` в Kafka-топик **`geo.vector.export`**, передавая списки идентификаторов объектов (`pointIds`, `multilineIds`, `polygonIds`), которые требуется экспортировать.
+    *   Слушает топик **`geo.vector.export.results`** (в отдельной группе `geoprint-vector-results-group`), получая S3-ссылки на выгруженные GeoJSON-файлы.
+    *   Обновляет метаданные слоев в БД и, только после успешной готовности всех векторных выгрузок, отправляет финальный пакет задачи в топик **`geo.print.tasks`** для Python-воркера.
+*   **Генерация Presigned S3 URL:** После завершения печати воркером, микросервис генерирует временные безопасные ссылки для скачивания PDF из бакета S3.
+*   **Управление статусами задач:** Хранение в PostgreSQL текущего состояния задач печати (`PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`) с записью сообщений об ошибках в случае сбоев.
 
 ## 🛠 Технологический стек
 
 *   **Java 16+**
-*   **Spring Boot:** Основной фреймворк микросервиса.
-*   **GeoTools:** Мощная геоинформационная библиотека для рендеринга (StreamingRenderer, MapContent) и работы с проекциями (CRS).
-*   **openhtmltopdf:** Генерация PDF из HTML5/CSS3.
-*   **Apache Kafka:** Брокер сообщений для управления очередью задач печати.
-*   **PostgreSQL:** Хранение статусов задач (`PrintTaskService`).
-*   **AWS S3 (или совместимое хранилище):** Сохранение готовых PDF-файлов и выдача ссылок для скачивания.
+*   **Spring Boot:** Базовый фреймворк приложения (Web, Data JPA).
+*   **Spring Kafka:** Обмен сообщениями между сервисами.
+*   **PostgreSQL & Liquibase:** Хранение истории и статусов задач печати, миграции схемы.
+*   **MinIO SDK:** Интеграция с S3-совместимым объектным хранилищем для генерации presigned-ссылок.
+*   **Lombok & MapStruct:** Ускорение разработки и маппинг DTO.
 
-## 📂 Структура процесса печати
+## 📂 Архитектурный Workflow оркестрации
 
-1. Фронтенд (пользователь) инициирует печать, передавая `PrintSpecificationDto` с настройками слоев (WMS/Vector), текущим охватом карты (BBOX) и форматом.
-2. Сервис сохраняет задачу в БД со статусом `PENDING` и отправляет событие в Kafka.
-3. Воркер (Consumer) подхватывает событие и переводит статус в `PROCESSING`.
-4. `MapRenderer` поочередно накладывает слои в `MapContent` и генерирует `BufferedImage` требуемого DPI.
-5. `PdfBuilder` помещает картинку в HTML-шаблон с учетом CSS-правил `@page` для нужного размера бумаги и создает итоговый PDF.
-6. PDF загружается в S3, а статус задачи меняется на `COMPLETED`.
+```mermaid
+sequenceDiagram
+    participant Client as Клиент (Фронтенд)
+    participant PrintService as geoprint-service (Java)
+    participant Geodata as geodata-service (Java)
+    participant Worker as geoprint-worker (Python)
+    participant S3 as S3 (MinIO)
+
+    Client->>PrintService: POST /api/print (PrintSpecificationDto)
+    Note over PrintService: Создает PrintTask в статусе PENDING.<br/>Видит VECTOR-слои с pointIds/lineIds/polyIds.
+    
+    rect rgb(240, 248, 255)
+        Note over PrintService, Geodata: Фаза экспорта векторных слоев
+        PrintService-->>Geodata: Kafka: geo.vector.export (GeoVectorExportRequest)
+        Geodata->>S3: Загружает GeoJSON
+        Geodata-->>PrintService: Kafka: geo.vector.export.results (GeoVectorExportResponse с S3-ссылкой)
+        Note over PrintService: Обновляет PrintSpecification в БД
+    end
+
+    Note over PrintService: Все векторы готовы
+    PrintService-->>Worker: Kafka: geo.print.tasks (Полная спецификация со ссылками S3)
+    Note over PrintService: Переводит статус задачи в PROCESSING
+    Worker->>S3: Скачивает GeoJSON векторных слоев
+    Worker->>Worker: Отрисовывает карту и компилирует PDF
+    Worker->>S3: Загружает готовый PDF-отчет
+    Worker-->>PrintService: Kafka: geo.print.results (Status COMPLETED, s3Key)
+    Note over PrintService: Обновляет статус задачи на COMPLETED
+    PrintService->>S3: Генерирует Presigned URL для PDF
+    Client->>PrintService: GET /api/print/{id} (Опрос статуса)
+    PrintService->>Client: Возвращает s3Url для скачивания PDF
+```
 
 ## ⚙️ Сборка и запуск
 
-Для сборки проекта используйте Maven:
+Сборка микросервиса с помощью Maven:
 ```bash
-mvn clean install -DskipTests
+./mvnw clean install -pl geoprint-service -am -DskipTests
 ```
 
-Запуск микросервиса (из корневой папки или через IDE):
+Запуск сервиса:
 ```bash
-mvn spring-boot:run
+./mvnw spring-boot:run -pl geoprint-service
 ```
 
-*Обратите внимание: для успешной работы микросервису требуются работающие инстансы Kafka, PostgreSQL и (если настроено) S3-хранилища.*
+### Настройки окружения (application.yml)
+*   `spring.datasource.url` — URL к БД PostgreSQL (схема `print`).
+*   `spring.kafka.bootstrap-servers` — адрес брокера Apache Kafka.
+*   `minio.endpoint`, `minio.access-key`, `minio.secret-key` — параметры доступа к хранилищу S3.
