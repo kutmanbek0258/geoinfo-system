@@ -257,8 +257,8 @@ const startPrint = async () => {
       })
       .flatMap(lProxy => {
         const l = toRaw(lProxy);
-        if (!l || typeof l.getSource !== 'function') return [];
-        const source = toRaw(l.getSource());
+        if (!l || typeof (l as any).getSource !== 'function') return [];
+        const source = toRaw((l as any).getSource());
         if (!source) return [];
 
         const properties = typeof l.getProperties === 'function' ? l.getProperties() : {};
@@ -320,7 +320,7 @@ const startPrint = async () => {
           ];
 
           return geometryGroups.map(group => {
-            const groupFeatures = allFeatures.filter(f => {
+            const groupFeatures = allFeatures.filter((f: any) => {
               const geom = typeof f.getGeometry === 'function' ? f.getGeometry() : null;
               const type = geom ? geom.getType() : '';
               return group.types.includes(type);
@@ -358,7 +358,7 @@ const startPrint = async () => {
             }
 
             const format = new GeoJSON();
-            const cleanFeatures = groupFeatures.map(f => {
+            const cleanFeatures = groupFeatures.map((f: any) => {
               const clone = f.clone();
               const geometryName = typeof clone.getGeometryName === 'function' ? clone.getGeometryName() : 'geometry';
               const properties = typeof clone.getProperties === 'function' ? clone.getProperties() : {};
