@@ -22,9 +22,9 @@ services:
     networks:
       - prod-net
 
-#  postgres-geoprint:
-#    networks:
-#      - prod-net
+  postgres-geoprint:
+    networks:
+      - prod-net
 
   # ====== Message Broker ======
   kafka:
@@ -104,9 +104,13 @@ services:
     networks:
       - prod-net
 
-#  geoprint-service:
-#    networks:
-#      - prod-net
+  geoprint-service:
+    networks:
+      - prod-net
+
+  geoprint-worker:
+    networks:
+      - prod-net
 
   terrain-worker:
     networks:

@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, onUnmounted, toRaw } from 'vue';
 import type { Map } from 'ol';
 import Layer from 'ol/layer/Layer';
 import TileWMS from 'ol/source/TileWMS';
@@ -243,25 +243,76 @@ const startPrint = async () => {
 
     const layers = props.map.getLayers().getArray()
       .slice() // Клонируем массив, чтобы не менять порядок на живой карте
-      .filter(l => l.getVisible() && l.getProperties().name !== 'selection-layer')
-      .sort((a, b) => (a.getZIndex() || 0) - (b.getZIndex() || 0)) // Сортируем по z-index (от нижних к верхним)
-      .flatMap(l => {
-        if (!(l instanceof Layer)) return [];
-        const source = l.getSource();
-        if (source instanceof TileWMS) {
-          let wmsUrl = source.getUrls() ? source.getUrls()![0] : (source as any).getUrl();
-          wmsUrl = wmsUrl.replace('localhost', 'nginx-proxy');
-          
-          return [{
-            type: 'WMS',
-            url: wmsUrl,
-            layerName: source.getParams().LAYERS,
-            opacity: l.getOpacity()
-          }];
+      .filter(lProxy => {
+        const l = toRaw(lProxy);
+        if (!l) return false;
+        const visible = typeof l.getVisible === 'function' ? l.getVisible() : true;
+        const name = typeof l.getProperties === 'function' ? l.getProperties().name : '';
+        return visible && name !== 'selection-layer';
+      })
+      .sort((a, b) => {
+        const az = typeof a.getZIndex === 'function' ? (a.getZIndex() || 0) : 0;
+        const bz = typeof b.getZIndex === 'function' ? (b.getZIndex() || 0) : 0;
+        return az - bz;
+      })
+      .flatMap(lProxy => {
+        const l = toRaw(lProxy);
+        if (!l || typeof l.getSource !== 'function') return [];
+        const source = toRaw(l.getSource());
+        if (!source) return [];
+
+        const properties = typeof l.getProperties === 'function' ? l.getProperties() : {};
+
+        // 1. Check if source is TileWMS (WMS Layer)
+        if (typeof source.getParams === 'function') {
+          let wmsUrl = typeof source.getUrls === 'function' ? (source.getUrls() ? source.getUrls()[0] : '') : '';
+          if (!wmsUrl && typeof source.getUrl === 'function') {
+            wmsUrl = source.getUrl();
+          }
+          if (wmsUrl) {
+            wmsUrl = wmsUrl.replace('localhost', 'nginx-proxy');
+            return [{
+              type: 'WMS',
+              url: wmsUrl,
+              layerName: source.getParams().LAYERS,
+              opacity: l.getOpacity()
+            }];
+          }
         }
-        if (source instanceof VectorSource) {
+
+        // 2. Check if source is XYZ (TiTiler layer / COG)
+        if (typeof source.getUrls === 'function' || typeof source.getUrl === 'function') {
+          let tileUrl = '';
+          if (typeof source.getUrls === 'function' && source.getUrls()) {
+            tileUrl = source.getUrls()[0];
+          } else if (typeof source.getUrl === 'function') {
+            tileUrl = source.getUrl();
+          }
+
+          if (tileUrl && tileUrl.includes('/raster/cog/')) {
+            let relativeKey = '';
+            if (tileUrl.includes('url=')) {
+              const urlParam = tileUrl.split('url=')[1].split('&')[0];
+              const decodedUrl = decodeURIComponent(urlParam);
+              relativeKey = decodedUrl.replace('s3://geo-abstraction-input/', '').replace('s3://', '');
+            } else if (properties.cogObjectKey) {
+              relativeKey = properties.cogObjectKey;
+            }
+
+            if (relativeKey) {
+              return [{
+                type: 'COG',
+                url: relativeKey,
+                layerName: properties.title || properties.name || 'Raster Layer',
+                opacity: l.getOpacity()
+              }];
+            }
+          }
+        }
+
+        // 3. Check if source is VectorSource (Vector Layer)
+        if (typeof source.getFeatures === 'function') {
           const allFeatures = source.getFeatures();
-          // Группируем фичи по типу геометрии для корректного рендеринга на бэкенде
           const geometryGroups = [
             { types: ['Polygon', 'MultiPolygon'], name: 'POLYGONS' },
             { types: ['LineString', 'MultiLineString'], name: 'LINES' },
@@ -270,15 +321,15 @@ const startPrint = async () => {
 
           return geometryGroups.map(group => {
             const groupFeatures = allFeatures.filter(f => {
-              const type = f.getGeometry()?.getType() || '';
+              const geom = typeof f.getGeometry === 'function' ? f.getGeometry() : null;
+              const type = geom ? geom.getType() : '';
               return group.types.includes(type);
             });
 
             if (groupFeatures.length === 0) return null;
 
-            // Извлекаем стиль из первого объекта данной группы
             const firstFeature = groupFeatures[0];
-            const styleData = firstFeature?.get('style');
+            const styleData = typeof firstFeature.get === 'function' ? firstFeature.get('style') : null;
 
             let strokeColor = '#3399CC';
             let strokeWidth = 2;
@@ -307,12 +358,10 @@ const startPrint = async () => {
             }
 
             const format = new GeoJSON();
-            // Клонируем фичеры и удаляем все служебные атрибуты
             const cleanFeatures = groupFeatures.map(f => {
               const clone = f.clone();
-              const geometryName = clone.getGeometryName();
-              // Оставляем только базовые метаданные и геометрию, удаляем 'style' и другие объекты
-              const properties = clone.getProperties();
+              const geometryName = typeof clone.getGeometryName === 'function' ? clone.getGeometryName() : 'geometry';
+              const properties = typeof clone.getProperties === 'function' ? clone.getProperties() : {};
               for (const key in properties) {
                 if (key !== geometryName && (key === 'style' || typeof properties[key] === 'object')) {
                   clone.unset(key);
@@ -336,6 +385,7 @@ const startPrint = async () => {
             };
           }).filter((v): v is any => v !== null);
         }
+
         return [];
       });
 

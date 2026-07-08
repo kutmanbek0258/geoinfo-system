@@ -56,21 +56,24 @@ public class PrintTaskService {
                 .attributes(objectMapper.convertValue(spec, Map.class))
                 .build();
 
-        task = printTaskRepository.save(task);
-        log.info("Created print task: {}", task.getId());
+        final PrintTask savedTask = printTaskRepository.save(task);
+        log.info("Created print task: {}", savedTask.getId());
 
-        final String taskIdStr = task.getId().toString();
+        final String taskIdStr = savedTask.getId().toString();
         org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
             new org.springframework.transaction.support.TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    Map<String, Object> event = Map.of("taskId", taskIdStr);
+                    Map<String, Object> event = Map.of(
+                        "taskId", taskIdStr,
+                        "spec", savedTask.getAttributes()
+                    );
                     kafkaTemplate.send("geo.print.tasks", taskIdStr, event);
                 }
             }
         );
 
-        return printTaskMapper.toDto(task);
+        return printTaskMapper.toDto(savedTask);
     }
 
     public PrintTaskDto getPrintTask(UUID id) {
