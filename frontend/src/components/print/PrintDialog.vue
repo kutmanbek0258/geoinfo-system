@@ -408,9 +408,35 @@ const startPrint = async () => {
 
     const finalLayers = [...parsedLayers];
     if (hasMvt) {
-      const pointIds = (store.state.geodata?.points || []).map((p: any) => p.id).filter(Boolean);
-      const multilineIds = (store.state.geodata?.multilines || []).map((l: any) => l.id).filter(Boolean);
-      const polygonIds = (store.state.geodata?.polygons || []).map((p: any) => p.id).filter(Boolean);
+      const isFeatureVisible = (feat: any) => {
+        let char = feat.characteristics;
+        if (typeof char === 'string') {
+          try {
+            char = JSON.parse(char);
+          } catch (e) {
+            return true;
+          }
+        }
+        if (char) {
+          return char.visible !== false && char.isVisible !== false;
+        }
+        return true;
+      };
+
+      const pointIds = (store.state.geodata?.points || [])
+        .filter(isFeatureVisible)
+        .map((p: any) => p.id)
+        .filter(Boolean);
+
+      const multilineIds = (store.state.geodata?.multilines || [])
+        .filter(isFeatureVisible)
+        .map((l: any) => l.id)
+        .filter(Boolean);
+
+      const polygonIds = (store.state.geodata?.polygons || [])
+        .filter(isFeatureVisible)
+        .map((p: any) => p.id)
+        .filter(Boolean);
 
       finalLayers.push({
         type: 'VECTOR',
