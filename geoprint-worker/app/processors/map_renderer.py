@@ -21,8 +21,45 @@ def render_map(spec: dict, target_path: str):
     if not bbox or len(bbox) != 4:
         raise ValueError("Invalid bbox in mapContext")
 
-    # Set up matplotlib figure (A3 landscape dimensions in inches)
-    fig, ax = plt.subplots(figsize=(16.54, 11.69), dpi=dpi)
+    # Page size maps for layout bounds calculation
+    from reportlab.lib.pagesizes import A4, A3, A2, A1, A0, landscape, portrait
+    size_map = {
+        "A4": A4,
+        "A3": A3,
+        "A2": A2,
+        "A1": A1,
+        "A0": A0
+    }
+    
+    page_format = "A3"
+    is_landscape = True
+    
+    layout_name = spec.get("layout", "A3_LANDSCAPE")
+    parts = layout_name.split("_")
+    if len(parts) >= 1:
+        if parts[0] in size_map:
+            page_format = parts[0]
+    if len(parts) >= 2:
+        if parts[1] == "PORTRAIT":
+            is_landscape = False
+            
+    page_size = size_map[page_format]
+    if is_landscape:
+        page_size = landscape(page_size)
+        
+    width, height = page_size
+    
+    margin = 14.17 # 0.5 cm
+    doc_width = width - (2 * margin)
+    doc_height = height - (2 * margin)
+    map_height = doc_height * 0.80 # 80% of available height
+    
+    # Matplotlib figsize in inches (1 inch = 72 points)
+    fig_w = doc_width / 72.0
+    fig_h = map_height / 72.0
+    
+    logger.info("Setting up Matplotlib canvas with size: %f x %f inches", fig_w, fig_h)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=dpi)
     
     # Set extent/bounds
     ax.set_xlim(bbox[0], bbox[2])
@@ -110,6 +147,7 @@ def render_map(spec: dict, target_path: str):
     ax.grid(True, which='both', color='gray', linestyle='--', linewidth=0.5, alpha=0.7)
     
     # Save figure
+    fig.tight_layout()
     plt.savefig(target_path, bbox_inches='tight', pad_inches=0.1)
     plt.close(fig)
     logger.info("Map canvas rendered successfully to %s", target_path)
@@ -133,10 +171,11 @@ def plot_styled_gdf(gdf, ax, layer_style, layer_opacity):
         fill_opacity = float(props.get("_fillOpacity", props.get("fillOpacity", default_fill_opacity)))
         
         # Plot individual feature
+        is_polygon = geom.geom_type in ("Polygon", "MultiPolygon")
         gpd.GeoSeries([geom]).plot(
             ax=ax,
             edgecolor=stroke,
-            facecolor=fill if fill != "none" else "none",
+            facecolor=fill if (fill != "none" and is_polygon) else "none",
             linewidth=stroke_width,
-            alpha=fill_opacity * layer_opacity if fill != "none" else layer_opacity
+            alpha=fill_opacity * layer_opacity if (fill != "none" and is_polygon) else layer_opacity
         )

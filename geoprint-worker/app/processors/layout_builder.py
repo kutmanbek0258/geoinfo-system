@@ -64,7 +64,7 @@ def build_pdf_report(map_image_path: str, output_pdf_path: str, spec: dict):
     width, height = page_size
     
     # Margin calculation
-    margin = 36 # 0.5 inch
+    margin = 14.17 # 0.5 cm
     doc_width = width - (2 * margin)
     doc_height = height - (2 * margin)
     
@@ -88,25 +88,25 @@ def build_pdf_report(map_image_path: str, output_pdf_path: str, spec: dict):
         'CustomTitle',
         parent=styles['Title'],
         fontName=title_font,
-        fontSize=20 if page_format in ("A4", "A3") else 28,
+        fontSize=12 if page_format in ("A4", "A3") else 16,
         textColor=colors.HexColor("#0f172a"),
-        spaceAfter=15
+        spaceAfter=6
     )
     
     cell_style = ParagraphStyle(
         'CellBody',
         parent=styles['Normal'],
         fontName=body_font,
-        fontSize=10,
-        leading=12
+        fontSize=8,
+        leading=10
     )
     
     cell_bold_style = ParagraphStyle(
         'CellBold',
         parent=styles['Normal'],
         fontName=title_font,
-        fontSize=10,
-        leading=12
+        fontSize=8,
+        leading=10
     )
 
     # 1. Title
@@ -114,10 +114,10 @@ def build_pdf_report(map_image_path: str, output_pdf_path: str, spec: dict):
     story.append(Paragraph(title_text, title_style))
     
     # 2. Map Image
-    map_height = doc_height * 0.65
+    map_height = doc_height * 0.80
     map_img = Image(map_image_path, width=doc_width, height=map_height)
     story.append(map_img)
-    story.append(Spacer(1, 15))
+    story.append(Spacer(1, 6))
     
     # 3. Document Stamp Table
     date_str = datetime.date.today().strftime("%d.%m.%Y")
@@ -144,8 +144,8 @@ def build_pdf_report(map_image_path: str, output_pdf_path: str, spec: dict):
         ('BACKGROUND', (2,0), (2,1), colors.HexColor("#f1f5f9")),
         ('GRID', (0,0), (-1,-1), 1, colors.HexColor("#94a3b8")),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     
     story.append(stamp_table)

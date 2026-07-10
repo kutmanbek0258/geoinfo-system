@@ -15,7 +15,8 @@ class TerrainContoursPlugin(GeoWorkerPlugin):
             raise ValueError("Input 'dem_file' is required for terrain_contours plugin")
 
         interval = float(params.get("interval", 10.0))
-        base = float(params.get("base", 0.0))
+        base_val = params.get("base")
+        base = float(base_val) if (base_val is not None and base_val != "") else None
         elev_field = params.get("attribute", "elev")
         use_3d = bool(params.get("use_3d", False))
         output_format = params.get("format", "GeoJSON")
@@ -32,7 +33,7 @@ class TerrainContoursPlugin(GeoWorkerPlugin):
 
         output_path = os.path.join(workspace, f"{output_filename}.{extension}")
 
-        logger.info(f"Generating contours for {dem_path} with interval {interval}, 3D={use_3d}")
+        logger.info(f"Generating contours for {dem_path} with interval {interval}, 3D={use_3d}, base={base}")
 
         self._generate_contours(dem_path, output_path, interval, base, elev_field, use_3d, output_format)
 
@@ -46,6 +47,16 @@ class TerrainContoursPlugin(GeoWorkerPlugin):
             raise RuntimeError(f"Could not open {src_file}")
 
         src_band = src_ds.GetRasterBand(1)
+
+        # Calculate base dynamically from DEM minimum if not specified
+        if base is None:
+            try:
+                min_val, _ = src_band.ComputeRasterMinMax()
+                base = min_val
+                logger.info(f"Calculated base contour elevation from DEM minimum: {base}")
+            except Exception as e:
+                logger.warning(f"Could not compute DEM min/max, defaulting base to 0.0. Error: {e}")
+                base = 0.0
 
         # Выбираем корректный OGR драйвер на основе формата конфигурации
         if output_format.lower() == "geojson":
@@ -84,8 +95,14 @@ class TerrainContoursPlugin(GeoWorkerPlugin):
 
         logger.info("Executing native GDAL ContourGenerate directly to output path...")
 
+        nodata = src_band.GetNoDataValue()
+        use_nodata = 1 if nodata is not None else 0
+        nodata_val = nodata if nodata is not None else 0.0
+
+        logger.info(f"GDAL ContourGenerate parameters: base={base}, interval={interval}, useNoData={use_nodata}, noDataValue={nodata_val}")
+
         # Запускаем нативную генерацию прямо в целевой файл
-        gdal.ContourGenerate(src_band, interval, base, [], 0, 0, out_layer, -1, elev_field_idx)
+        gdal.ContourGenerate(src_band, interval, base, [], use_nodata, nodata_val, out_layer, -1, elev_field_idx)
 
         # КРИТИЧЕСКИ ВАЖНО: Уничтожаем ссылки и сбрасываем кэш на диск,
         # чтобы закрыть дескрипторы файлов перед отправкой артефактов в S3

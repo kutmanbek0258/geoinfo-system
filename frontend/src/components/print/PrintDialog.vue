@@ -23,26 +23,25 @@
           density="comfortable"
         ></v-select>
 
-        <v-radio-group v-model="selectionMode" label="Область печати" inline>
-          <v-radio label="Текущий вид" value="VIEW"></v-radio>
-          <v-radio label="Выбрать область" value="AREA"></v-radio>
-        </v-radio-group>
-
-        <v-expand-transition>
-          <div v-if="selectionMode === 'AREA'" class="mb-4">
-            <v-btn 
-              :color="isSelecting ? 'warning' : 'secondary'" 
-              block 
-              @click="toggleSelection"
-              :prepend-icon="isSelecting ? 'mdi-stop' : 'mdi-vector-selection'"
-            >
-              {{ isSelecting ? 'Завершить выбор' : (selectedExtent ? 'Выбрать заново' : 'Нарисовать рамку') }}
-            </v-btn>
-            <div v-if="selectedExtent && !isSelecting" class="text-caption text-success mt-1 text-center">
-              <v-icon size="small">mdi-check-circle</v-icon> Область выбрана
-            </div>
+        <div class="mb-4">
+          <v-btn 
+            color="primary" 
+            variant="outlined"
+            block 
+            @click="toggleSelection"
+            prepend-icon="mdi-vector-selection"
+          >
+            {{ selectedExtent ? 'Изменить область печати' : 'Выбрать область на карте' }}
+          </v-btn>
+          <div v-if="selectedExtent && !isSelecting" class="text-caption text-success mt-2 text-center d-flex align-center justify-center">
+            <v-icon size="small" color="success" class="mr-1">mdi-check-circle</v-icon>
+            Область печати выбрана и зафиксирована
           </div>
-        </v-expand-transition>
+          <div v-else-if="!selectedExtent && !isSelecting" class="text-caption text-error mt-2 text-center d-flex align-center justify-center">
+            <v-icon size="small" color="error" class="mr-1">mdi-alert-circle</v-icon>
+            Необходимо выбрать область на карте перед печатью
+          </div>
+        </div>
 
         <v-text-field v-model="title" label="Заголовок отчета" variant="outlined" density="comfortable"></v-text-field>
         <v-text-field v-model="author" label="Автор" variant="outlined" density="comfortable"></v-text-field>
@@ -66,7 +65,7 @@
           color="primary" 
           variant="elevated" 
           :loading="loading" 
-          :disabled="selectionMode === 'AREA' && !selectedExtent && !isSelecting"
+          :disabled="!selectedExtent || loading"
           @click="startPrint"
         >
           Запустить печать
@@ -74,6 +73,33 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <!-- Floating Viewfinder / Shot Frame overlay -->
+  <teleport to="body">
+    <div v-if="isSelecting" class="shot-frame-mask">
+      <!-- Transparent viewport in the center -->
+      <div :style="viewportStyle" class="shot-frame-viewport">
+        <!-- Subtle crosshairs/grid inside the viewport -->
+        <div class="shot-frame-grid"></div>
+        <!-- Visual corners -->
+        <div class="corner top-left"></div>
+        <div class="corner top-right"></div>
+        <div class="corner bottom-left"></div>
+        <div class="corner bottom-right"></div>
+      </div>
+
+      <!-- Action banner/buttons at the bottom -->
+      <div class="shot-frame-controls">
+        <div class="text-subtitle-1 mb-2 font-weight-medium">
+          Подгоните нужную область в рамку (перемещая и масштабируя карту)
+        </div>
+        <div class="d-flex justify-center gap-2">
+          <v-btn color="grey-darken-3" class="text-white px-4" @click="cancelSelection">Отмена</v-btn>
+          <v-btn color="success" prepend-icon="mdi-check" class="px-4" @click="confirmSelection">Выбрать область</v-btn>
+        </div>
+      </div>
+    </div>
+  </teleport>
 </template>
 
 <script setup lang="ts">
@@ -84,10 +110,12 @@ import Layer from 'ol/layer/Layer';
 import TileWMS from 'ol/source/TileWMS';
 import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
-import Draw from 'ol/interaction/Draw';
 import VectorLayer from 'ol/layer/Vector';
 import VectorTileLayer from 'ol/layer/VectorTile';
-import { createBox } from 'ol/interaction/Draw';
+import Feature from 'ol/Feature';
+import { fromExtent } from 'ol/geom/Polygon';
+import Style from 'ol/style/Style';
+import Stroke from 'ol/style/Stroke';
 import printService, { type PrintTask, type PrintSpecification } from '@/services/print.service';
 
 const props = defineProps<{
@@ -98,7 +126,7 @@ const store = useStore();
 const dialog = ref(false);
 const loading = ref(false);
 const layout = ref('A4_LANDSCAPE');
-const selectionMode = ref('VIEW');
+const selectionMode = ref('AREA');
 const title = ref('Геопространственный отчет');
 const author = ref('Пользователь');
 const task = ref<PrintTask | null>(null);
@@ -106,7 +134,6 @@ const task = ref<PrintTask | null>(null);
 // Состояния для выделения области
 const isSelecting = ref(false);
 const selectedExtent = ref<number[] | null>(null);
-let drawInteraction: Draw | null = null;
 let selectionLayer: VectorLayer<VectorSource> | null = null;
 
 const layouts = [
@@ -150,49 +177,18 @@ const toggleSelection = () => {
 
   if (isSelecting.value) {
     stopSelection();
+    dialog.value = true;
   } else {
     startSelection();
   }
 };
 
 const startSelection = () => {
-  if (!props.map) return;
-  
   isSelecting.value = true;
-  selectedExtent.value = null;
-
-  // Создаем слой для отображения рамки, если его нет
-  if (!selectionLayer) {
-    selectionLayer = new VectorLayer({
-      source: new VectorSource(),
-      properties: { name: 'selection-layer' }
-    });
-    props.map.addLayer(selectionLayer);
-  }
-  selectionLayer.getSource()?.clear();
-
-  drawInteraction = new Draw({
-    source: selectionLayer.getSource()!,
-    type: 'Circle',
-    geometryFunction: createBox(),
-  });
-
-  drawInteraction.on('drawend', (event) => {
-    const extent = event.feature.getGeometry()?.getExtent();
-    if (extent) {
-      selectedExtent.value = extent;
-    }
-    stopSelection();
-  });
-
-  props.map.addInteraction(drawInteraction);
+  dialog.value = false; // Скрываем диалог настроек
 };
 
 const stopSelection = () => {
-  if (drawInteraction && props.map) {
-    props.map.removeInteraction(drawInteraction);
-    drawInteraction = null;
-  }
   isSelecting.value = false;
 };
 
@@ -211,16 +207,142 @@ const closeDialog = () => {
   task.value = null;
 };
 
-// Следим за изменением режима: если переключились с AREA, чистим карту
-watch(selectionMode, (newMode) => {
-  if (newMode !== 'AREA') {
-    cleanupSelection();
+// Вычисление соотношения сторон карты в PDF на основе выбранного формата
+const getMapAspectRatio = () => {
+  const sizeMap: Record<string, [number, number]> = {
+    'A0': [2383.94, 3370.39],
+    'A1': [1683.78, 2383.94],
+    'A2': [1190.55, 1683.78],
+    'A3': [841.89, 1190.55],
+    'A4': [595.28, 841.89]
+  };
+
+  let pageFormat = 'A3';
+  let isLandscape = true;
+
+  const parts = layout.value.split('_');
+  if (parts.length >= 1) {
+    pageFormat = parts[0];
   }
+  if (parts.length >= 2 && parts[1] === 'PORTRAIT') {
+    isLandscape = false;
+  }
+
+  const dims = sizeMap[pageFormat] || sizeMap['A3'];
+  const W_page = isLandscape ? dims[1] : dims[0];
+  const H_page = isLandscape ? dims[0] : dims[1];
+
+  const margin = 14.17; // 0.5 cm
+  const W_avail = W_page - (2 * margin);
+  const H_avail = H_page - (2 * margin);
+  const H_map = H_avail * 0.80; // Карта занимает 80% контента
+
+  return W_avail / H_map;
+};
+
+// Динамические стили для центрированной рамки видоискателя
+const viewportStyle = computed(() => {
+  const aspect = getMapAspectRatio();
+  const maxW = window.innerWidth * 0.8;
+  const maxH = window.innerHeight * 0.7;
+
+  let width, height;
+  if (maxW / aspect <= maxH) {
+    width = maxW;
+    height = maxW / aspect;
+  } else {
+    height = maxH;
+    width = maxH * aspect;
+  }
+
+  return {
+    width: `${width}px`,
+    height: `${height}px`,
+    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.4)',
+  };
 });
 
-// Следим за открытием диалога
+// Подтверждение выбора области (конвертация экранных пикселей в гео-координаты)
+const confirmSelection = () => {
+  if (!props.map) return;
+
+  const aspect = getMapAspectRatio();
+  const maxW = window.innerWidth * 0.8;
+  const maxH = window.innerHeight * 0.7;
+
+  let width, height;
+  if (maxW / aspect <= maxH) {
+    width = maxW;
+    height = maxW / aspect;
+  } else {
+    height = maxH;
+    width = maxH * aspect;
+  }
+
+  const left = (window.innerWidth - width) / 2;
+  const top = (window.innerHeight - height) / 2;
+  const right = left + width;
+  const bottom = top + height;
+
+  const mapElement = props.map.getTargetElement();
+  if (!mapElement) return;
+
+  const mapRect = mapElement.getBoundingClientRect();
+  const mapLeft = left - mapRect.left;
+  const mapTop = top - mapRect.top;
+  const mapRight = right - mapRect.left;
+  const mapBottom = bottom - mapRect.top;
+
+  const topLeftCoord = props.map.getCoordinateFromPixel([mapLeft, mapTop]);
+  const bottomRightCoord = props.map.getCoordinateFromPixel([mapRight, mapBottom]);
+
+  if (topLeftCoord && bottomRightCoord) {
+    const minX = Math.min(topLeftCoord[0], bottomRightCoord[0]);
+    const minY = Math.min(topLeftCoord[1], bottomRightCoord[1]);
+    const maxX = Math.max(topLeftCoord[0], bottomRightCoord[0]);
+    const maxY = Math.max(topLeftCoord[1], bottomRightCoord[1]);
+
+    selectedExtent.value = [minX, minY, maxX, maxY];
+
+    // Рисуем пунктирную рамку на карте
+    if (!selectionLayer) {
+      selectionLayer = new VectorLayer({
+        source: new VectorSource(),
+        properties: { name: 'selection-layer' }
+      });
+      props.map.addLayer(selectionLayer);
+    }
+    selectionLayer.getSource()?.clear();
+
+    const rectFeature = new Feature({
+      geometry: fromExtent(selectedExtent.value)
+    });
+    rectFeature.setStyle(new Style({
+      stroke: new Stroke({
+        color: '#ffc107',
+        width: 3,
+        lineDash: [6, 6]
+      })
+    }));
+    selectionLayer.getSource()?.addFeature(rectFeature);
+  }
+
+  stopSelection();
+  dialog.value = true;
+};
+
+const cancelSelection = () => {
+  stopSelection();
+  dialog.value = true;
+};
+
+// Очистка при смене формата или закрытии диалога
+watch(layout, () => {
+  cleanupSelection();
+});
+
 watch(dialog, (val) => {
-  if (!val) {
+  if (!val && !isSelecting.value) {
     cleanupSelection();
   }
 });
@@ -503,5 +625,65 @@ const pollTaskStatus = async (id: string) => {
 <style scoped>
 .v-card-title {
   border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.shot-frame-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+
+.shot-frame-viewport {
+  position: relative;
+  border: 3px solid #ffc107;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.shot-frame-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 1px dashed rgba(255, 193, 7, 0.25);
+  background: 
+    linear-gradient(to right, rgba(255, 193, 7, 0.15) 33.3%, transparent 33.3%, transparent 66.6%, rgba(255, 193, 7, 0.15) 66.6%),
+    linear-gradient(to bottom, rgba(255, 193, 7, 0.15) 33.3%, transparent 33.3%, transparent 66.6%, rgba(255, 193, 7, 0.15) 66.6%);
+  pointer-events: none;
+}
+
+.corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 4px solid #ffc107;
+  pointer-events: none;
+}
+.top-left { top: -4px; left: -4px; border-right: 0; border-bottom: 0; }
+.top-right { top: -4px; right: -4px; border-left: 0; border-bottom: 0; }
+.bottom-left { bottom: -4px; left: -4px; border-right: 0; border-top: 0; }
+.bottom-right { bottom: -4px; right: -4px; border-left: 0; border-top: 0; }
+
+.shot-frame-controls {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(33, 33, 33, 0.95);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  z-index: 100000;
+  pointer-events: auto;
 }
 </style>

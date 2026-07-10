@@ -35,7 +35,6 @@ const formData = ref({
   terrainSource: null as any,
   parameters: {
     interval: 10,
-    base: 0,
     use_3d: true
   } as Record<string, any>
 });
