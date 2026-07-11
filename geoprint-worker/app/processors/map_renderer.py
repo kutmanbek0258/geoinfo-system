@@ -170,12 +170,70 @@ def plot_styled_gdf(gdf, ax, layer_style, layer_opacity):
         stroke_width = float(props.get("_strokeWidth", props.get("strokeWidth", default_stroke_width)))
         fill_opacity = float(props.get("_fillOpacity", props.get("fillOpacity", default_fill_opacity)))
         
-        # Plot individual feature
+        # Check characteristics for individual style overrides
+        characteristics = row.get("characteristics")
+        if characteristics is None and hasattr(row, "get") and "properties" in row:
+            characteristics = props.get("characteristics")
+            
+        if isinstance(characteristics, str):
+            try:
+                import json
+                characteristics = json.loads(characteristics)
+            except Exception:
+                pass
+                
+        if isinstance(characteristics, dict):
+            logger.info("Found feature characteristics: %s", characteristics)
+            style = characteristics.get("style")
+            if isinstance(style, dict):
+                logger.info("Found feature style override: %s", style)
+                # 1. Line / Stroke style
+                line_style = style.get("line") or {}
+                stroke = line_style.get("color", stroke)
+                if "width" in line_style:
+                    stroke_width = float(line_style["width"])
+                    
+                # 2. Polygon / Fill style
+                poly_style = style.get("poly") or {}
+                raw_fill = poly_style.get("fillColor")
+                if raw_fill:
+                    if raw_fill.startswith("rgba"):
+                         try:
+                             parts = raw_fill.replace("rgba(", "").replace(")", "").split(",")
+                             if len(parts) == 4:
+                                 r = int(parts[0].strip())
+                                 g = int(parts[1].strip())
+                                 b = int(parts[2].strip())
+                                 fill = f"#{r:02x}{g:02x}{b:02x}"
+                                 fill_opacity = float(parts[3].strip())
+                         except Exception:
+                             fill = raw_fill
+                    else:
+                        fill = raw_fill
+                        fill_opacity = 1.0
+            else:
+                logger.info("No style override found in characteristics for feature %s", row.get("id", "unknown"))
+        else:
+            logger.info("No characteristics found for feature %s", row.get("id", "unknown"))
+
+        # Plot individual feature with proper geometry types
         is_polygon = geom.geom_type in ("Polygon", "MultiPolygon")
+        is_point = geom.geom_type in ("Point", "MultiPoint")
+        
+        if is_polygon:
+            f_color = fill if fill != "none" else "none"
+            alpha_val = fill_opacity * layer_opacity if fill != "none" else layer_opacity
+        elif is_point:
+            f_color = stroke
+            alpha_val = layer_opacity
+        else:
+            f_color = "none"
+            alpha_val = layer_opacity
+            
         gpd.GeoSeries([geom]).plot(
             ax=ax,
             edgecolor=stroke,
-            facecolor=fill if (fill != "none" and is_polygon) else "none",
+            facecolor=f_color,
             linewidth=stroke_width,
-            alpha=fill_opacity * layer_opacity if (fill != "none" and is_polygon) else layer_opacity
+            alpha=alpha_val
         )
