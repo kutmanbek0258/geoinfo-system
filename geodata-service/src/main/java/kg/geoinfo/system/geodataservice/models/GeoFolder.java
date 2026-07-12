@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Table(name = "folders", schema = "geodata", indexes = {
-        @Index(name = "ix_folders_project", columnList = "project_id"),
+        @Index(name = "ix_folders_layer", columnList = "layer_id"),
         @Index(name = "ix_folders_parent", columnList = "parent_id")
 })
 @Entity
@@ -26,8 +26,8 @@ public class GeoFolder extends AuditableCustom<String> {
     private UUID id;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "project_id", nullable = false)
-    private Project project;
+    @JoinColumn(name = "layer_id", nullable = false)
+    private Layer layer;
 
     @ManyToOne
     @JoinColumn(name = "parent_id")

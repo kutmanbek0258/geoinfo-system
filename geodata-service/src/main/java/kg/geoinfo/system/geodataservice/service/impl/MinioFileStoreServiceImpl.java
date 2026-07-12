@@ -32,4 +32,20 @@ public class MinioFileStoreServiceImpl implements FileStoreService {
             throw new RuntimeException("MinIO upload failed", e);
         }
     }
+
+    @Override
+    public void deleteFile(String bucket, String key) {
+        try {
+            minioClient.removeObject(
+                    io.minio.RemoveObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(key)
+                            .build()
+            );
+            log.info("Deleted file from MinIO: bucket={}, key={}", bucket, key);
+        } catch (Exception e) {
+            log.error("Failed to delete file from MinIO: bucket={}, key={}, error={}", bucket, key, e.getMessage());
+            throw new RuntimeException("MinIO delete failed", e);
+        }
+    }
 }

@@ -11,7 +11,12 @@ import kg.geoinfo.system.geodataservice.repository.ProjectPointRepository;
 import kg.geoinfo.system.geodataservice.repository.ProjectRepository;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPointService;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
+import kg.geoinfo.system.geodataservice.repository.LayerRepository;
+import kg.geoinfo.system.geodataservice.repository.GeoFolderRepository;
 import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
+import kg.geoinfo.system.geodataservice.models.Layer;
+import kg.geoinfo.system.geodataservice.models.enums.LayerType;
+import kg.geoinfo.system.geodataservice.models.GeoFolder;
 import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
 import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +46,8 @@ public class ProjectPointServiceImpl implements ProjectPointService {
     private final KafkaProducerService kafkaProducerService;
     private final ObjectMapper objectMapper;
     private final DocumentServiceClient documentServiceClient;
+    private final LayerRepository layerRepository;
+    private final GeoFolderRepository folderRepository;
 
     private void checkProjectAccess(String currentUserEmail, UUID projectId) {
         Project project = projectRepository.findById(projectId)
@@ -63,6 +70,30 @@ public class ProjectPointServiceImpl implements ProjectPointService {
 
         ProjectPoint projectPoint = projectPointMapper.toEntity(createProjectPointDto);
         projectPoint.setGeom(GeometryUtils.ensureMultiPoint3D(projectPoint.getGeom()));
+
+        Layer layer = null;
+        if (createProjectPointDto.getFolderId() != null) {
+            GeoFolder folder = folderRepository.findById(createProjectPointDto.getFolderId())
+                    .orElseThrow(() -> new RuntimeException("Folder not found"));
+            layer = folder.getLayer();
+            projectPoint.setFolder(folder);
+        } else {
+            final UUID projectId = createProjectPointDto.getProjectId();
+            layer = layerRepository.findAllByProjectId(projectId).stream()
+                    .filter(l -> l.getType() == LayerType.VECTOR)
+                    .findFirst()
+                    .orElseGet(() -> {
+                        Project project = projectRepository.findById(projectId).orElseThrow();
+                        Layer newLayer = Layer.builder()
+                                .project(project)
+                                .name("Векторные данные")
+                                .type(LayerType.VECTOR)
+                                .build();
+                        return layerRepository.save(newLayer);
+                    });
+        }
+        projectPoint.setLayer(layer);
+
         projectPoint = projectPointRepository.save(projectPoint);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPoint, Map.class);

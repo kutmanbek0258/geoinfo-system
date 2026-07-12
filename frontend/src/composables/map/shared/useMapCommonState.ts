@@ -1,12 +1,13 @@
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
-import type { ImageryLayer, TerrainLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Project } from '@/types/api';
+import type { ProjectRaster, TerrainLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, Project } from '@/types/api';
 
 export function useMapCommonState(projectId: string) {
   const store = useStore();
 
   // --- Vuex Data ---
-  const imageryLayers = computed<ImageryLayer[]>(() => store.state.geodata.imageryLayers?.content || []);
+  const projectRasters = computed<ProjectRaster[]>(() => store.state.geodata.projectRasters?.content || []);
+  const imageryLayers = projectRasters;
   const terrainLayers = computed<TerrainLayer[]>(() => store.state.geodata.terrainLayers?.content || []);
   const currentProject = computed<Project | null>(() => store.state.geodata.currentProject);
   const points = computed<ProjectPoint[]>(() => store.state.geodata.points);
@@ -54,6 +55,7 @@ export function useMapCommonState(projectId: string) {
 
   return {
     // Data
+    projectRasters,
     imageryLayers,
     terrainLayers,
     currentProject,

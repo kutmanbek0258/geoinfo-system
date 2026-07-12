@@ -1,29 +1,23 @@
-package kg.geoinfo.system.geoabstraction.models;
+package kg.geoinfo.system.geodataservice.models;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import kg.geoinfo.system.geodataservice.config.audit.AuditableCustom;
+import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@Table(name = "raster_styles", schema = "geoabstraction")
+@Table(name = "raster_styles", schema = "geodata")
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@EntityListeners(AuditingEntityListener.class)
-public class RasterStyle {
+@Builder
+public class RasterStyle extends AuditableCustom<String> {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", nullable = false)
@@ -32,7 +26,7 @@ public class RasterStyle {
     @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
 
-    @Column(name = "title", nullable = false)
+    @Column(name = "title", nullable = false, length = 256)
     private String title;
 
     @Column(name = "type", nullable = false, length = 50)
@@ -44,12 +38,4 @@ public class RasterStyle {
 
     @Column(name = "is_system", nullable = false)
     private boolean isSystem = false;
-
-    @CreatedDate
-    @Column(name = "created_date", nullable = false, updatable = false)
-    private Date createdDate;
-
-    @LastModifiedDate
-    @Column(name = "last_modified_date")
-    private Date lastModifiedDate;
 }

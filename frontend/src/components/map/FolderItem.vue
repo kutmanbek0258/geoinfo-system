@@ -64,6 +64,7 @@
     <!-- Objects in this folder -->
     <template v-for="obj in folderObjects" :key="obj.id">
       <v-list-item
+        v-if="obj.type !== 'Raster'"
         @click="selectObject(obj)"
         :active="selectedFeatureId === obj.id"
         :prepend-icon="getIcon(obj.type)"
@@ -83,6 +84,106 @@
           ></v-btn>
         </template>
       </v-list-item>
+
+      <!-- Raster item in folder -->
+      <div v-else class="pr-2 py-1 border-bottom d-flex flex-column" style="margin-left: 24px;">
+        <div class="d-flex align-center justify-space-between">
+          <div class="d-flex align-center">
+            <v-icon color="secondary" class="mr-2">mdi-image-filter-hdr</v-icon>
+            <span class="text-body-2 font-weight-medium">{{ obj.name }}</span>
+          </div>
+          <div class="d-flex align-center">
+            <v-btn
+              icon="mdi-palette"
+              variant="text"
+              density="comfortable"
+              color="primary"
+              title="Сменить стиль"
+              @click.stop="openStyleEditor"
+            ></v-btn>
+            <v-btn
+              icon="mdi-eye"
+              variant="text"
+              density="comfortable"
+              :color="isRasterVisible(obj) ? 'primary' : 'grey'"
+              title="Видимость"
+              @click.stop="toggleRasterVisibility(obj)"
+            ></v-btn>
+          </div>
+        </div>
+        
+        <!-- Opacity Slider -->
+        <div v-if="isRasterVisible(obj)" class="d-flex align-center pl-6 pr-2">
+          <v-icon size="small" class="mr-2 text-grey-darken-1">mdi-opacity</v-icon>
+          <v-slider
+            :model-value="getRasterOpacity(obj)"
+            @update:model-value="val => setRasterOpacity(obj, val)"
+            min="0"
+            max="100"
+            step="1"
+            hide-details
+            dense
+            color="secondary"
+            class="flex-grow-1"
+          ></v-slider>
+          <span class="text-caption ml-2 text-grey-darken-2" style="min-width: 30px; text-align: right;">{{ getRasterOpacity(obj) }}%</span>
+        </div>
+
+        <!-- Style Selector Block -->
+        <div v-if="isRasterVisible(obj)" class="w-100 pl-6 pr-2 mt-1 d-flex flex-column">
+          <v-checkbox
+            :model-value="getUseTiTilerColormap(obj)"
+            label="Встроенная шкала TiTiler"
+            density="compact"
+            hide-details
+            class="mt-0 mb-1"
+            style="font-size: 11px;"
+            @update:model-value="val => toggleTiTilerColormap(obj, !!val)"
+          />
+
+          <v-select
+            v-if="getUseTiTilerColormap(obj)"
+            :model-value="obj.colormapId || 'viridis'"
+            :items="titilerColormaps"
+            label="Шкала TiTiler"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="font-size: 11px;"
+            class="mb-2"
+            @update:model-value="val => handleLayerColormapChange(obj.id, val)"
+          />
+
+          <v-select
+            v-else
+            :model-value="obj.style?.id || null"
+            :items="customStylesSelectItems"
+            item-title="title"
+            item-value="id"
+            label="Стиль интерполяции"
+            density="compact"
+            variant="outlined"
+            hide-details
+            clearable
+            placeholder="Без стиля (Полутоновый)"
+            style="font-size: 11px;"
+            class="mb-2"
+            @update:model-value="val => handleLayerCustomStyleChange(obj.id, val)"
+          />
+
+          <v-select
+            :model-value="obj.resampling || 'bilinear'"
+            :items="['nearest', 'bilinear', 'cubic', 'cubic_spline', 'lanczos', 'average', 'mode']"
+            label="Метод resampling"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="font-size: 11px;"
+            class="mb-2"
+            @update:model-value="val => handleLayerResamplingChange(obj.id, val)"
+          />
+        </div>
+      </div>
     </template>
   </v-list-group>
 
@@ -112,7 +213,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, inject } from 'vue';
 import { useStore } from 'vuex';
 import type { GeoFolder } from '@/types/api';
 import FolderEditDialog from './FolderEditDialog.vue';
@@ -122,6 +223,19 @@ const props = defineProps<{
   allFolders: GeoFolder[];
   objects: any[];
 }>();
+
+const customStylesSelectItems = inject<any>('customStylesSelectItems');
+const titilerColormaps = inject<any>('titilerColormaps');
+const getUseTiTilerColormap = inject<any>('getUseTiTilerColormap');
+const toggleTiTilerColormap = inject<any>('toggleTiTilerColormap');
+const handleLayerCustomStyleChange = inject<any>('handleLayerCustomStyleChange');
+const handleLayerColormapChange = inject<any>('handleLayerColormapChange');
+const handleLayerResamplingChange = inject<any>('handleLayerResamplingChange');
+const openStyleEditor = inject<any>('openStyleEditor');
+const isRasterVisible = inject<any>('isRasterVisible');
+const toggleRasterVisibility = inject<any>('toggleRasterVisibility');
+const getRasterOpacity = inject<any>('getRasterOpacity');
+const setRasterOpacity = inject<any>('setRasterOpacity');
 
 const store = useStore();
 

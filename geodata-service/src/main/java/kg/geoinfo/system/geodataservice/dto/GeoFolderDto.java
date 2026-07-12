@@ -7,7 +7,7 @@ import java.util.UUID;
 @Data
 public class GeoFolderDto {
     private UUID id;
-    private UUID projectId;
+    private UUID layerId;
     private UUID parentId;
     private String name;
     private String description;

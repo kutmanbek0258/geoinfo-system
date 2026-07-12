@@ -84,4 +84,28 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
             log.error("Error sending vector export request to Kafka: {}", e.getMessage());
         }
     }
+
+    @Override
+    public void sendRasterProcessedEvent(Map<String, Object> payload) {
+        try {
+            Object id = payload.get("id");
+            String key = id != null ? id.toString() : java.util.UUID.randomUUID().toString();
+            kafkaTemplate.send("geo.raster.processed", key, payload);
+            log.info("Sent raster processed event to topic geo.raster.processed: {}", key);
+        } catch (Exception e) {
+            log.error("Error sending raster processed event: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendTerrainProcessedEvent(Map<String, Object> payload) {
+        try {
+            Object id = payload.get("id");
+            String key = id != null ? id.toString() : java.util.UUID.randomUUID().toString();
+            kafkaTemplate.send("geo.terrain.processed", key, payload);
+            log.info("Sent terrain processed event to topic geo.terrain.processed: {}", key);
+        } catch (Exception e) {
+            log.error("Error sending terrain processed event: {}", e.getMessage());
+        }
+    }
 }

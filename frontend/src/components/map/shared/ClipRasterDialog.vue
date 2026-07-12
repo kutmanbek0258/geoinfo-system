@@ -26,8 +26,8 @@ watch(() => props.show, (newVal) => {
       if (!store.state.geodata.folders || store.state.geodata.folders.length === 0) {
         store.dispatch('geodata/fetchFolders', projectId);
       }
-      if (!store.state.geodata.imageryLayers) {
-        store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 });
+      if (!store.state.geodata.projectRasters) {
+        store.dispatch('geodata/fetchProjectRasters', { page: 0, size: 100 });
       }
       if (!store.state.geodata.terrainLayers) {
         store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });

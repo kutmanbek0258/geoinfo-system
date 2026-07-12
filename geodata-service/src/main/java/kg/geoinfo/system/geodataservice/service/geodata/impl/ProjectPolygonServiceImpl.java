@@ -10,9 +10,14 @@ import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.models.ProjectPolygon;
 import kg.geoinfo.system.geodataservice.repository.ProjectPolygonRepository;
 import kg.geoinfo.system.geodataservice.repository.ProjectRepository;
-import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
+import kg.geoinfo.system.geodataservice.repository.LayerRepository;
+import kg.geoinfo.system.geodataservice.repository.GeoFolderRepository;
+import kg.geoinfo.system.geodataservice.models.Layer;
+import kg.geoinfo.system.geodataservice.models.enums.LayerType;
+import kg.geoinfo.system.geodataservice.models.GeoFolder;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectPolygonService;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
+import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
 import kg.geoinfo.system.geodataservice.util.GeometryUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +46,8 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
     private final KafkaProducerService kafkaProducerService;
     private final ObjectMapper objectMapper;
     private final DocumentServiceClient documentServiceClient;
+    private final LayerRepository layerRepository;
+    private final GeoFolderRepository folderRepository;
 
     private void checkProjectAccess(String currentUserEmail, UUID projectId) {
         Project project = projectRepository.findById(projectId)
@@ -61,6 +68,30 @@ public class ProjectPolygonServiceImpl implements ProjectPolygonService {
         checkProjectAccess(currentUserEmail, createProjectPolygonDto.getProjectId());
         ProjectPolygon projectPolygon = projectPolygonMapper.toEntity(createProjectPolygonDto);
         projectPolygon.setGeom(GeometryUtils.ensureMultiPolygon3D(projectPolygon.getGeom()));
+
+        Layer layer = null;
+        if (createProjectPolygonDto.getFolderId() != null) {
+            GeoFolder folder = folderRepository.findById(createProjectPolygonDto.getFolderId())
+                    .orElseThrow(() -> new RuntimeException("Folder not found"));
+            layer = folder.getLayer();
+            projectPolygon.setFolder(folder);
+        } else {
+            final UUID projectId = createProjectPolygonDto.getProjectId();
+            layer = layerRepository.findAllByProjectId(projectId).stream()
+                    .filter(l -> l.getType() == LayerType.VECTOR)
+                    .findFirst()
+                    .orElseGet(() -> {
+                        Project project = projectRepository.findById(projectId).orElseThrow();
+                        Layer newLayer = Layer.builder()
+                                .project(project)
+                                .name("Векторные данные")
+                                .type(LayerType.VECTOR)
+                                .build();
+                        return layerRepository.save(newLayer);
+                    });
+        }
+        projectPolygon.setLayer(layer);
+
         projectPolygon = projectPolygonRepository.save(projectPolygon);
 
         Map<String, Object> payload = objectMapper.convertValue(projectPolygon, Map.class);

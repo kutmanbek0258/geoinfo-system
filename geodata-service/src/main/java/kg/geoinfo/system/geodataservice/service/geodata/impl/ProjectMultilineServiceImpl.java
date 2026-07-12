@@ -10,6 +10,11 @@ import kg.geoinfo.system.geodataservice.models.ProjectMultiline;
 import kg.geoinfo.system.geodataservice.repository.ProjectMultilineRepository;
 import kg.geoinfo.system.geodataservice.repository.ProjectRepository;
 import kg.geoinfo.system.geodataservice.service.geodata.ProjectMultilineService;
+import kg.geoinfo.system.geodataservice.repository.LayerRepository;
+import kg.geoinfo.system.geodataservice.repository.GeoFolderRepository;
+import kg.geoinfo.system.geodataservice.models.Layer;
+import kg.geoinfo.system.geodataservice.models.enums.LayerType;
+import kg.geoinfo.system.geodataservice.models.GeoFolder;
 import kg.geoinfo.system.geodataservice.service.kafka.KafkaProducerService;
 import kg.geoinfo.system.geodataservice.service.client.DocumentServiceClient;
 import kg.geoinfo.system.geodataservice.dto.client.DocumentDto;
@@ -41,6 +46,8 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
     private final KafkaProducerService kafkaProducerService;
     private final ObjectMapper objectMapper;
     private final DocumentServiceClient documentServiceClient;
+    private final LayerRepository layerRepository;
+    private final GeoFolderRepository folderRepository;
 
     private void checkProjectAccess(String currentUserEmail, UUID projectId) {
         Project project = projectRepository.findById(projectId)
@@ -61,6 +68,30 @@ public class ProjectMultilineServiceImpl implements ProjectMultilineService {
         checkProjectAccess(currentUserEmail, createProjectMultilineDto.getProjectId());
         ProjectMultiline projectMultiline = projectMultilineMapper.toEntity(createProjectMultilineDto);
         projectMultiline.setGeom(GeometryUtils.ensureMultiLineString3D(projectMultiline.getGeom()));
+
+        Layer layer = null;
+        if (createProjectMultilineDto.getFolderId() != null) {
+            GeoFolder folder = folderRepository.findById(createProjectMultilineDto.getFolderId())
+                    .orElseThrow(() -> new RuntimeException("Folder not found"));
+            layer = folder.getLayer();
+            projectMultiline.setFolder(folder);
+        } else {
+            final UUID projectId = createProjectMultilineDto.getProjectId();
+            layer = layerRepository.findAllByProjectId(projectId).stream()
+                    .filter(l -> l.getType() == LayerType.VECTOR)
+                    .findFirst()
+                    .orElseGet(() -> {
+                        Project project = projectRepository.findById(projectId).orElseThrow();
+                        Layer newLayer = Layer.builder()
+                                .project(project)
+                                .name("Векторные данные")
+                                .type(LayerType.VECTOR)
+                                .build();
+                        return layerRepository.save(newLayer);
+                    });
+        }
+        projectMultiline.setLayer(layer);
+
         projectMultiline = projectMultilineRepository.save(projectMultiline);
 
         Map<String, Object> payload = objectMapper.convertValue(projectMultiline, Map.class);

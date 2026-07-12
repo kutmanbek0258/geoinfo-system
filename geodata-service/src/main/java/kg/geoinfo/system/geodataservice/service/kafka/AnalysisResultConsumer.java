@@ -18,6 +18,7 @@ public class AnalysisResultConsumer {
     private final VectorExportService vectorExportService;
 
     @KafkaListener(topics = "geoabstraction.results", 
+                   containerFactory = "analysisResultsListenerContainerFactory",
                    groupId = "${spring.kafka.consumer.group-id:geodata-service-analysis-group}")
     public void listen(GeoAnalysisResultEvent event) {
         log.info("Received geo-analysis result for task {}: {}", event.getTaskId(), event.getStatus());
@@ -47,6 +48,7 @@ public class AnalysisResultConsumer {
     }
 
     @KafkaListener(topics = "geo.vector.export", 
+                   containerFactory = "vectorExportListenerContainerFactory",
                    groupId = "${spring.kafka.consumer.group-id:geodata-service-export-group}")
     public void listenExportRequest(GeoVectorExportRequest request) {
         log.info("Received vector export request for task {}", request.getTaskId());

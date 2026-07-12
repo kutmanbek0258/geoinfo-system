@@ -2,7 +2,8 @@ import geodataService from "@/services/geodata.service";
 import streamService from "@/services/stream.service";
 import geoAbstractionService from "@/services/geo-abstraction.service";
 import documentService from "@/services/document.service";
-import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, TerrainLayer, TerrainJob, Page, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, AnalysisTask, CreateAnalysisTaskDto, Document } from "@/types/api";
+import RasterStyleService from "@/services/raster-style.service";
+import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, ProjectRaster, RasterLayer, RasterStyle, Layer, TerrainLayer, TerrainJob, Page, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, AnalysisTask, CreateAnalysisTaskDto, Document } from "@/types/api";
 import type { ActionContext } from "vuex";
 
 interface StagingLayer {
@@ -21,7 +22,7 @@ interface GeodataState {
     projects: Page<Project> | null;
     currentProject: Project | null;
     folders: GeoFolder[];
-    imageryLayers: Page<ImageryLayer> | null;
+    projectRasters: Page<ProjectRaster> | null;
     terrainLayers: Page<TerrainLayer> | null;
     terrainJobs: Page<TerrainJob> | null;
     analysisTasks: AnalysisTask[];
@@ -41,13 +42,20 @@ interface GeodataState {
     selectedPoint: { x: number, y: number } | null;
     documents: Document[];
     pluginSchemas: any[];
+    visibleRasterIds: string[];
+    rasterOpacities: Record<string, number>;
+    globalRasters: RasterLayer[];
+    visibleGlobalRasterIds: string[];
+    globalRasterOpacities: Record<string, number>;
+    styles: RasterStyle[];
+    layers: Layer[];
 }
 
 const state: GeodataState = {
     projects: null,
     currentProject: null,
     folders: [],
-    imageryLayers: null,
+    projectRasters: null,
     terrainLayers: null,
     terrainJobs: null,
     analysisTasks: [],
@@ -63,6 +71,13 @@ const state: GeodataState = {
     isLoading: false,
     error: null,
     activeCameraStream: null,
+    visibleRasterIds: [],
+    rasterOpacities: {},
+    globalRasters: [],
+    visibleGlobalRasterIds: [],
+    globalRasterOpacities: {},
+    styles: [],
+    layers: [],
     pointSelectionActive: false,
     selectedPoint: null,
     documents: [],
@@ -104,7 +119,12 @@ const mutations = {
         state.selectedFeatureId = null;
         state.selectedFolderId = null;
         state.lastSelectionSource = null;
-        state.imageryLayers = null;
+        state.projectRasters = null;
+        state.globalRasters = [];
+        state.visibleGlobalRasterIds = [];
+        state.globalRasterOpacities = {};
+        state.styles = [];
+        state.layers = [];
         state.terrainLayers = null;
         state.terrainJobs = null;
         state.analysisTasks = [];
@@ -113,6 +133,8 @@ const mutations = {
         state.pointSelectionActive = false;
         state.selectedPoint = null;
         state.documents = [];
+        state.visibleRasterIds = [];
+        state.rasterOpacities = {};
     },
     SET_DOCUMENTS(state: GeodataState, documents: Document[]) {
         state.documents = documents;
@@ -134,9 +156,44 @@ const mutations = {
         state.error = error;
     },
 
-    // Imagery Layer Mutations
-    SET_IMAGERY_LAYERS(state: GeodataState, layers: Page<ImageryLayer> | null) {
-        state.imageryLayers = layers;
+    // Project Raster Mutations
+    SET_PROJECT_RASTERS(state: GeodataState, layers: Page<ProjectRaster> | null) {
+        state.projectRasters = layers;
+    },
+    SET_GLOBAL_RASTERS(state: GeodataState, rasters: RasterLayer[]) {
+        state.globalRasters = rasters;
+    },
+    SET_STYLES(state: GeodataState, styles: RasterStyle[]) {
+        state.styles = styles;
+    },
+    SET_PROJECT_LAYERS(state: GeodataState, layers: Layer[]) {
+        state.layers = layers;
+    },
+    SET_VISIBLE_GLOBAL_RASTER_IDS(state: GeodataState, ids: string[]) {
+        state.visibleGlobalRasterIds = ids;
+    },
+    TOGGLE_GLOBAL_RASTER_VISIBILITY(state: GeodataState, rasterId: string) {
+        if (state.visibleGlobalRasterIds.includes(rasterId)) {
+            state.visibleGlobalRasterIds = state.visibleGlobalRasterIds.filter(id => id !== rasterId);
+        } else {
+            state.visibleGlobalRasterIds = [...state.visibleGlobalRasterIds, rasterId];
+        }
+    },
+    SET_GLOBAL_RASTER_OPACITY(state: GeodataState, { rasterId, opacity }: { rasterId: string, opacity: number }) {
+        state.globalRasterOpacities = { ...state.globalRasterOpacities, [rasterId]: opacity };
+    },
+    SET_VISIBLE_RASTER_IDS(state: GeodataState, ids: string[]) {
+        state.visibleRasterIds = ids;
+    },
+    TOGGLE_RASTER_VISIBILITY(state: GeodataState, rasterId: string) {
+        if (state.visibleRasterIds.includes(rasterId)) {
+            state.visibleRasterIds = state.visibleRasterIds.filter(id => id !== rasterId);
+        } else {
+            state.visibleRasterIds = [...state.visibleRasterIds, rasterId];
+        }
+    },
+    SET_RASTER_OPACITY(state: GeodataState, { rasterId, opacity }: { rasterId: string, opacity: number }) {
+        state.rasterOpacities = { ...state.rasterOpacities, [rasterId]: opacity };
     },
 
     SET_TERRAIN_LAYERS(state: GeodataState, layers: Page<TerrainLayer> | null) {
@@ -190,9 +247,9 @@ const mutations = {
         });
     },
 
-    UPDATE_IMAGERY_LAYER_STYLE(state: GeodataState, { layerId, style, colormapId, resampling }: { layerId: string, style?: any, colormapId?: string | null, resampling?: string }) {
-        if (state.imageryLayers && state.imageryLayers.content) {
-            state.imageryLayers.content = state.imageryLayers.content.map(l => {
+    UPDATE_PROJECT_RASTER_STYLE(state: GeodataState, { layerId, style, colormapId, resampling }: { layerId: string, style?: any, colormapId?: string | null, resampling?: string }) {
+        if (state.projectRasters && state.projectRasters.content) {
+            state.projectRasters.content = state.projectRasters.content.map(l => {
                 if (l.id === layerId) {
                     return {
                         ...l,
@@ -204,6 +261,19 @@ const mutations = {
                 return l;
             });
         }
+    },
+    UPDATE_GLOBAL_RASTER_STYLE(state: GeodataState, { layerId, style, colormapId, resampling }: { layerId: string, style?: any, colormapId?: string | null, resampling?: string }) {
+        state.globalRasters = state.globalRasters.map(l => {
+            if (l.id === layerId) {
+                return {
+                    ...l,
+                    style: style !== undefined ? style : l.style,
+                    colormapId: colormapId !== undefined ? colormapId : l.colormapId,
+                    resampling: resampling !== undefined ? resampling : l.resampling
+                };
+            }
+            return l;
+        });
     },
 
     UPDATE_FEATURE(state: GeodataState, { type, data }: { type: 'Point' | 'MultiLineString' | 'Polygon', data: any }) {
@@ -349,40 +419,172 @@ const actions = {
         }
     },
 
-    // Imagery Layer Actions
-    async fetchImageryLayers({ commit, state }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
+    // Project Raster Actions
+    async fetchProjectRasters({ commit, dispatch, state }: ActionContext<GeodataState, any>, params?: { page: number, size: number }) {
+        if (!state.selectedProjectId) return;
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const response = await geoAbstractionService.getImageryLayers(page, size, state.selectedProjectId || undefined);
-            commit('SET_IMAGERY_LAYERS', response.data);
+            const layersRes = await geodataService.getLayersByProjectId(state.selectedProjectId);
+            const rasterLayersList = layersRes.data.filter(l => l.type === 'RASTER');
+            
+            const allRasters: any[] = [];
+            for (const layer of rasterLayersList) {
+                const rastersRes = await geodataService.getProjectRastersByLayerId(layer.id);
+                allRasters.push(...rastersRes.data);
+            }
+            
+            const regularRasters = allRasters.filter(r => !r.characteristics?.isTerrain);
+            
+            // Load styles if not loaded
+            if (!state.styles || state.styles.length === 0) {
+                await dispatch('fetchStyles');
+            }
+
+            // Resolve custom styles in memory
+            for (const r of regularRasters) {
+                if (r.colormapId) {
+                    const found = state.styles.find(s => s.id === r.colormapId || s.name === r.colormapId);
+                    if (found) {
+                        r.style = found;
+                        r.colormapId = null;
+                    }
+                }
+            }
+
+            commit('SET_PROJECT_RASTERS', {
+                content: regularRasters,
+                totalElements: regularRasters.length,
+                totalPages: 1,
+                size: regularRasters.length,
+                number: 0
+            });
         } catch (err) {
-            commit('SET_ERROR', 'Failed to fetch imagery layers.');
+            commit('SET_ERROR', 'Failed to fetch project rasters.');
         } finally {
             commit('SET_LOADING', false);
         }
     },
-    async createImageryLayer({ dispatch, state }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: Omit<ImageryLayer, 'id'>, page: number, size: number }) {
-        const payload = { ...layerData, projectId: state.selectedProjectId || undefined };
-        await geoAbstractionService.createImageryLayer(payload as ImageryLayer);
-        dispatch('fetchImageryLayers', { page, size });
+    async createProjectRaster({ dispatch, state }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: Omit<ProjectRaster, 'id'>, page: number, size: number }) {
+        // Create matching project layer first if not exists
+        const layersRes = await geodataService.getLayersByProjectId(state.selectedProjectId || '');
+        let targetLayer = layersRes.data.find(l => l.type === 'RASTER');
+        if (!targetLayer) {
+            targetLayer = (await geodataService.createLayer({
+                projectId: state.selectedProjectId || '',
+                name: 'Растровые данные',
+                type: 'RASTER'
+            })).data;
+        }
+
+        const payload = {
+            layerId: targetLayer.id,
+            name: layerData.name,
+            description: layerData.description,
+            cogObjectKey: layerData.cogObjectKey,
+            crs: layerData.crs || 'EPSG:4326',
+            colormapId: layerData.colormapId,
+            resampling: layerData.resampling,
+            status: layerData.status,
+            characteristics: layerData.characteristics
+        };
+        await geodataService.createProjectRaster(payload);
+        dispatch('fetchProjectRasters', { page, size });
     },
-    async updateImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: ImageryLayer, page: number, size: number }) {
-        await geoAbstractionService.updateImageryLayer(layerData.id, layerData);
-        dispatch('fetchImageryLayers', { page, size });
+    async updateProjectRaster({ dispatch, state }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: ProjectRaster, page: number, size: number }) {
+        await geodataService.updateProjectRaster(layerData.id, {
+            name: layerData.name,
+            description: layerData.description,
+            cogObjectKey: layerData.cogObjectKey,
+            crs: layerData.crs,
+            colormapId: layerData.colormapId,
+            resampling: layerData.resampling,
+            status: layerData.status,
+            characteristics: layerData.characteristics
+        });
+        dispatch('fetchProjectRasters', { page, size });
     },
-    async deleteImageryLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
-        await geoAbstractionService.deleteImageryLayer(layerId);
-        dispatch('fetchImageryLayers', { page, size });
+    async deleteProjectRaster({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
+        await geodataService.deleteProjectRaster(layerId);
+        dispatch('fetchProjectRasters', { page, size });
     },
 
-    // Terrain Layer Actions
-    async fetchTerrainLayers({ commit, state }: ActionContext<GeodataState, any>, { page, size }: { page: number, size: number }) {
+    // Global Raster Actions
+    async fetchGlobalRasters({ commit, dispatch, state }: ActionContext<GeodataState, any>) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const response = await geoAbstractionService.getLayers(page, size, state.selectedProjectId || undefined);
-            commit('SET_TERRAIN_LAYERS', response.data);
+            const res = await geodataService.getRasterLayers();
+            const rasters = res.data;
+            
+            // Load styles if not loaded
+            if (!state.styles || state.styles.length === 0) {
+                await dispatch('fetchStyles');
+            }
+
+            // Resolve custom styles in memory
+            for (const r of rasters) {
+                if (r.colormapId) {
+                    const found = state.styles.find(s => s.id === r.colormapId || s.name === r.colormapId);
+                    if (found) {
+                        r.style = found;
+                        r.colormapId = null;
+                    }
+                }
+            }
+
+            commit('SET_GLOBAL_RASTERS', rasters);
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to fetch global rasters.');
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+    async fetchStyles({ commit }: ActionContext<GeodataState, any>) {
+        try {
+            const res = await RasterStyleService.getRasterStyles(0, 100);
+            commit('SET_STYLES', res.data.content);
+        } catch (err) {
+            console.error('Failed to fetch styles in store:', err);
+        }
+    },
+    async updateGlobalRaster({ dispatch }: ActionContext<GeodataState, any>, layerData: Partial<RasterLayer>) {
+        if (!layerData.id) return;
+        await geodataService.updateRasterLayer(layerData.id, layerData);
+        dispatch('fetchGlobalRasters');
+    },
+
+    // Terrain Layer Actions
+    async fetchTerrainLayers({ commit, state }: ActionContext<GeodataState, any>, params?: { page: number, size: number }) {
+        if (!state.selectedProjectId) return;
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            const layersRes = await geodataService.getLayersByProjectId(state.selectedProjectId);
+            const rasterLayersList = layersRes.data.filter(l => l.type === 'RASTER');
+            
+            const allRasters: any[] = [];
+            for (const layer of rasterLayersList) {
+                const rastersRes = await geodataService.getProjectRastersByLayerId(layer.id);
+                allRasters.push(...rastersRes.data);
+            }
+            
+            const terrainRasters = allRasters.filter(r => r.characteristics?.isTerrain);
+            const terrainLayersList = terrainRasters.map(r => ({
+                id: r.id,
+                projectId: state.selectedProjectId,
+                title: r.name,
+                terrainUrl: r.characteristics?.terrainUrl,
+                cogObjectKey: r.cogObjectKey,
+                status: 'READY'
+            }));
+            commit('SET_TERRAIN_LAYERS', {
+                content: terrainLayersList,
+                totalElements: terrainLayersList.length,
+                totalPages: 1,
+                size: terrainLayersList.length,
+                number: 0
+            });
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch terrain layers.');
         } finally {
@@ -390,7 +592,7 @@ const actions = {
         }
     },
     async deleteTerrainLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
-        await geoAbstractionService.deleteLayer(layerId);
+        await geodataService.deleteProjectRaster(layerId);
         dispatch('fetchTerrainLayers', { page, size });
     },
 
@@ -629,6 +831,7 @@ const actions = {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
+            await dispatch('fetchProjectLayers', projectId);
             await dispatch('fetchFolders', projectId);
             const [pointsRes, multilinesRes, polygonsRes] = await Promise.all([
                 geodataService.getPointsByProjectId(projectId),
@@ -649,6 +852,7 @@ const actions = {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
+            await dispatch('fetchProjectLayers', projectId);
             await dispatch('fetchFolders', projectId);
             const [pointsRes, multilinesRes, polygonsRes] = await Promise.all([
                 geodataService.getPointsSummaryByProjectId(projectId),
@@ -664,6 +868,29 @@ const actions = {
             commit('SET_LOADING', false);
         }
     },
+    async fetchProjectLayers({ commit }: ActionContext<GeodataState, any>, projectId: string) {
+        if (!projectId) return;
+        try {
+            const response = await geodataService.getLayersByProjectId(projectId);
+            commit('SET_PROJECT_LAYERS', Array.isArray(response.data) ? response.data : []);
+        } catch (err) {
+            console.error('Failed to fetch project layers:', err);
+            commit('SET_PROJECT_LAYERS', []);
+        }
+    },
+    async deleteProjectLayer({ dispatch, state }: ActionContext<GeodataState, any>, layerId: string) {
+        try {
+            await geodataService.deleteLayer(layerId);
+            if (state.selectedProjectId) {
+                await dispatch('fetchProjectLayers', state.selectedProjectId);
+                await dispatch('fetchFolders', state.selectedProjectId);
+                await dispatch('fetchProjectRasters');
+                await dispatch('fetchVectorDataForProject', state.selectedProjectId);
+            }
+        } catch (err) {
+            console.error('Failed to delete layer in store:', err);
+        }
+    },
 
     // Folder Actions
     async fetchFolders({ commit }: ActionContext<GeodataState, any>, projectId: string) {
@@ -676,8 +903,32 @@ const actions = {
             commit('SET_FOLDERS', []);
         }
     },
-    async createFolder({ dispatch, state }: ActionContext<GeodataState, any>, folderData: Omit<GeoFolder, 'id'>) {
-        await geodataService.createFolder(folderData);
+    async createFolder({ dispatch, state }: ActionContext<GeodataState, any>, folderData: any) {
+        const projectId = folderData.projectId || state.selectedProjectId;
+        if (!projectId) return;
+        
+        let layerId = folderData.layerId;
+        if (!layerId) {
+            const layersRes = await geodataService.getLayersByProjectId(projectId);
+            let targetLayer = layersRes.data.find(l => l.type === 'VECTOR');
+            if (!targetLayer) {
+                targetLayer = (await geodataService.createLayer({
+                    projectId,
+                    name: 'Векторные данные',
+                    type: 'VECTOR'
+                })).data;
+            }
+            layerId = targetLayer.id;
+        }
+
+        const payload = {
+            layerId,
+            parentId: folderData.parentId,
+            name: folderData.name,
+            description: folderData.description,
+            characteristics: folderData.characteristics
+        };
+        await geodataService.createFolder(payload as any);
         if (state.selectedProjectId) {
             dispatch('fetchFolders', state.selectedProjectId);
         }

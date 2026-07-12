@@ -117,15 +117,17 @@ public class VectorExportService {
             feature.put("geometry", p.getGeom());
             properties.put("id", p.getId());
             properties.put("name", p.getName());
-            // Add other properties if needed
+            properties.put("characteristics", p.getCharacteristics());
         } else if (entity instanceof ProjectMultiline l) {
             feature.put("geometry", l.getGeom());
             properties.put("id", l.getId());
             properties.put("name", l.getName());
+            properties.put("characteristics", l.getCharacteristics());
         } else if (entity instanceof ProjectPolygon poly) {
             feature.put("geometry", poly.getGeom());
             properties.put("id", poly.getId());
             properties.put("name", poly.getName());
+            properties.put("characteristics", poly.getCharacteristics());
         }
         
         feature.put("properties", properties);

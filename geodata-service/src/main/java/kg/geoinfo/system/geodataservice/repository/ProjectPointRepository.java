@@ -18,6 +18,8 @@ public interface ProjectPointRepository extends JpaRepository<ProjectPoint, UUID
     Page<ProjectPoint> findAllByProjectId(Pageable pageable, UUID projectId);
     List<ProjectPoint> findAllByFolderId(UUID folderId);
     List<ProjectPoint> findAllByProjectIdAndFolderIdIsNull(UUID projectId);
+    List<ProjectPoint> findAllByLayerId(UUID layerId);
+    List<ProjectPoint> findAllByLayerIdAndFolderIdIsNull(UUID layerId);
 
     @Query(value = "SELECT (parts.path)[1] as subId, ST_AsGeoJSON(parts.geom) as geojson " +
             "FROM (SELECT (ST_Dump(geom)).* FROM geodata.project_points WHERE id = :id) as parts " +

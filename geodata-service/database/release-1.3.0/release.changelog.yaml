@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: object/add_layers_and_rasters.sql
+      relativeToChangelogFile: true

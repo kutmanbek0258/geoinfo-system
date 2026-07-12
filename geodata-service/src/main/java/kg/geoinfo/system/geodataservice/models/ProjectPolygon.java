@@ -18,6 +18,7 @@ import java.util.UUID;
 @Table(name = "project_polygons", schema = "geodata", indexes = {
         @Index(name = "ix_pg_status", columnList = "status"),
         @Index(name = "ix_pg_project", columnList = "project_id"),
+        @Index(name = "ix_pg_layer", columnList = "layer_id"),
         @Index(name = "ix_pg_geom", columnList = "geom")
 })
 @Entity
@@ -34,6 +35,10 @@ public class ProjectPolygon extends AuditableCustom<String> {
     @ManyToOne(optional = false)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
+
+    @ManyToOne
+    @JoinColumn(name = "layer_id")
+    private Layer layer;
 
     @ManyToOne
     @JoinColumn(name = "folder_id")

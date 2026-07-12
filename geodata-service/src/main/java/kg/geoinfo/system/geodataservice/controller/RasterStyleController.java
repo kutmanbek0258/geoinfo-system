@@ -1,7 +1,7 @@
-package kg.geoinfo.system.geoabstraction.controller;
+package kg.geoinfo.system.geodataservice.controller;
 
-import kg.geoinfo.system.geoabstraction.dto.RasterStyleDto;
-import kg.geoinfo.system.geoabstraction.service.RasterStyleService;
+import kg.geoinfo.system.geodataservice.dto.RasterStyleDto;
+import kg.geoinfo.system.geodataservice.service.RasterStyleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-@RequestMapping("/api/geo-abstraction/raster-style")
+@RequestMapping("/api/geodata/raster-style")
 @RestController
 @Slf4j
 @RequiredArgsConstructor

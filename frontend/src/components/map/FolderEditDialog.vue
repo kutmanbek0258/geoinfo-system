@@ -47,6 +47,7 @@ const props = defineProps<{
   modelValue: boolean;
   projectId: string;
   parentId?: string | null;
+  layerId?: string | null;
   folder?: GeoFolder | null;
 }>();
 
@@ -91,6 +92,7 @@ const save = async () => {
       await store.dispatch('geodata/createFolder', {
         projectId: props.projectId,
         parentId: props.parentId || null,
+        layerId: props.layerId || null,
         name: name.value,
         description: description.value,
         characteristics: { visible: true }

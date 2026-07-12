@@ -122,6 +122,17 @@ def build_pdf_report(map_image_path: str, output_pdf_path: str, spec: dict):
     # 3. Document Stamp Table
     date_str = datetime.date.today().strftime("%d.%m.%Y")
     
+    # CRS mapping
+    map_context = spec.get("mapContext") or {}
+    projection = map_context.get("projection", "EPSG:3857")
+    
+    crs_info = {
+        "EPSG:3857": ("WGS 84 / Web Mercator (EPSG:3857)", "Mercator / WGS 84"),
+        "EPSG:4326": ("WGS 84 (EPSG:4326)", "Geographic / WGS 84"),
+    }
+    crs_default = (projection, "Transverse Mercator / WGS 84" if "UTM" in projection or "326" in projection or "327" in projection else "WGS 84")
+    crs_name, projection_datum = crs_info.get(projection, crs_default)
+    
     stamp_data = [
         [
             Paragraph("<b>Наименование проекта:</b>", cell_bold_style),
@@ -134,14 +145,20 @@ def build_pdf_report(map_image_path: str, output_pdf_path: str, spec: dict):
             Paragraph(date_str, cell_style),
             Paragraph("<b>Формат листа:</b>", cell_bold_style),
             Paragraph(f"{page_format} ({'Альбомный' if is_landscape else 'Книжный'})", cell_style)
+        ],
+        [
+            Paragraph("<b>Система координат:</b>", cell_bold_style),
+            Paragraph(crs_name, cell_style),
+            Paragraph("<b>Проекция / Датум:</b>", cell_bold_style),
+            Paragraph(projection_datum, cell_style)
         ]
     ]
     
     col_w = doc_width / 4.0
     stamp_table = Table(stamp_data, colWidths=[col_w, col_w, col_w, col_w])
     stamp_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (0,1), colors.HexColor("#f1f5f9")),
-        ('BACKGROUND', (2,0), (2,1), colors.HexColor("#f1f5f9")),
+        ('BACKGROUND', (0,0), (0,2), colors.HexColor("#f1f5f9")),
+        ('BACKGROUND', (2,0), (2,2), colors.HexColor("#f1f5f9")),
         ('GRID', (0,0), (-1,-1), 1, colors.HexColor("#94a3b8")),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('TOPPADDING', (0,0), (-1,-1), 4),

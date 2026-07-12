@@ -2,7 +2,7 @@ import axios from "axios";
 import api from "./api";
 import type { Page, RasterStyle } from '@/types/api';
 
-const API_URL = "/geo-abstraction/raster-style";
+const API_URL = "/geodata/raster-style";
 
 class RasterStyleService {
   async getTiTilerColorMaps(): Promise<string[]> {

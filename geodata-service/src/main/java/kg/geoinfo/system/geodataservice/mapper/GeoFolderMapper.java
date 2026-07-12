@@ -8,17 +8,17 @@ import org.mapstruct.*;
 public interface GeoFolderMapper extends EntityMapper<GeoFolderDto, GeoFolder> {
     
     @Override
-    @Mapping(source = "project.id", target = "projectId")
+    @Mapping(source = "layer.id", target = "layerId")
     @Mapping(source = "parent.id", target = "parentId")
     GeoFolderDto toDto(GeoFolder entity);
 
     @Override
-    @Mapping(target = "project", ignore = true)
+    @Mapping(target = "layer", ignore = true)
     @Mapping(target = "parent", ignore = true)
     GeoFolder toEntity(GeoFolderDto dto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "project", ignore = true)
+    @Mapping(target = "layer", ignore = true)
     @Mapping(target = "parent", ignore = true)
     void update(@MappingTarget GeoFolder entity, GeoFolderDto dto);
 }

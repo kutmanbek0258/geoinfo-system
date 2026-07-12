@@ -73,7 +73,8 @@ export function buildTiTilerStyleParams(
 ): string {
   let params = "";
   const res = resampling || 'nearest';
-  if (colormapId) {
+  const titilerColormaps = ['cividis', 'inferno', 'magma', 'plasma', 'rdylgn', 'spectral', 'terrain', 'viridis'];
+  if (colormapId && titilerColormaps.includes(colormapId)) {
     params = `&colormap_name=${colormapId}&resampling=${res}`;
   } else {
     params = `&resampling=${res}`;

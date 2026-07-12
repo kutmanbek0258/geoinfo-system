@@ -1,28 +1,48 @@
-import { ref, shallowRef, toRaw, type Ref } from 'vue';
+import { ref, shallowRef, toRaw, computed, watch, type Ref } from 'vue';
+import { useStore } from 'vuex';
 import { Map } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import XYZ from 'ol/source/XYZ';
-import type { ImageryLayer } from '@/types/api';
+import type { ProjectRaster } from '@/types/api';
 import { buildTiTilerStyleParams, getExtentFromGeometry } from '@/util/titiler-style-builder';
 import { transformExtent } from 'ol/proj';
 
 export function useOlWms(map: Ref<Map | null>) {
+  const store = useStore();
+  const visibleLayerIds = computed<string[]>({
+    get: () => store.state.geodata.visibleRasterIds || [],
+    set: (val) => store.commit('geodata/SET_VISIBLE_RASTER_IDS', val)
+  });
+  const layerOpacities = computed<Record<string, number>>(() => store.state.geodata.rasterOpacities || {});
+
+  const visibleGlobalRasterIds = computed<string[]>({
+    get: () => store.state.geodata.visibleGlobalRasterIds || [],
+    set: (val) => store.commit('geodata/SET_VISIBLE_GLOBAL_RASTER_IDS', val)
+  });
+  const globalRasterOpacities = computed<Record<string, number>>(() => store.state.geodata.globalRasterOpacities || {});
+
   const activeImageLayers = shallowRef<Record<string, TileLayer<XYZ>>>({});
-  const layerOpacities = ref<Record<string, number>>({});
-  const visibleLayerIds = ref<string[]>([]);
 
   const setLayerOpacity = (layerId: string, opacity: number) => {
     const layer = activeImageLayers.value[layerId];
     if (layer) {
       toRaw(layer).setOpacity(opacity / 100);
-      layerOpacities.value[layerId] = opacity;
+      store.commit('geodata/SET_RASTER_OPACITY', { rasterId: layerId, opacity });
     }
   };
 
-  const toggleImageryLayer = (layerInfo: ImageryLayer, forceReload = false) => {
+  const setGlobalRasterOpacity = (layerId: string, opacity: number) => {
+    const layer = activeImageLayers.value[layerId];
+    if (layer) {
+      toRaw(layer).setOpacity(opacity / 100);
+      store.commit('geodata/SET_GLOBAL_RASTER_OPACITY', { rasterId: layerId, opacity });
+    }
+  };
+
+  const toggleImageryLayer = (layerInfo: any, forceReload = false) => {
     const m = map.value;
     if (!m) return;
-    const isVisible = visibleLayerIds.value.includes(layerInfo.id);
+    const isVisible = visibleLayerIds.value.includes(layerInfo.id) || visibleGlobalRasterIds.value.includes(layerInfo.id);
 
     if (isVisible) {
       if (activeImageLayers.value[layerInfo.id]) {
@@ -50,9 +70,10 @@ export function useOlWms(map: Ref<Map | null>) {
         url: tileUrl,
         transition: 0,
       });
+      const currentOpacity = layerOpacities.value[layerInfo.id] ?? globalRasterOpacities.value[layerInfo.id] ?? 100;
       const imageLayer = new TileLayer({
         source: xyzSource,
-        opacity: (layerOpacities.value[layerInfo.id] || 100) / 100,
+        opacity: currentOpacity / 100,
         extent: olExtent
       });
       m.addLayer(imageLayer);
@@ -62,8 +83,12 @@ export function useOlWms(map: Ref<Map | null>) {
         [layerInfo.id]: imageLayer
       };
 
-      if (layerOpacities.value[layerInfo.id] === undefined) {
-        layerOpacities.value[layerInfo.id] = 100;
+      if (layerOpacities.value[layerInfo.id] === undefined && globalRasterOpacities.value[layerInfo.id] === undefined) {
+        if (visibleGlobalRasterIds.value.includes(layerInfo.id)) {
+          store.commit('geodata/SET_GLOBAL_RASTER_OPACITY', { rasterId: layerInfo.id, opacity: 100 });
+        } else {
+          store.commit('geodata/SET_RASTER_OPACITY', { rasterId: layerInfo.id, opacity: 100 });
+        }
       }
     } else {
       const layerToRemove = activeImageLayers.value[layerInfo.id];
@@ -87,15 +112,86 @@ export function useOlWms(map: Ref<Map | null>) {
       }
     }
     activeImageLayers.value = {};
-    visibleLayerIds.value = [];
-    layerOpacities.value = {};
+    store.commit('geodata/SET_VISIBLE_RASTER_IDS', []);
+    store.commit('geodata/SET_VISIBLE_GLOBAL_RASTER_IDS', []);
   };
+
+  watch(visibleLayerIds, (newIds) => {
+    // Remove layers no longer in visible list
+    for (const id in activeImageLayers.value) {
+      if (!newIds.includes(id) && !visibleGlobalRasterIds.value.includes(id)) {
+        const layer = activeImageLayers.value[id];
+        if (layer) {
+          map.value?.removeLayer(toRaw(layer));
+          const nextLayers = { ...activeImageLayers.value };
+          delete nextLayers[id];
+          activeImageLayers.value = nextLayers;
+        }
+      }
+    }
+    // Add layers in visible list but not currently rendered
+    const layers = store.state.geodata.projectRasters?.content || [];
+    for (const id of newIds) {
+      if (!activeImageLayers.value[id]) {
+        const layerInfo = layers.find((l: any) => l.id === id);
+        if (layerInfo) {
+          toggleImageryLayer(layerInfo);
+        }
+      }
+    }
+  }, { deep: true });
+
+  watch(visibleGlobalRasterIds, (newIds) => {
+    // Remove layers no longer in visible list
+    for (const id in activeImageLayers.value) {
+      if (!visibleLayerIds.value.includes(id) && !newIds.includes(id)) {
+        const layer = activeImageLayers.value[id];
+        if (layer) {
+          map.value?.removeLayer(toRaw(layer));
+          const nextLayers = { ...activeImageLayers.value };
+          delete nextLayers[id];
+          activeImageLayers.value = nextLayers;
+        }
+      }
+    }
+    // Add layers in visible list but not currently rendered
+    const layers = store.state.geodata.globalRasters || [];
+    for (const id of newIds) {
+      if (!activeImageLayers.value[id]) {
+        const layerInfo = layers.find((l: any) => l.id === id);
+        if (layerInfo) {
+          toggleImageryLayer(layerInfo);
+        }
+      }
+    }
+  }, { deep: true });
+
+  watch(layerOpacities, (newOpacities) => {
+    for (const id in activeImageLayers.value) {
+      const layer = activeImageLayers.value[id];
+      if (layer && newOpacities[id] !== undefined) {
+        toRaw(layer).setOpacity(newOpacities[id] / 100);
+      }
+    }
+  }, { deep: true });
+
+  watch(globalRasterOpacities, (newOpacities) => {
+    for (const id in activeImageLayers.value) {
+      const layer = activeImageLayers.value[id];
+      if (layer && newOpacities[id] !== undefined) {
+        toRaw(layer).setOpacity(newOpacities[id] / 100);
+      }
+    }
+  }, { deep: true });
 
   return {
     activeImageLayers,
     layerOpacities,
+    globalRasterOpacities,
     visibleLayerIds,
+    visibleGlobalRasterIds,
     setLayerOpacity,
+    setGlobalRasterOpacity,
     toggleImageryLayer,
     clearWmsLayers
   };

@@ -1,18 +1,13 @@
-package kg.geoinfo.system.geoabstraction.dto;
+package kg.geoinfo.system.geodataservice.dto;
 
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.Data;
 
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@Getter
-@Setter
-@NoArgsConstructor
-public class RasterStyleDto extends AbstractDto<UUID> {
+@Data
+public class RasterStyleDto {
     private UUID id;
     private String name;
     private String title;

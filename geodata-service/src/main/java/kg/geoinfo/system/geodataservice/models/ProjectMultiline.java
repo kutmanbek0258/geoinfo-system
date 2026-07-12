@@ -18,7 +18,8 @@ import java.util.UUID;
 @Table(name = "project_multilines", schema = "geodata", indexes = {
         @Index(name = "ix_ml_status", columnList = "status"),
         @Index(name = "ix_ml_geom", columnList = "geom"),
-        @Index(name = "ix_ml_project", columnList = "project_id")
+        @Index(name = "ix_ml_project", columnList = "project_id"),
+        @Index(name = "ix_ml_layer", columnList = "layer_id")
 })
 @Entity
 @AllArgsConstructor
@@ -34,6 +35,10 @@ public class ProjectMultiline extends AuditableCustom<String> {
     @ManyToOne(optional = false)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
+
+    @ManyToOne
+    @JoinColumn(name = "layer_id")
+    private Layer layer;
 
     @ManyToOne
     @JoinColumn(name = "folder_id")

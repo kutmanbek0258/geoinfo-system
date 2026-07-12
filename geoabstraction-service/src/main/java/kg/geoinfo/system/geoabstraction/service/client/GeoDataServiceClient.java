@@ -7,7 +7,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import org.springframework.web.bind.annotation.GetMapping;
+
 import java.util.UUID;
+import java.util.Map;
 
 /**
  * Feign-клиент для взаимодействия с geodata-service: операции Commit и Rollback.
@@ -24,4 +27,7 @@ public interface GeoDataServiceClient {
 
     @DeleteMapping("/geodata/staging/{taskId}/rollback")
     void rollbackTask(@PathVariable UUID taskId);
+
+    @GetMapping("/geodata/project-rasters/{id}")
+    Map<String, Object> getProjectRasterById(@PathVariable("id") UUID id);
 }

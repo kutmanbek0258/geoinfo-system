@@ -3,6 +3,7 @@ package kg.geoinfo.system.geodataservice.service.impl;
 import kg.geoinfo.system.geodataservice.dto.GeoFolderDto;
 import kg.geoinfo.system.geodataservice.mapper.GeoFolderMapper;
 import kg.geoinfo.system.geodataservice.models.GeoFolder;
+import kg.geoinfo.system.geodataservice.models.Layer;
 import kg.geoinfo.system.geodataservice.models.Project;
 import kg.geoinfo.system.geodataservice.repository.*;
 import kg.geoinfo.system.geodataservice.service.GeoFolderService;
@@ -20,7 +21,7 @@ import java.util.UUID;
 public class GeoFolderServiceImpl implements GeoFolderService {
 
     private final GeoFolderRepository folderRepository;
-    private final ProjectRepository projectRepository;
+    private final LayerRepository layerRepository;
     private final GeoFolderMapper folderMapper;
     
     private final ProjectPointRepository pointRepository;
@@ -33,9 +34,9 @@ public class GeoFolderServiceImpl implements GeoFolderService {
         log.info("Creating folder: {}", dto.getName());
         GeoFolder folder = folderMapper.toEntity(dto);
         
-        Project project = projectRepository.findById(dto.getProjectId())
-                .orElseThrow(() -> new RuntimeException("Project not found: " + dto.getProjectId()));
-        folder.setProject(project);
+        Layer layer = layerRepository.findById(dto.getLayerId())
+                .orElseThrow(() -> new RuntimeException("Layer not found: " + dto.getLayerId()));
+        folder.setLayer(layer);
         
         if (dto.getParentId() != null) {
             GeoFolder parent = folderRepository.findById(dto.getParentId())
@@ -110,8 +111,6 @@ public class GeoFolderServiceImpl implements GeoFolderService {
 
     @Override
     public List<GeoFolderDto> getByProject(UUID projectId) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
-        return folderMapper.toDto(folderRepository.findAllByProject(project));
+        return folderMapper.toDto(folderRepository.findAllByLayerProjectId(projectId));
     }
 }

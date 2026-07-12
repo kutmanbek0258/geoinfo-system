@@ -19,7 +19,7 @@ const MainRoutes = {
         {
             name: 'Imagery layers',
             path: '/ui/layers',
-            component: () => import('@/views/components/ImageryLayers.vue')
+            component: () => import('@/views/components/RasterLayers.vue')
         },
         {
             name: 'Terrain layers',

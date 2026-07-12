@@ -20,23 +20,19 @@
 
     <template #top-right>
       <div class="d-flex flex-column align-end">
-        <v-btn icon="mdi-terrain" color="white" class="mb-2" elevation="2" @click="showTerrainDialog = true" title="Загрузить рельеф">
-          <v-icon color="brown">mdi-terrain</v-icon>
-        </v-btn>
-
-        <v-btn icon="mdi-satellite-variant" color="white" class="mb-2" elevation="2" @click="showSatelliteDialog = true" title="Обработка спутниковых снимков">
-          <v-icon color="primary">mdi-satellite-variant</v-icon>
+        <v-btn icon="mdi-database-import" color="white" class="mb-2" elevation="2" @click="showProjectJobsDialog = true" title="Импортировать растровый слой">
+          <v-icon color="primary">mdi-database-import</v-icon>
         </v-btn>
 
         <MapLayersControl
-          :layers="imageryLayers"
-          v-model:visibleIds="visibleLayerIds"
-          :opacities="layerOpacities"
+          :layers="globalRasters"
+          v-model:visibleIds="visibleGlobalRasterIds"
+          :opacities="globalRasterOpacities"
           @toggle="toggleImageryLayer"
-          @update:opacity="({id, value}) => setLayerOpacity(id, value)"
-          @update:style="handleLayerStyleChange"
-          @update:colormapId="handleLayerColormapChange"
-          @update:resampling="handleLayerResamplingChange"
+          @update:opacity="({id, value}) => setGlobalRasterOpacity(id, value)"
+          @update:style="handleGlobalLayerStyleChange"
+          @update:colormapId="handleGlobalLayerColormapChange"
+          @update:resampling="handleGlobalLayerResamplingChange"
         />
 
         <v-btn icon="mdi-magnify-scan" color="white" class="mb-2" elevation="2" @click="zoomToExtent" title="Zoom to extent">
@@ -142,8 +138,9 @@
         v-model:distance="bufferDistance"
       />
       <SwipeMapDialog v-model="swipeMapVisible" />
-      <TerrainUploadDialog v-model="showTerrainDialog" :project-id="projectId" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
-      <SatelliteImageryUploadDialog v-model="showSatelliteDialog" @uploaded="store.dispatch('geodata/fetchTerrainJobs', { page: 0, size: 10 })" />
+      <v-dialog v-model="showProjectJobsDialog" max-width="1200px" persistent>
+        <ProjectProcessJobsManager @close="showProjectJobsDialog = false" />
+      </v-dialog>
 
       <!-- Dialog for choosing the raster layer -->
       <v-dialog v-model="rasterValueSelectionDialog" max-width="500px" persistent>
@@ -281,8 +278,7 @@ import GeoObjectTree from './GeoObjectTree.vue';
 import ProjectPropertiesDialog from '../projects/ProjectPropertiesDialog.vue';
 import AnalysisTasksPanel from './shared/AnalysisTasksPanel.vue';
 import PrintDialog from '@/components/print/PrintDialog.vue';
-import TerrainUploadDialog from '@/components/geo-abstraction/TerrainUploadDialog.vue';
-import SatelliteImageryUploadDialog from '@/components/geo-abstraction/SatelliteImageryUploadDialog.vue';
+import ProjectProcessJobsManager from './ProjectProcessJobsManager.vue';
 
 import { useMapCommonState } from '@/composables/map/shared/useMapCommonState';
 import { useMapMetadata } from '@/composables/map/shared/useMapMetadata';
@@ -321,8 +317,7 @@ const map = shallowRef<Map | null>(null);
 const geoJsonFormat = new GeoJSON();
 const showProjectProperties = ref(false);
 const swipeMapVisible = ref(false);
-const showTerrainDialog = ref(false);
-const showSatelliteDialog = ref(false);
+const showProjectJobsDialog = ref(false);
 const bufferDistance = ref(100);
 
 // --- Analysis State ---
@@ -382,7 +377,9 @@ const initialZoomDone = computed(() => store.state.geodata.initialZoomDone);
 const lastSelectionSource = computed(() => store.state.geodata.lastSelectionSource);
 
 const { refreshMvtSources, initMvtLayers } = useOlMvt(map, projectIdRef, selectedFeatureId, hiddenFeatureIds, isGeometryEditMode);
-const { visibleLayerIds, layerOpacities, setLayerOpacity, toggleImageryLayer, clearWmsLayers } = useOlWms(map);
+const { visibleLayerIds, visibleGlobalRasterIds, layerOpacities, globalRasterOpacities, setLayerOpacity, setGlobalRasterOpacity, toggleImageryLayer, clearWmsLayers } = useOlWms(map);
+
+const globalRasters = computed(() => store.state.geodata.globalRasters || []);
 
 const handleLayerStyleChange = async ({ layerId, styleId }: { layerId: string; styleId: string | null }) => {
   let styleObj = null;
@@ -396,7 +393,7 @@ const handleLayerStyleChange = async ({ layerId, styleId }: { layerId: string; s
       styleObj = { id: styleId };
     }
   }
-  store.commit('geodata/UPDATE_IMAGERY_LAYER_STYLE', { layerId, style: styleObj });
+  store.commit('geodata/UPDATE_PROJECT_RASTER_STYLE', { layerId, style: styleObj });
   
   const layerInfo = imageryLayers.value.find((l: any) => l.id === layerId);
   if (layerInfo) {
@@ -405,7 +402,7 @@ const handleLayerStyleChange = async ({ layerId, styleId }: { layerId: string; s
 };
 
 const handleLayerColormapChange = ({ layerId, colormapId }: { layerId: string; colormapId: string | null }) => {
-  store.commit('geodata/UPDATE_IMAGERY_LAYER_STYLE', { layerId, colormapId });
+  store.commit('geodata/UPDATE_PROJECT_RASTER_STYLE', { layerId, colormapId });
   
   const layerInfo = imageryLayers.value.find((l: any) => l.id === layerId);
   if (layerInfo) {
@@ -414,9 +411,47 @@ const handleLayerColormapChange = ({ layerId, colormapId }: { layerId: string; c
 };
 
 const handleLayerResamplingChange = ({ layerId, resampling }: { layerId: string; resampling: string }) => {
-  store.commit('geodata/UPDATE_IMAGERY_LAYER_STYLE', { layerId, resampling });
+  store.commit('geodata/UPDATE_PROJECT_RASTER_STYLE', { layerId, resampling });
   
   const layerInfo = imageryLayers.value.find((l: any) => l.id === layerId);
+  if (layerInfo) {
+    toggleImageryLayer(layerInfo, true);
+  }
+};
+
+const handleGlobalLayerStyleChange = async ({ layerId, styleId }: { layerId: string; styleId: string | null }) => {
+  let styleObj = null;
+  if (styleId) {
+    try {
+      const response = await RasterStyleService.getRasterStyles(0, 100);
+      const found = response.data.content.find((s: any) => s.id === styleId);
+      if (found) styleObj = found;
+    } catch (err) {
+      console.error('Failed to fetch style detail for global layer update:', err);
+      styleObj = { id: styleId };
+    }
+  }
+  store.commit('geodata/UPDATE_GLOBAL_RASTER_STYLE', { layerId, style: styleObj });
+  
+  const layerInfo = globalRasters.value.find((l: any) => l.id === layerId);
+  if (layerInfo) {
+    toggleImageryLayer(layerInfo, true);
+  }
+};
+
+const handleGlobalLayerColormapChange = ({ layerId, colormapId }: { layerId: string; colormapId: string | null }) => {
+  store.commit('geodata/UPDATE_GLOBAL_RASTER_STYLE', { layerId, colormapId });
+  
+  const layerInfo = globalRasters.value.find((l: any) => l.id === layerId);
+  if (layerInfo) {
+    toggleImageryLayer(layerInfo, true);
+  }
+};
+
+const handleGlobalLayerResamplingChange = ({ layerId, resampling }: { layerId: string; resampling: string }) => {
+  store.commit('geodata/UPDATE_GLOBAL_RASTER_STYLE', { layerId, resampling });
+  
+  const layerInfo = globalRasters.value.find((l: any) => l.id === layerId);
   if (layerInfo) {
     toggleImageryLayer(layerInfo, true);
   }
@@ -680,7 +715,8 @@ watch(() => props.projectId, (newId) => {
     store.commit('geodata/SET_SELECTED_PROJECT_ID', newId);
     store.dispatch('geodata/fetchProject', newId);
     store.dispatch('geodata/fetchVectorSummaryForProject', newId);
-    store.dispatch('geodata/fetchImageryLayers', { page: 0, size: 100 });
+    store.dispatch('geodata/fetchProjectRasters', { page: 0, size: 100 });
+    store.dispatch('geodata/fetchGlobalRasters');
     store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });
     store.dispatch('geodata/fetchFolders', newId);
     store.dispatch('geodata/fetchAnalysisTasksByProject', newId);

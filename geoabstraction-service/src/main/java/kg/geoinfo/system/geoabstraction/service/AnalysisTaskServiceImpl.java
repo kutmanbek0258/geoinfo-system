@@ -8,13 +8,9 @@ import kg.geoinfo.system.geoabstraction.config.MinioProperties;
 import kg.geoinfo.system.geoabstraction.dto.AnalysisTaskDto;
 import kg.geoinfo.system.geoabstraction.dto.CreateAnalysisTaskDto;
 import kg.geoinfo.system.geoabstraction.models.AnalysisTask;
-import kg.geoinfo.system.geoabstraction.models.ImageryLayer;
 import kg.geoinfo.system.geoabstraction.models.TerrainLayer;
 import kg.geoinfo.system.geoabstraction.models.enums.AnalysisTaskStatus;
-import kg.geoinfo.system.geoabstraction.models.RasterStyle;
 import kg.geoinfo.system.geoabstraction.repository.AnalysisTaskRepository;
-import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
-import kg.geoinfo.system.geoabstraction.repository.RasterStyleRepository;
 import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
 import kg.geoinfo.system.geoabstraction.dto.CommitAnalysisTaskRequestDto;
 import kg.geoinfo.system.geoabstraction.service.client.GeoDataServiceClient;
@@ -40,14 +36,11 @@ import java.util.stream.Collectors;
 public class AnalysisTaskServiceImpl implements AnalysisTaskService {
 
     private final AnalysisTaskRepository repository;
-    private final ImageryLayerRepository imageryLayerRepository;
     private final TerrainLayerRepository terrainLayerRepository;
     private final FileStoreService fileStoreService;
     private final KafkaProducerService kafkaProducerService;
     private final MinioProperties minioProperties;
     private final GeoDataServiceClient geoDataServiceClient;
-    private final ImageryLayerService imageryLayerService;
-    private final RasterStyleRepository rasterStyleRepository;
     private final PluginSchemaRepository pluginSchemaRepository;
     private final ObjectMapper objectMapper;
 
@@ -75,9 +68,11 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             
             switch (source.getType()) {
                 case IMAGERY_LAYER:
-                    ImageryLayer layer = imageryLayerRepository.findById(source.getId())
-                            .orElseThrow(() -> new RuntimeException("Imagery layer not found: " + source.getId()));
-                    s3Inputs.put(key, "s3://" + minioProperties.getBucket() + "/" + layer.getCogObjectKey());
+                    java.util.Map<String, Object> raster = geoDataServiceClient.getProjectRasterById(source.getId());
+                    if (raster == null || raster.get("cogObjectKey") == null) {
+                        throw new RuntimeException("Project raster not found or missing COG key: " + source.getId());
+                    }
+                    s3Inputs.put(key, "s3://" + minioProperties.getBucket() + "/" + raster.get("cogObjectKey"));
                     break;
 
                 case TERRAIN_LAYER:
@@ -260,23 +255,10 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                         fileStoreService.copy(sourceBucket, sourceKey, minioProperties.getBucket(), destinationKey);
                         fileStoreService.delete(sourceBucket, sourceKey);
 
-                        // Create metadata for ImageryLayer
-                        ImageryLayer imageryLayer = new ImageryLayer();
-                        imageryLayer.setProjectId(task.getProjectId());
-                        
+                        // Create metadata for raster payload
+                        UUID rasterId = UUID.randomUUID();
                         String layerTitle = dto.getTaskName() != null ? dto.getTaskName() : task.getPluginName() + " Result";
-                        imageryLayer.setName(layerTitle);
-                        imageryLayer.setDescription("Committed raster result from analysis task " + taskId);
                         
-                        String cleanPluginName = task.getPluginName().toLowerCase().replaceAll("[^a-z0-9_]", "_");
-                        String generatedLayerName = "analysis_" + cleanPluginName + "_" + UUID.randomUUID().toString().substring(0, 8);
-                        imageryLayer.setLayerName(generatedLayerName);
-                        
-                        imageryLayer.setStatus(kg.geoinfo.system.geoabstraction.models.enums.Status.ACTIVE);
-                        imageryLayer.setDateCaptured(new java.util.Date());
-                        imageryLayer.setCrs("EPSG:3857");
-                        imageryLayer.setCogObjectKey(destinationKey);
-
                         // Match style based on indexType (if present)
                         String styleName = "raster";
                         if (task.getInputParams() != null && task.getInputParams().containsKey("indexType")) {
@@ -294,13 +276,21 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
                             }
                         }
                         
-                        RasterStyle rasterStyle = rasterStyleRepository.findByName(styleName)
-                                .orElseGet(() -> rasterStyleRepository.findByName("raster")
-                                        .orElseThrow(() -> new RuntimeException("Default style 'raster' not found")));
-                        imageryLayer.setStyle(rasterStyle);
+                        Map<String, Object> rasterPayload = new HashMap<>();
+                        rasterPayload.put("id", rasterId.toString());
+                        rasterPayload.put("projectId", task.getProjectId().toString());
+                        rasterPayload.put("name", layerTitle);
+                        rasterPayload.put("description", "Analyzed raster result from task " + taskId);
+                        rasterPayload.put("cogObjectKey", destinationKey);
+                        rasterPayload.put("bbox", null);
+                        rasterPayload.put("crs", "EPSG:3857");
+                        rasterPayload.put("colormapId", styleName);
+                        rasterPayload.put("resampling", "bilinear");
+                        rasterPayload.put("dateCaptured", new java.util.Date().getTime());
+                        rasterPayload.put("status", "ACTIVE");
+                        rasterPayload.put("characteristics", new HashMap<>());
+                        kafkaProducerService.sendRasterProcessedEvent(rasterPayload);
 
-                        // Save imagery layer and trigger Kafka event via service
-                        imageryLayerService.save(imageryLayer);
                         log.info("Successfully committed raster result for task {} to project {}", taskId, task.getProjectId());
                     }
                 } catch (Exception e) {

@@ -96,7 +96,7 @@
 import { ref, computed, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import * as Cesium from 'cesium';
-import type { ImageryLayer, TerrainLayer } from '@/types/api';
+import type { ProjectRaster, TerrainLayer } from '@/types/api';
 import { buildTiTilerStyleParams, getExtentFromGeometry } from '@/util/titiler-style-builder';
 
 const props = defineProps({
@@ -121,11 +121,11 @@ let viewer: Cesium.Viewer | null = null;
 let leftLayer: Cesium.ImageryLayer | null = null;
 let rightLayer: Cesium.ImageryLayer | null = null;
 
-const availableLayers = computed<ImageryLayer[]>(() => store.state.geodata.imageryLayers?.content || []);
+const availableLayers = computed<ProjectRaster[]>(() => store.state.geodata.projectRasters?.content || []);
 const terrainLayers = computed<TerrainLayer[]>(() => store.state.geodata.terrainLayers?.content || []);
 
-const leftLayerName = computed(() => availableLayers.value.find((l: ImageryLayer) => l.id === leftLayerId.value)?.name || '');
-const rightLayerName = computed(() => availableLayers.value.find((l: ImageryLayer) => l.id === rightLayerId.value)?.name || '');
+const leftLayerName = computed(() => availableLayers.value.find((l: ProjectRaster) => l.id === leftLayerId.value)?.name || '');
+const rightLayerName = computed(() => availableLayers.value.find((l: ProjectRaster) => l.id === rightLayerId.value)?.name || '');
 
 // --- Handlers ---
 

@@ -1,5 +1,5 @@
 import api from './api';
-import type { Page, Project, ImageryLayer, ProjectPoint, ProjectMultiline, ProjectPolygon, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary } from '@/types/api';
+import type { Page, Project, ProjectPoint, ProjectMultiline, ProjectPolygon, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, Layer, ProjectRaster, RasterLayer } from '@/types/api';
 
 class GeodataService {
     // --- Projects ---
@@ -141,6 +141,51 @@ class GeodataService {
 
     updateGeometryParts(type: 'points' | 'multilines' | 'polygons', id: string, parts: { subId: number, geojson: string }[]) {
         return api.patch(`/geodata/${type}/${id}/parts`, { parts });
+    }
+
+    // --- Layers ---
+    getLayersByProjectId(projectId: string) {
+        return api.get<Layer[]>(`/geodata/layers/project/${projectId}`);
+    }
+    createLayer(layer: Omit<Layer, 'id'>) {
+        return api.post<Layer>('/geodata/layers', layer);
+    }
+    updateLayer(id: string, layer: Partial<Omit<Layer, 'id'>>) {
+        return api.put<Layer>(`/geodata/layers/${id}`, layer);
+    }
+    deleteLayer(id: string) {
+        return api.delete(`/geodata/layers/${id}`);
+    }
+
+    // --- Project Rasters ---
+    getProjectRastersByLayerId(layerId: string) {
+        return api.get<ProjectRaster[]>(`/geodata/project-rasters/layer/${layerId}`);
+    }
+    getProjectRastersByFolderId(folderId: string) {
+        return api.get<ProjectRaster[]>(`/geodata/project-rasters/folder/${folderId}`);
+    }
+    createProjectRaster(raster: Omit<ProjectRaster, 'id'>) {
+        return api.post<ProjectRaster>('/geodata/project-rasters', raster);
+    }
+    updateProjectRaster(id: string, raster: Partial<Omit<ProjectRaster, 'id'>>) {
+        return api.put<ProjectRaster>(`/geodata/project-rasters/${id}`, raster);
+    }
+    deleteProjectRaster(id: string) {
+        return api.delete(`/geodata/project-rasters/${id}`);
+    }
+
+    // --- Global Raster Layers ---
+    getRasterLayers() {
+        return api.get<RasterLayer[]>('/geodata/raster-layers');
+    }
+    createRasterLayer(raster: Omit<RasterLayer, 'id'>) {
+        return api.post<RasterLayer>('/geodata/raster-layers', raster);
+    }
+    updateRasterLayer(id: string, raster: Partial<Omit<RasterLayer, 'id'>>) {
+        return api.put<RasterLayer>(`/geodata/raster-layers/${id}`, raster);
+    }
+    deleteRasterLayer(id: string) {
+        return api.delete(`/geodata/raster-layers/${id}`);
     }
 }
 

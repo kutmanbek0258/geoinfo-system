@@ -8,12 +8,9 @@ import kg.geoinfo.system.geoabstraction.mapper.TerrainLayerMapper;
 import kg.geoinfo.system.geoabstraction.mapper.GeoAbstractMapper;
 import kg.geoinfo.system.geoabstraction.models.GeoAbstractJob;
 import kg.geoinfo.system.geoabstraction.models.TerrainLayer;
-import kg.geoinfo.system.geoabstraction.models.RasterStyle;
 import kg.geoinfo.system.geoabstraction.models.enums.GeoAbstractJobStatus;
 import kg.geoinfo.system.geoabstraction.repository.GeoAbstractJobRepository;
-import kg.geoinfo.system.geoabstraction.repository.ImageryLayerRepository;
 import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
-import kg.geoinfo.system.geoabstraction.repository.RasterStyleRepository;
 import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,9 +40,6 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     private final GeoAbstractMapper geoAbstractMapper;
     private final TerrainLayerMapper terrainLayerMapper;
     private final MinioProperties minioProperties;
-    private final ImageryLayerService imageryLayerService;
-    private final ImageryLayerRepository imageryLayerRepository;
-    private final RasterStyleRepository rasterStyleRepository;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -344,6 +338,15 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
                 layer.setCogObjectKey(cogObjectKey);
                 layerRepository.save(layer);
                 log.info("Late update: TerrainLayer {} updated with COG key {}", layer.getId(), cogObjectKey);
+                
+                Map<String, Object> terrainPayload = new HashMap<>();
+                terrainPayload.put("id", layer.getId());
+                terrainPayload.put("projectId", layer.getProjectId());
+                terrainPayload.put("name", layer.getTitle());
+                terrainPayload.put("terrainUrl", layer.getTerrainUrl());
+                terrainPayload.put("cogObjectKey", cogObjectKey);
+                terrainPayload.put("status", "READY");
+                kafkaProducerService.sendTerrainProcessedEvent(terrainPayload);
             });
             return;
         }
@@ -399,6 +402,15 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
                 layer.setStatus("READY");
                 layerRepository.save(layer);
 
+                Map<String, Object> terrainPayload = new HashMap<>();
+                terrainPayload.put("id", layer.getId());
+                terrainPayload.put("projectId", job.getProjectId());
+                terrainPayload.put("name", job.getName());
+                terrainPayload.put("terrainUrl", terrainUrl);
+                terrainPayload.put("cogObjectKey", cogObjectKey);
+                terrainPayload.put("status", "READY");
+                kafkaProducerService.sendTerrainProcessedEvent(terrainPayload);
+
                 if (cogObjectKey == null) {
                     log.info("Triggering COG optimization for terrain job {}", jobId);
                     GeoAbstractJobEvent cogEvent = GeoAbstractJobEvent.builder()
@@ -441,27 +453,21 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
                 }
             }
 
-            // Find RasterStyle from DB
-            RasterStyle rasterStyle = rasterStyleRepository.findByName(styleName)
-                    .orElseGet(() -> rasterStyleRepository.findByName("raster")
-                            .orElseThrow(() -> new RuntimeException("Default style 'raster' not found")));
-
-            // Create ImageryLayer in DB via Service (to trigger Kafka event)
-            kg.geoinfo.system.geoabstraction.models.ImageryLayer imageryLayer = new kg.geoinfo.system.geoabstraction.models.ImageryLayer();
-            imageryLayer.setJobId(job.getId());
-            imageryLayer.setProjectId(job.getProjectId());
-            imageryLayer.setName(job.getName());
-            imageryLayer.setDescription("Automatically published layer from job " + job.getId());
-            imageryLayer.setLayerName(layerName);
-            imageryLayer.setStatus(kg.geoinfo.system.geoabstraction.models.enums.Status.ACTIVE);
-            imageryLayer.setStyle(rasterStyle);
-            imageryLayer.setDateCaptured(new java.util.Date());
-            imageryLayer.setCrs(job.getCrs() != null ? job.getCrs() : "EPSG:4326");
-            imageryLayer.setCharacteristics(job.getCharacteristics());
-            imageryLayer.setCogObjectKey(cogObjectKey);
-            imageryLayer.setBbox(bbox);
-            
-            imageryLayerService.save(imageryLayer);
+            Map<String, Object> rasterPayload = new HashMap<>();
+            UUID projectId = job.getProjectId();
+            rasterPayload.put("id", job.getId().toString());
+            rasterPayload.put("projectId", projectId != null ? projectId.toString() : null);
+            rasterPayload.put("name", job.getName());
+            rasterPayload.put("description", "Published raster layer from job " + job.getId());
+            rasterPayload.put("cogObjectKey", cogObjectKey);
+            rasterPayload.put("bbox", bbox != null ? bbox.toText() : null);
+            rasterPayload.put("crs", job.getCrs() != null ? job.getCrs() : "EPSG:4326");
+            rasterPayload.put("colormapId", styleName);
+            rasterPayload.put("resampling", "bilinear");
+            rasterPayload.put("dateCaptured", new java.util.Date().getTime());
+            rasterPayload.put("status", "ACTIVE");
+            rasterPayload.put("characteristics", job.getCharacteristics());
+            kafkaProducerService.sendRasterProcessedEvent(rasterPayload);
         }
 
         if (jobStatus == GeoAbstractJobStatus.READY || jobStatus == GeoAbstractJobStatus.FAILED) {

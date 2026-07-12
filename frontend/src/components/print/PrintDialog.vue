@@ -502,14 +502,8 @@ const startPrint = async () => {
               const geometryName = typeof clone.getGeometryName === 'function' ? clone.getGeometryName() : 'geometry';
               const properties = typeof clone.getProperties === 'function' ? clone.getProperties() : {};
               for (const key in properties) {
-                if (key !== geometryName) {
-                  if (key === 'style') {
-                    clone.unset(key);
-                  } else if (key === 'characteristics') {
-                    // Preserve characteristics style data
-                  } else if (typeof properties[key] === 'object' && properties[key] !== null) {
-                    clone.unset(key);
-                  }
+                if (key !== geometryName && (key === 'style' || typeof properties[key] === 'object')) {
+                  clone.unset(key);
                 }
               }
               return clone;

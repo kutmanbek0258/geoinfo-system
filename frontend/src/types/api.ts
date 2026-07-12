@@ -20,6 +20,7 @@ export interface Project {
 export interface GeoFolder {
     id: string;
     projectId: string;
+    layerId?: string;
     parentId?: string;
     name: string;
     description?: string;
@@ -45,22 +46,7 @@ export interface RasterStyle {
     lastModifiedDate?: string;
 }
 
-export interface ImageryLayer {
-    id: string; // UUID
-    projectId?: string;
-    name: string;
-    description?: string;
-    layerName?: string;
-    status: Status;
-    style?: RasterStyle;
-    dateCaptured: string; // Date -> string
-    crs: string;
-    colormapId?: string | null;
-    resampling?: string | null;
-    characteristics?: Record<string, any>;
-    cogObjectKey?: string;
-    bbox?: GeoGeometry;
-}
+export type ImageryLayer = ProjectRaster;
 
 export type GeoGeometry = 
     | { type: 'Point'; coordinates: number[] }
@@ -190,4 +176,48 @@ export interface AnalysisDataSource {
     taskId?: string;
     outputKey?: string;
     s3Url?: string;
+}
+
+export type LayerType = 'VECTOR' | 'RASTER';
+
+export interface Layer {
+    id: string;
+    projectId: string;
+    name: string;
+    description?: string;
+    type: LayerType;
+    characteristics?: Record<string, any>;
+}
+
+export interface ProjectRaster {
+    id: string;
+    layerId: string;
+    folderId?: string | null;
+    projectId?: string;
+    name: string;
+    description?: string;
+    cogObjectKey?: string;
+    bbox?: GeoGeometry;
+    crs?: string;
+    colormapId?: string | null;
+    resampling?: string | null;
+    dateCaptured?: string;
+    status: Status;
+    style?: RasterStyle;
+    characteristics?: Record<string, any>;
+}
+
+export interface RasterLayer {
+    id: string;
+    name: string;
+    description?: string;
+    cogObjectKey?: string;
+    bbox?: GeoGeometry;
+    crs?: string;
+    colormapId?: string | null;
+    resampling?: string | null;
+    dateCaptured?: string;
+    status: Status;
+    style?: RasterStyle;
+    characteristics?: Record<string, any>;
 }

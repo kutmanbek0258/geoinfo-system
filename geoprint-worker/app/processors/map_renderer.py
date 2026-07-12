@@ -146,11 +146,104 @@ def render_map(spec: dict, target_path: str):
     # Add grid lines
     ax.grid(True, which='both', color='gray', linestyle='--', linewidth=0.5, alpha=0.7)
     
+    # Add cartographic elements (North Arrow & Scale Bar)
+    add_north_arrow(ax)
+    add_scale_bar(ax, bbox, projection)
+    
     # Save figure
     fig.tight_layout()
     plt.savefig(target_path, bbox_inches='tight', pad_inches=0.1)
     plt.close(fig)
     logger.info("Map canvas rendered successfully to %s", target_path)
+
+def add_north_arrow(ax, loc=(0.95, 0.93), size=0.03):
+    import matplotlib.patches as patches
+    x, y = loc
+    # Draw vector compass needle pointing North
+    left_needle = patches.Polygon(
+        [[x, y + size], [x - size * 0.35, y], [x, y - size * 0.1]],
+        facecolor='#0f172a', edgecolor='#0f172a', transform=ax.transAxes, zorder=10
+    )
+    right_needle = patches.Polygon(
+        [[x, y + size], [x + size * 0.35, y], [x, y - size * 0.1]],
+        facecolor='#cbd5e1', edgecolor='#0f172a', transform=ax.transAxes, zorder=10
+    )
+    ax.add_patch(left_needle)
+    ax.add_patch(right_needle)
+    
+    # Add N label
+    ax.text(
+        x, y + size * 1.2, 'N',
+        color='#0f172a', weight='bold', size=11,
+        ha='center', va='center', transform=ax.transAxes, zorder=10
+    )
+
+def add_scale_bar(ax, bbox, projection, loc=(0.05, 0.05)):
+    import math
+    from pyproj import Transformer
+    
+    try:
+        # Convert bbox corners to WGS84 to calculate geodesic width
+        transformer = Transformer.from_crs(projection, "EPSG:4326", always_xy=True)
+        lon_min, lat_min = transformer.transform(bbox[0], bbox[1])
+        lon_max, lat_max = transformer.transform(bbox[2], bbox[1])
+        
+        lat_center = (lat_min + lat_max) / 2.0
+        width_meters = abs(lon_max - lon_min) * 111320.0 * math.cos(math.radians(lat_center))
+        
+        if width_meters <= 0:
+            return
+            
+        # Target scale bar: ~20% of map width
+        target_len = width_meters * 0.20
+        
+        # Round target length to nice cartographic steps (1, 2, 5)
+        exponent = int(math.log10(target_len)) if target_len > 0 else 0
+        base = 10 ** exponent
+        nice_length = base
+        for step in (1, 2, 5):
+            if target_len <= step * base:
+                nice_length = step * base
+                break
+        else:
+            nice_length = base * 10
+            
+        # Convert nice length in meters back to map coordinate width
+        nice_len_coords = nice_length * (bbox[2] - bbox[0]) / width_meters
+        
+        # Base coordinates for scale bar
+        x_start = bbox[0] + loc[0] * (bbox[2] - bbox[0])
+        y_start = bbox[1] + loc[1] * (bbox[3] - bbox[1])
+        x_end = x_start + nice_len_coords
+        
+        # Tick height (approx. 1.2% of map height)
+        tick_h = 0.012 * (bbox[3] - bbox[1])
+        
+        # Format label
+        if nice_length >= 1000:
+            label = f"{int(nice_length / 1000)} km"
+        else:
+            label = f"{int(nice_length)} m"
+            
+        # Draw the main line
+        ax.plot([x_start, x_end], [y_start, y_start], color='#0f172a', linewidth=2.5, zorder=10)
+        # Draw ticks at ends and center
+        ax.plot([x_start, x_start], [y_start - tick_h, y_start + tick_h], color='#0f172a', linewidth=2.5, zorder=10)
+        ax.plot([x_end, x_end], [y_start - tick_h, y_start + tick_h], color='#0f172a', linewidth=2.5, zorder=10)
+        
+        x_mid = (x_start + x_end) / 2.0
+        ax.plot([x_mid, x_mid], [y_start - tick_h * 0.7, y_start + tick_h * 0.7], color='#0f172a', linewidth=1.5, zorder=10)
+        
+        # Label centered above
+        ax.text(
+            x_mid, y_start + tick_h * 1.4, label,
+            color='#0f172a', size=9, weight='bold',
+            ha='center', va='bottom', zorder=10,
+            bbox=dict(boxstyle="square,pad=0.2", facecolor="white", edgecolor="none", alpha=0.7)
+        )
+        logger.info("Scale bar added: %s (width: %f coords)", label, nice_len_coords)
+    except Exception as e:
+        logger.error("Failed to add scale bar to map canvas: %s", str(e))
  
 def plot_styled_gdf(gdf, ax, layer_style, layer_opacity):
     default_stroke = layer_style.get("strokeColor", layer_style.get("_strokeColor", "#000000"))
@@ -216,24 +309,25 @@ def plot_styled_gdf(gdf, ax, layer_style, layer_opacity):
         else:
             logger.info("No characteristics found for feature %s", row.get("id", "unknown"))
 
-        # Plot individual feature with proper geometry types
+        # Plot individual feature with proper geometry types and separate transparencies
+        import matplotlib.colors as mcolors
+        
         is_polygon = geom.geom_type in ("Polygon", "MultiPolygon")
         is_point = geom.geom_type in ("Point", "MultiPoint")
         
+        edge_rgba = mcolors.to_rgba(stroke, alpha=1.0)
+        
         if is_polygon:
-            f_color = fill if fill != "none" else "none"
-            alpha_val = fill_opacity * layer_opacity if fill != "none" else layer_opacity
+            face_rgba = mcolors.to_rgba(fill, alpha=fill_opacity) if fill != "none" else "none"
         elif is_point:
-            f_color = stroke
-            alpha_val = layer_opacity
+            face_rgba = mcolors.to_rgba(stroke, alpha=1.0)
         else:
-            f_color = "none"
-            alpha_val = layer_opacity
+            face_rgba = "none"
             
         gpd.GeoSeries([geom]).plot(
             ax=ax,
-            edgecolor=stroke,
-            facecolor=f_color,
+            edgecolor=edge_rgba,
+            facecolor=face_rgba,
             linewidth=stroke_width,
-            alpha=alpha_val
+            alpha=layer_opacity
         )
