@@ -22,11 +22,19 @@ const store = useStore();
 const rasterOptions = computed(() => {
   const imagery = store.state.geodata.projectRasters?.content || [];
   const terrain = store.state.geodata.terrainLayers?.content || [];
+  const globalRasters = store.state.geodata.globalRasters || [];
   
   const items: any[] = imagery.map((l: any) => ({
     title: `[Снимок] ${l.name}`,
     value: { type: 'IMAGERY_LAYER', id: l.id }
   }));
+
+  globalRasters.forEach((l: any) => {
+    items.push({
+      title: `[Глобальный] ${l.name}`,
+      value: { type: 'IMAGERY_LAYER', id: l.id }
+    });
+  });
 
   terrain.filter((l: any) => l.cogObjectKey).forEach((l: any) => {
     items.push({

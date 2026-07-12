@@ -555,36 +555,14 @@ const actions = {
     },
 
     // Terrain Layer Actions
-    async fetchTerrainLayers({ commit, state }: ActionContext<GeodataState, any>, params?: { page: number, size: number }) {
-        if (!state.selectedProjectId) return;
+    async fetchTerrainLayers({ commit }: ActionContext<GeodataState, any>, params?: { page: number, size: number }) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            const layersRes = await geodataService.getLayersByProjectId(state.selectedProjectId);
-            const rasterLayersList = layersRes.data.filter(l => l.type === 'RASTER');
-            
-            const allRasters: any[] = [];
-            for (const layer of rasterLayersList) {
-                const rastersRes = await geodataService.getProjectRastersByLayerId(layer.id);
-                allRasters.push(...rastersRes.data);
-            }
-            
-            const terrainRasters = allRasters.filter(r => r.characteristics?.isTerrain);
-            const terrainLayersList = terrainRasters.map(r => ({
-                id: r.id,
-                projectId: state.selectedProjectId,
-                title: r.name,
-                terrainUrl: r.characteristics?.terrainUrl,
-                cogObjectKey: r.cogObjectKey,
-                status: 'READY'
-            }));
-            commit('SET_TERRAIN_LAYERS', {
-                content: terrainLayersList,
-                totalElements: terrainLayersList.length,
-                totalPages: 1,
-                size: terrainLayersList.length,
-                number: 0
-            });
+            const pageNum = params?.page || 0;
+            const pageSize = params?.size || 100;
+            const res = await geodataService.getTerrainLayers(pageNum, pageSize);
+            commit('SET_TERRAIN_LAYERS', res.data);
         } catch (err) {
             commit('SET_ERROR', 'Failed to fetch terrain layers.');
         } finally {
@@ -592,7 +570,7 @@ const actions = {
         }
     },
     async deleteTerrainLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
-        await geodataService.deleteProjectRaster(layerId);
+        await geodataService.deleteTerrainLayer(layerId);
         dispatch('fetchTerrainLayers', { page, size });
     },
 

@@ -29,8 +29,8 @@
 2. Фронтенд инициирует верификацию через `/api/geo-abstraction/jobs/verify-upload`. Создается задача `VERIFY_FILE` в статусе `VERIFYING`, событие отправляется в топик `geoabstraction.raster.events` в **Kafka**.
 3. **GeoAbstraction Worker** (Python) скачивает файл, анализирует его с помощью **GDAL/OGR** и возвращает метаданные в ответе `READY`. Бэкенд сохраняет их в JSONB `characteristics` задачи и переводит статус в `VERIFIED`.
 4. Пользователь выбирает параметры и запускает импорт `/api/geo-abstraction/jobs/{id}/import`. Задача переходит в статус `QUEUED`, событие летит в Kafka.
-5. Соответствующий воркер обрабатывает данные, генерирует выходные слои (COG или quantized-mesh) и отправляет статус `READY`.
-6. Бэкенд регистрирует слои в реестре `imagery_layers` (растры для TiTiler) или `terrain_layers` (рельеф для Cesium).
+5. Соответствующий воркер обрабатывает данные, генерирует выходные слои (COG или quantized-mesh) и отправляет статус `READY` в Kafka.
+6. `geodata-service` принимает это событие из Kafka и регистрирует сущности слоев (`ProjectRaster` или `TerrainLayer`) в своей БД.
 
 ## API Endpoints
 
@@ -42,10 +42,6 @@
 ### Задачи (Jobs)
 - `GET /api/geo-abstraction/jobs/{id}` — Статус и детальные характеристики задачи.
 - `GET /api/geo-abstraction/jobs` — Список задач проекта с пагинацией.
-
-### Слои (Layers)
-- `GET /api/geo-abstraction/layers` — Список всех доступных растровых слоев.
-- `DELETE /api/geo-abstraction/layers/{id}` — Удалить растровый слой и его файлы в S3.
 
 ## Настройка (Environment Variables)
 

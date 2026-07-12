@@ -1,7 +1,6 @@
 package kg.geoinfo.system.geoabstraction.controller;
 
 import kg.geoinfo.system.geoabstraction.dto.GeoAbstractJobDto;
-import kg.geoinfo.system.geoabstraction.dto.TerrainLayerDto;
 import kg.geoinfo.system.geoabstraction.service.GeoAbstractionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -117,26 +116,5 @@ public class GeoAbstractionController {
             @RequestParam(value = "projectId", required = false) UUID projectId,
             @PageableDefault(sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable){
         return ResponseEntity.ok(geoAbstractionService.getJobs(pageable, projectId));
-    }
-
-    @GetMapping("/layers")
-    public ResponseEntity<Page<TerrainLayerDto>> getAllLayers(
-            @RequestParam(value = "projectId", required = false) UUID projectId,
-            @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable){
-        return ResponseEntity.ok(geoAbstractionService.getLayers(pageable, projectId));
-    }
-
-    @GetMapping("/layers/{id}/presigned-url")
-    public ResponseEntity<Map<String, String>> getTerrainPresignedUrl(@PathVariable UUID id) {
-        String url = geoAbstractionService.generateTerrainPresignedUrl(id);
-        Map<String, String> response = new HashMap<>();
-        response.put("url", url);
-        return ResponseEntity.ok(response);
-    }
-
-    @DeleteMapping("/layers/{id}")
-    public ResponseEntity<Void> deleteLayer(@PathVariable UUID id) {
-        geoAbstractionService.deleteLayer(id);
-        return ResponseEntity.noContent().build();
     }
 }

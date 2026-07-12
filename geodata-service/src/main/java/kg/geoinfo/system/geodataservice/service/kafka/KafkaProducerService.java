@@ -10,5 +10,5 @@ public interface KafkaProducerService {
 
     void sendGeoObjectEvent(Map<String, Object> payload, GeoObjectEvent.EventType eventType);
     void sendGeoVectorExportResponse(GeoVectorExportResponse response);
-
+    void sendGeoAbstractJobEvent(kg.geoinfo.system.common.GeoAbstractJobEvent event);
 }

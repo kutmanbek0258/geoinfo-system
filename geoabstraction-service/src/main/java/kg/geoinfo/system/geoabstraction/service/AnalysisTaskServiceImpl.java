@@ -8,10 +8,8 @@ import kg.geoinfo.system.geoabstraction.config.MinioProperties;
 import kg.geoinfo.system.geoabstraction.dto.AnalysisTaskDto;
 import kg.geoinfo.system.geoabstraction.dto.CreateAnalysisTaskDto;
 import kg.geoinfo.system.geoabstraction.models.AnalysisTask;
-import kg.geoinfo.system.geoabstraction.models.TerrainLayer;
 import kg.geoinfo.system.geoabstraction.models.enums.AnalysisTaskStatus;
 import kg.geoinfo.system.geoabstraction.repository.AnalysisTaskRepository;
-import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
 import kg.geoinfo.system.geoabstraction.dto.CommitAnalysisTaskRequestDto;
 import kg.geoinfo.system.geoabstraction.service.client.GeoDataServiceClient;
 import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
@@ -36,7 +34,6 @@ import java.util.stream.Collectors;
 public class AnalysisTaskServiceImpl implements AnalysisTaskService {
 
     private final AnalysisTaskRepository repository;
-    private final TerrainLayerRepository terrainLayerRepository;
     private final FileStoreService fileStoreService;
     private final KafkaProducerService kafkaProducerService;
     private final MinioProperties minioProperties;
@@ -68,20 +65,32 @@ public class AnalysisTaskServiceImpl implements AnalysisTaskService {
             
             switch (source.getType()) {
                 case IMAGERY_LAYER:
-                    java.util.Map<String, Object> raster = geoDataServiceClient.getProjectRasterById(source.getId());
+                    java.util.Map<String, Object> raster = null;
+                    try {
+                        raster = geoDataServiceClient.getProjectRasterById(source.getId());
+                    } catch (Exception e) {
+                        log.info("Project raster {} not found, trying global raster layer", source.getId());
+                        try {
+                            raster = geoDataServiceClient.getRasterLayerById(source.getId());
+                        } catch (Exception ex) {
+                            log.error("Failed to fetch global raster layer {}: {}", source.getId(), ex.getMessage());
+                        }
+                    }
                     if (raster == null || raster.get("cogObjectKey") == null) {
-                        throw new RuntimeException("Project raster not found or missing COG key: " + source.getId());
+                        throw new RuntimeException("Raster not found or missing COG key: " + source.getId());
                     }
                     s3Inputs.put(key, "s3://" + minioProperties.getBucket() + "/" + raster.get("cogObjectKey"));
                     break;
-
                 case TERRAIN_LAYER:
-                    TerrainLayer terrainLayer = terrainLayerRepository.findById(source.getId())
-                            .orElseThrow(() -> new RuntimeException("Terrain layer not found: " + source.getId()));
-                    if (terrainLayer.getCogObjectKey() == null) {
+                    java.util.Map<String, Object> terrainLayer = geoDataServiceClient.getTerrainLayerById(source.getId());
+                    if (terrainLayer == null) {
+                        throw new RuntimeException("Terrain layer not found: " + source.getId());
+                    }
+                    String cogObjectKey = (String) terrainLayer.get("cogObjectKey");
+                    if (cogObjectKey == null) {
                         throw new RuntimeException("Terrain layer " + source.getId() + " does not have a COG file. Run COG generation first.");
                     }
-                    s3Inputs.put(key, "s3://" + minioProperties.getBucket() + "/" + terrainLayer.getCogObjectKey());
+                    s3Inputs.put(key, "s3://" + minioProperties.getBucket() + "/" + cogObjectKey);
                     break;
                     
                 case VECTOR_LAYER:

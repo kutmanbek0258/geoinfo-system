@@ -1,7 +1,7 @@
-package kg.geoinfo.system.geoabstraction.models;
+package kg.geoinfo.system.geodataservice.models;
 
 import jakarta.persistence.*;
-import kg.geoinfo.system.geoabstraction.config.audit.AuditableCustom;
+import kg.geoinfo.system.geodataservice.config.audit.AuditableCustom;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,7 +10,7 @@ import lombok.Setter;
 import java.util.UUID;
 
 @Entity
-@Table(name = "terrain_layers", schema = "geoabstraction")
+@Table(name = "terrain_layers", schema = "geodata")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,12 +22,11 @@ public class TerrainLayer extends AuditableCustom<String> {
     @Column(name = "id", nullable = false)
     private UUID id;
 
-    @Column(name = "project_id")
-    private UUID projectId;
+    @Column(name = "job_id")
+    private UUID jobId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_id")
-    private GeoAbstractJob job;
+    @Column(name = "output_prefix", length = 512)
+    private String outputPrefix;
 
     @Column(name = "title", nullable = false)
     private String title;

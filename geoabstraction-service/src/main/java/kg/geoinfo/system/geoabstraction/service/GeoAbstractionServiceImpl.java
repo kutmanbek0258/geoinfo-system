@@ -3,14 +3,11 @@ package kg.geoinfo.system.geoabstraction.service;
 import kg.geoinfo.system.common.GeoAbstractJobEvent;
 import kg.geoinfo.system.geoabstraction.config.MinioProperties;
 import kg.geoinfo.system.geoabstraction.dto.GeoAbstractJobDto;
-import kg.geoinfo.system.geoabstraction.dto.TerrainLayerDto;
-import kg.geoinfo.system.geoabstraction.mapper.TerrainLayerMapper;
 import kg.geoinfo.system.geoabstraction.mapper.GeoAbstractMapper;
 import kg.geoinfo.system.geoabstraction.models.GeoAbstractJob;
-import kg.geoinfo.system.geoabstraction.models.TerrainLayer;
 import kg.geoinfo.system.geoabstraction.models.enums.GeoAbstractJobStatus;
 import kg.geoinfo.system.geoabstraction.repository.GeoAbstractJobRepository;
-import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
+import kg.geoinfo.system.geoabstraction.service.client.GeoDataServiceClient;
 import kg.geoinfo.system.geoabstraction.service.filestore.FileStoreService;
 import kg.geoinfo.system.geoabstraction.service.kafka.KafkaProducerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,13 +31,10 @@ import java.util.UUID;
 public class GeoAbstractionServiceImpl implements GeoAbstractionService {
 
     private final GeoAbstractJobRepository jobRepository;
-    private final TerrainLayerRepository layerRepository;
     private final FileStoreService fileStoreService;
     private final KafkaProducerService kafkaProducerService;
     private final GeoAbstractMapper geoAbstractMapper;
-    private final TerrainLayerMapper terrainLayerMapper;
     private final MinioProperties minioProperties;
-    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -323,38 +317,14 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
     }
 
     @Override
-    public Page<TerrainLayerDto> getLayers(Pageable pageable, UUID projectId) {
-        return layerRepository.findByProjectId(projectId, pageable)
-                .map(terrainLayerMapper::toDto);
-    }
-
-    @Override
     @Transactional
     public void updateJobStatus(UUID jobId, String status, String errorMessage, Double minHeight, Double maxHeight, String terrainUrl, String cogObjectKey, String taskType, MultiPolygon bbox, Map<String, Object> characteristics) {
         log.info("Updating job {} status to {} (Task: {})", jobId, status, taskType);
 
-        if ("TERRAIN_COG".equals(taskType) && "READY".equals(status)) {
-            layerRepository.findByJobId(jobId).ifPresent(layer -> {
-                layer.setCogObjectKey(cogObjectKey);
-                layerRepository.save(layer);
-                log.info("Late update: TerrainLayer {} updated with COG key {}", layer.getId(), cogObjectKey);
-                
-                Map<String, Object> terrainPayload = new HashMap<>();
-                terrainPayload.put("id", layer.getId());
-                terrainPayload.put("projectId", layer.getProjectId());
-                terrainPayload.put("name", layer.getTitle());
-                terrainPayload.put("terrainUrl", layer.getTerrainUrl());
-                terrainPayload.put("cogObjectKey", cogObjectKey);
-                terrainPayload.put("status", "READY");
-                kafkaProducerService.sendTerrainProcessedEvent(terrainPayload);
-            });
-            return;
-        }
-
         GeoAbstractJob job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobId));
 
-        if (job.getStatus() == GeoAbstractJobStatus.READY) {
+        if (job.getStatus() == GeoAbstractJobStatus.READY && !"TERRAIN_COG".equals(taskType)) {
             log.info("Job {} is already READY, ignoring update to {}", jobId, status);
             return;
         }
@@ -391,41 +361,35 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
         job.setBbox(bbox);
         jobRepository.save(job);
 
+        if ("TERRAIN_COG".equals(taskType) && "READY".equals(status)) {
+            Map<String, Object> terrainPayload = new HashMap<>();
+            terrainPayload.put("projectId", job.getProjectId());
+            terrainPayload.put("jobId", job.getId());
+            terrainPayload.put("outputPrefix", job.getOutputPrefix());
+            terrainPayload.put("name", job.getName());
+            terrainPayload.put("terrainUrl", "/terrain/" + job.getOutputPrefix() + "/");
+            terrainPayload.put("cogObjectKey", cogObjectKey);
+            terrainPayload.put("status", "READY");
+            kafkaProducerService.sendTerrainProcessedEvent(terrainPayload);
+            return;
+        }
+
         if (jobStatus == GeoAbstractJobStatus.READY && "TERRAIN_MESH".equals(job.getTaskType())) {
-            if (!layerRepository.existsByJobId(jobId)) {
-                TerrainLayer layer = new TerrainLayer();
-                layer.setJob(job);
-                layer.setProjectId(job.getProjectId());
-                layer.setTitle(job.getName());
-                layer.setTerrainUrl(terrainUrl);
-                layer.setCogObjectKey(cogObjectKey);
-                layer.setStatus("READY");
-                layerRepository.save(layer);
 
-                Map<String, Object> terrainPayload = new HashMap<>();
-                terrainPayload.put("id", layer.getId());
-                terrainPayload.put("projectId", job.getProjectId());
-                terrainPayload.put("name", job.getName());
-                terrainPayload.put("terrainUrl", terrainUrl);
-                terrainPayload.put("cogObjectKey", cogObjectKey);
-                terrainPayload.put("status", "READY");
-                kafkaProducerService.sendTerrainProcessedEvent(terrainPayload);
+            if (cogObjectKey == null) {
+                log.info("Triggering COG optimization for terrain job {}", jobId);
+                GeoAbstractJobEvent cogEvent = GeoAbstractJobEvent.builder()
+                        .jobId(job.getId())
+                        .name(job.getName() + " COG")
+                        .eventType(GeoAbstractJobEvent.EventType.QUEUED)
+                        .taskType("TERRAIN_COG")
+                        .sourceBucket(job.getSourceBucket())
+                        .sourceObjectKey(job.getSourceObjectKey())
+                        .outputBucket(job.getOutputBucket())
+                        .outputPrefix("terrain-cog/" + job.getId())
+                        .build();
 
-                if (cogObjectKey == null) {
-                    log.info("Triggering COG optimization for terrain job {}", jobId);
-                    GeoAbstractJobEvent cogEvent = GeoAbstractJobEvent.builder()
-                            .jobId(job.getId())
-                            .name(job.getName() + " COG")
-                            .eventType(GeoAbstractJobEvent.EventType.QUEUED)
-                            .taskType("TERRAIN_COG")
-                            .sourceBucket(job.getSourceBucket())
-                            .sourceObjectKey(job.getSourceObjectKey())
-                            .outputBucket(job.getOutputBucket())
-                            .outputPrefix("terrain-cog/" + job.getId())
-                            .build();
-
-                    kafkaProducerService.sendGeoAbstractJobEvent(cogEvent);
-                }
+                kafkaProducerService.sendGeoAbstractJobEvent(cogEvent);
             }
         }
 
@@ -486,51 +450,4 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             }
         }
     }
-
-    @Override
-    public String generateTerrainPresignedUrl(UUID layerId) {
-        TerrainLayer layer = layerRepository.findById(layerId)
-                .orElseThrow(() -> new RuntimeException("Layer not found: " + layerId));
-
-        if (layer.getCogObjectKey() == null) {
-            throw new RuntimeException("COG object key not found for layer: " + layerId);
-        }
-
-        String url = fileStoreService.generateDownloadUrl(layer.getCogObjectKey());
-
-        String bucketPath = "/" + minioProperties.getBucket() + "/terrain-cog/";
-        if (url.contains(bucketPath)) {
-            url = "/terrain/cog/" + url.split(bucketPath)[1];
-        } else if (url.contains("/" + minioProperties.getBucket() + "/")) {
-            url = "/minio/" + url.split("/" + minioProperties.getBucket() + "/")[1];
-        }
-
-        return url;
-    }
-
-    @Override
-    @Transactional
-    public void deleteLayer(UUID id) {
-        log.info("Deleting terrain layer {}", id);
-        TerrainLayer layer = layerRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Layer not found: " + id));
-
-        GeoAbstractJob job = layer.getJob();
-        if (job != null) {
-            log.info("Sending DELETED event for job {} with prefix {}", job.getId(), job.getOutputPrefix());
-            GeoAbstractJobEvent event = GeoAbstractJobEvent.builder()
-                    .jobId(job.getId())
-                    .eventType(GeoAbstractJobEvent.EventType.DELETED)
-                    .taskType(job.getTaskType())
-                    .outputPrefix(job.getOutputPrefix())
-                    .build();
-
-            kafkaProducerService.sendGeoAbstractJobEvent(event);
-            layerRepository.delete(layer);
-            jobRepository.delete(job);
-        } else {
-            layerRepository.delete(layer);
-        }
-    }
-
 }

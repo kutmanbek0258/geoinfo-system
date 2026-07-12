@@ -8,6 +8,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -16,6 +17,8 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
 
     private static final String GEO_DATA_TOPIC = "geo.data.events";
     private static final String VECTOR_EXPORT_RESPONSE_TOPIC = "geo.vector.export.results";
+
+    private static final String TERRAIN_TOPIC = "geoabstraction.terrain.events";
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
@@ -45,6 +48,17 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
             log.info("Sent vector export response to topic {}: {}", VECTOR_EXPORT_RESPONSE_TOPIC, key);
         } catch (Exception e) {
             log.error("Error sending vector export response to Kafka: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendGeoAbstractJobEvent(kg.geoinfo.system.common.GeoAbstractJobEvent event) {
+        try {
+            String key = event.getJobId() != null ? event.getJobId().toString() : UUID.randomUUID().toString();
+            kafkaTemplate.send(TERRAIN_TOPIC, key, event);
+            log.info("Sent geo abstract job event to topic {}: {}", TERRAIN_TOPIC, key);
+        } catch (Exception e) {
+            log.error("Error sending geo abstract job event to Kafka: {}", e.getMessage());
         }
     }
 }

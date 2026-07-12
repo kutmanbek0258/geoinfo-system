@@ -1,16 +1,10 @@
 package kg.geoinfo.system.geodataservice.service.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kg.geoinfo.system.geodataservice.models.Layer;
-import kg.geoinfo.system.geodataservice.models.Project;
-import kg.geoinfo.system.geodataservice.models.ProjectRaster;
-import kg.geoinfo.system.geodataservice.models.RasterLayer;
+import kg.geoinfo.system.geodataservice.models.*;
 import kg.geoinfo.system.geodataservice.models.enums.LayerType;
 import kg.geoinfo.system.geodataservice.models.enums.Status;
-import kg.geoinfo.system.geodataservice.repository.LayerRepository;
-import kg.geoinfo.system.geodataservice.repository.ProjectRasterRepository;
-import kg.geoinfo.system.geodataservice.repository.ProjectRepository;
-import kg.geoinfo.system.geodataservice.repository.RasterLayerRepository;
+import kg.geoinfo.system.geodataservice.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Geometry;
@@ -33,7 +27,7 @@ public class ProcessedLayersConsumer {
     private final LayerRepository layerRepository;
     private final ProjectRasterRepository projectRasterRepository;
     private final RasterLayerRepository rasterLayerRepository;
-    private final ObjectMapper objectMapper;
+    private final TerrainLayerRepository terrainLayerRepository;
 
     @KafkaListener(topics = "geo.raster.processed",
                    containerFactory = "processedLayersListenerContainerFactory",
@@ -128,50 +122,40 @@ public class ProcessedLayersConsumer {
         projectRasterRepository.save(raster);
         log.info("Successfully saved/updated ProjectRaster {}", id);
     }
-
     @KafkaListener(topics = "geo.terrain.processed",
                    containerFactory = "processedLayersListenerContainerFactory",
                    groupId = "${spring.kafka.consumer.group-id:geodata-service-processed-terrain-group}")
     public void listenTerrainProcessed(Map<String, Object> payload) {
         log.info("Received geo.terrain.processed event: {}", payload);
         try {
-            UUID id = UUID.fromString((String) payload.get("id"));
-            UUID projectId = UUID.fromString((String) payload.get("projectId"));
+            Object jobIdObj = payload.get("jobId");
+            UUID jobId = (jobIdObj != null && !jobIdObj.toString().trim().isEmpty() && !"null".equalsIgnoreCase(jobIdObj.toString())) 
+                    ? UUID.fromString(jobIdObj.toString()) 
+                    : null;
 
-            Project project = projectRepository.findById(projectId)
-                    .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
+            String outputPrefix = (String) payload.get("outputPrefix");
+            String name = (String) payload.get("name");
+            String terrainUrl = (String) payload.get("terrainUrl");
+            String cogObjectKey = (String) payload.get("cogObjectKey");
 
-            // Find or create default RASTER layer
-            Layer layer = layerRepository.findAllByProjectId(projectId).stream()
-                    .filter(l -> l.getType() == LayerType.RASTER)
-                    .findFirst()
-                    .orElseGet(() -> {
-                        Layer newLayer = Layer.builder()
-                                .project(project)
-                                .name("Растровые данные")
-                                .type(LayerType.RASTER)
-                                .build();
-                        return layerRepository.save(newLayer);
-                    });
+            TerrainLayer terrainLayer = null;
+            if (jobId != null) {
+                terrainLayer = terrainLayerRepository.findByJobId(jobId).orElse(null);
+            }
+            if (terrainLayer == null) {
+                terrainLayer = new TerrainLayer();
+            }
 
-            ProjectRaster raster = projectRasterRepository.findById(id).orElse(new ProjectRaster());
-            raster.setId(id);
-            raster.setLayer(layer);
-            raster.setName((String) payload.get("name"));
-            raster.setDescription("Processed terrain DEM layer");
-            raster.setCogObjectKey((String) payload.get("cogObjectKey"));
-            raster.setCrs("EPSG:4326");
-            raster.setResampling("bilinear");
-            raster.setDateCaptured(new java.util.Date());
-            raster.setStatus(Status.COMPLETED);
+            terrainLayer.setJobId(jobId);
+            terrainLayer.setOutputPrefix(outputPrefix);
+            terrainLayer.setTitle(name);
+            terrainLayer.setTerrainUrl(terrainUrl);
+            terrainLayer.setCogObjectKey(cogObjectKey);
+            terrainLayer.setStatus("READY");
+            terrainLayer.setIsVisible(true);
 
-            Map<String, Object> characteristics = new HashMap<>();
-            characteristics.put("isTerrain", true);
-            characteristics.put("terrainUrl", payload.get("terrainUrl"));
-            raster.setCharacteristics(characteristics);
-
-            projectRasterRepository.save(raster);
-            log.info("Successfully saved/updated ProjectRaster (Terrain) {}", id);
+            terrainLayerRepository.save(terrainLayer);
+            log.info("Successfully saved/updated TerrainLayer for jobId: {}", jobId);
 
         } catch (Exception e) {
             log.error("Failed to process geo.terrain.processed event: {}", e.getMessage(), e);

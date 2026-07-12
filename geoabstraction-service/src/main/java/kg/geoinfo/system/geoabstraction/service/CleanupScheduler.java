@@ -1,7 +1,6 @@
 package kg.geoinfo.system.geoabstraction.service;
 
-import kg.geoinfo.system.geoabstraction.models.TerrainLayer;
-import kg.geoinfo.system.geoabstraction.repository.TerrainLayerRepository;
+import kg.geoinfo.system.geoabstraction.service.client.GeoDataServiceClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -9,6 +8,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -17,7 +18,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CleanupScheduler {
 
-    private final TerrainLayerRepository terrainLayerRepository;
+    private final GeoDataServiceClient geoDataServiceClient;
 
     private static final String TERRAIN_STORE_PATH = "/data/terrain-store";
 
@@ -32,6 +33,7 @@ public class CleanupScheduler {
         log.info("Scheduled cleanup finished.");
     }
 
+    @SuppressWarnings("unchecked")
     private void cleanupTerrainFolders() {
         File dir = new File(TERRAIN_STORE_PATH);
         if (!dir.exists() || !dir.isDirectory()) {
@@ -39,9 +41,16 @@ public class CleanupScheduler {
             return;
         }
 
-        Set<String> activeTerrainPrefixes = terrainLayerRepository.findAll().stream()
+        Map<String, Object> response = geoDataServiceClient.getTerrainLayers(0, 1000);
+        List<Map<String, Object>> content = (List<Map<String, Object>>) response.get("content");
+        if (content == null) {
+            log.warn("Could not retrieve active terrain layers from geodata-service");
+            return;
+        }
+
+        Set<String> activeTerrainPrefixes = content.stream()
                 .map(layer -> {
-                    String url = layer.getTerrainUrl();
+                    String url = (String) layer.get("terrainUrl");
                     if (url == null || url.isBlank()) return null;
                     // Normalize: remove trailing slash
                     if (url.endsWith("/")) url = url.substring(0, url.length() - 1);

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.UUID;
 import java.util.Map;
@@ -30,4 +31,13 @@ public interface GeoDataServiceClient {
 
     @GetMapping("/geodata/project-rasters/{id}")
     Map<String, Object> getProjectRasterById(@PathVariable("id") UUID id);
+
+    @GetMapping("/geodata/terrain-layers/{id}")
+    Map<String, Object> getTerrainLayerById(@PathVariable("id") UUID id);
+
+    @GetMapping("/geodata/terrain-layers")
+    Map<String, Object> getTerrainLayers(@RequestParam("page") int page, @RequestParam("size") int size);
+
+    @GetMapping("/geodata/raster-layers/{id}")
+    Map<String, Object> getRasterLayerById(@PathVariable("id") UUID id);
 }

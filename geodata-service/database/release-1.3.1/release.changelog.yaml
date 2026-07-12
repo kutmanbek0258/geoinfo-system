@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - include:
+      file: object/add_terrain_layers.sql
+      relativeToChangelogFile: true
+
+  - include:
+      file: object/geoanalysis_styles.sql
+      relativeToChangelogFile: true

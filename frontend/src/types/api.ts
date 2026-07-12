@@ -129,7 +129,6 @@ export interface SearchResult {
 
 export interface TerrainLayer {
     id: string;
-    projectId?: string;
     title: string;
     description?: string;
     terrainUrl: string;

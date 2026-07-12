@@ -1,4 +1,4 @@
-package kg.geoinfo.system.geoabstraction.dto;
+package kg.geoinfo.system.geodataservice.dto;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -10,7 +10,6 @@ import java.util.UUID;
 @EqualsAndHashCode(callSuper = true)
 public class TerrainLayerDto extends AbstractDto {
     private UUID id;
-    private UUID projectId;
     private UUID jobId;
     private String title;
     private String description;
@@ -18,6 +17,7 @@ public class TerrainLayerDto extends AbstractDto {
     private String cogObjectKey;
     private String cogUrl;
     private String status;
+    private String outputPrefix;
     private Boolean isVisible;
     private Instant createdAt;
 }

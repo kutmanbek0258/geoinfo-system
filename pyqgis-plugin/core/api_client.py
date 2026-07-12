@@ -94,7 +94,7 @@ class GeoInfoAPIClient:
             
     def get_terrain_layers(self, page=0, size=100):
         """Fetches available terrain layers."""
-        url = f"{self.gateway_url}/geo-abstraction/layers"
+        url = f"{self.gateway_url}/geodata/terrain-layers"
         params = {'page': page, 'size': size}
         try:
             response = self._request('GET', url, params=params)
@@ -104,7 +104,7 @@ class GeoInfoAPIClient:
 
     def get_terrain_layer_presigned_url(self, layer_id):
         """Requests a presigned URL for a specific terrain layer's COG."""
-        url = f"{self.gateway_url}/geo-abstraction/layers/{layer_id}/presigned-url"
+        url = f"{self.gateway_url}/geodata/terrain-layers/{layer_id}/presigned-url"
         try:
             response = self._request('GET', url)
             return response.json().get('url')

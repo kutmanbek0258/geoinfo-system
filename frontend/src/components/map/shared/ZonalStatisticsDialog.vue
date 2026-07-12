@@ -32,6 +32,9 @@ watch(() => props.show, (newVal) => {
       if (!store.state.geodata.terrainLayers) {
         store.dispatch('geodata/fetchTerrainLayers', { page: 0, size: 100 });
       }
+      if (!store.state.geodata.globalRasters || store.state.geodata.globalRasters.length === 0) {
+        store.dispatch('geodata/fetchGlobalRasters');
+      }
       store.dispatch('geodata/fetchAnalysisTasksByProject', projectId);
     }
   }
@@ -56,10 +59,18 @@ const pluginLabel = (name: string) => PLUGIN_LABELS[name] || name;
 
 const rasterOptions = computed(() => {
   const imagery = store.state.geodata.projectRasters?.content || [];
+  const globalRasters = store.state.geodata.globalRasters || [];
   const items = imagery.map((l: any) => ({
     title: `[Снимок] ${l.name}`,
     value: { type: 'IMAGERY_LAYER', id: l.id }
   }));
+
+  globalRasters.forEach((l: any) => {
+    items.push({
+      title: `[Глобальный] ${l.name}`,
+      value: { type: 'IMAGERY_LAYER', id: l.id }
+    });
+  });
 
   const terrain = store.state.geodata.terrainLayers?.content || [];
   terrain.filter((l: any) => l.cogObjectKey).forEach((l: any) => {

@@ -110,11 +110,11 @@
 - **[<code>discovery-server/</code>](./discovery-server/README.md):** Сервер обнаружения (Eureka).
 - **[<code>document-service/</code>](./document-service/README.md):** Сервис управления документами.
 - **[<code>frontend/</code>](./frontend/README.md):** Клиентское приложение на Vue.js (OpenLayers + MVT).
-- **[<code>geoabstraction-service/</code>](./geoabstraction-service/README.md):** Центральный сервис управления растровыми данными, рельефом и интеграцией с TiTiler.
+- **[<code>geoabstraction-service/</code>](./geoabstraction-service/README.md):** Микросервис двухэтапной загрузки, верификации и обработки тяжелых растров/высот в COG и quantized-mesh через воркеры.
 - **[<code>terrain-worker/</code>](./terrain-worker/README.md):** Python-воркер для генерации 3D-рельефа.
 - **[<code>geoabstract-worker/</code>](./geoabstract-worker/README.md):** Python-воркер для генерации COG, расчета индексов (NDVI, NDWI и др.).
 - **[<code>geoanalysis-worker/</code>](./geoanalysis-worker/README.md):** Python-воркер для тяжелого пространственного анализа (буферы, изолинии, зональная статистика, импорт DXF).
-- **[<code>geodata-service/</code>](./geodata-service/README.md):** Сервис управления векторными геоданными.
+- **[<code>geodata-service/</code>](./geodata-service/README.md):** Микросервис управления пространственными данными: проектами, векторными объектами, реестром растровых слоев (глобальных и проектных) и 3D-рельефа.
 - **[<code>geoprint-service/</code>](./geoprint-service/README.md):** Сервис асинхронной генерации PDF-отчетов карт на базе GeoTools и openhtmltopdf.
 - **[<code>search-service/</code>](./search-service/README.md):** Сервис поиска.
 - **[<code>stream-service/</code>](./stream-service/README.md):** Сервис трансляции видеопотоков с IP-камер (RTSP в HLS) через MediaMTX.

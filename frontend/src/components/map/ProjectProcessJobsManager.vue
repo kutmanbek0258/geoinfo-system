@@ -41,12 +41,6 @@
                     </template>
                     <v-list-item-title>Файл GeoTIFF</v-list-item-title>
                   </v-list-item>
-                  <v-list-item @click="openUploadDialog('TERRAIN')">
-                    <template v-slot:prepend>
-                      <v-icon color="brown">mdi-terrain</v-icon>
-                    </template>
-                    <v-list-item-title>3D Рельеф (Terrain DEM)</v-list-item-title>
-                  </v-list-item>
                   <v-list-item @click="openUploadDialog('NETCDF')">
                     <template v-slot:prepend>
                       <v-icon color="blue">mdi-file-chart</v-icon>
@@ -79,11 +73,6 @@
           />
           <GeoTiffImportDialog
             v-model="showGeoTiffImport"
-            :job="selectedJob"
-            @imported="onImported"
-          />
-          <TerrainImportDialog
-            v-model="showTerrainImport"
             :job="selectedJob"
             @imported="onImported"
           />
@@ -167,6 +156,12 @@
         </v-col>
       </v-row>
     </v-card-text>
+
+    <v-divider></v-divider>
+    <v-card-actions class="pa-4">
+      <v-spacer></v-spacer>
+      <v-btn color="grey-darken-1" variant="text" @click="$emit('close')">Закрыть</v-btn>
+    </v-card-actions>
   </v-card>
 </template>
 
@@ -194,7 +189,6 @@ const selectedJob = ref<any>(null);
 const showSentinelImport = ref(false);
 const showLandsatImport = ref(false);
 const showGeoTiffImport = ref(false);
-const showTerrainImport = ref(false);
 const showNetcdfImport = ref(false);
 
 const isLoadingJobs = ref(false);
@@ -241,8 +235,6 @@ const openImportDialog = (job: any) => {
     showLandsatImport.value = true;
   } else if (dataType === 'GEOTIFF') {
     showGeoTiffImport.value = true;
-  } else if (dataType === 'TERRAIN') {
-    showTerrainImport.value = true;
   } else if (dataType === 'NETCDF') {
     showNetcdfImport.value = true;
   }
@@ -281,8 +273,6 @@ const getTaskIcon = (taskType: string | undefined, dataType: string | undefined)
         return { icon: 'mdi-satellite-variant', color: 'amber-darken-3', label: 'Landsat 8 (Проверка...)' };
       case 'GEOTIFF':
         return { icon: 'mdi-file-image', color: 'amber-darken-3', label: 'GeoTIFF (Проверка...)' };
-      case 'TERRAIN':
-        return { icon: 'mdi-terrain', color: 'amber-darken-3', label: 'Terrain (Проверка...)' };
       case 'NETCDF':
         return { icon: 'mdi-file-chart', color: 'amber-darken-3', label: 'NetCDF (Проверка...)' };
       default:
@@ -297,8 +287,6 @@ const getTaskIcon = (taskType: string | undefined, dataType: string | undefined)
       return { icon: 'mdi-satellite-variant', color: 'indigo', label: 'Landsat 8' };
     case 'RAW_GEOTIFF_OPTIMIZE':
       return { icon: 'mdi-file-image', color: 'teal', label: 'GeoTIFF' };
-    case 'TERRAIN_MESH':
-      return { icon: 'mdi-terrain', color: 'brown', label: 'Terrain' };
     case 'NETCDF_COG':
       return { icon: 'mdi-file-chart', color: 'blue', label: 'NetCDF' };
     default:
