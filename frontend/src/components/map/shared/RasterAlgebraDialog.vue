@@ -81,7 +81,7 @@ const PLUGIN_LABELS: Record<string, string> = {
 const pluginLabel = (name: string) => PLUGIN_LABELS[name] || name;
 
 const rasterOptions = computed(() => {
-  const imagery = store.state.geodata.imageryLayers?.content || [];
+  const imagery = store.state.geodata.projectRasters?.content || [];
   const terrain = store.state.geodata.terrainLayers?.content || [];
   
   const items: any[] = imagery.map((l: ImageryLayer) => ({

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
-import type { CreateAnalysisTaskDto, AnalysisDataSource, TerrainLayer, ImageryLayer } from '@/types/api';
+import type { CreateAnalysisTaskDto, AnalysisDataSource, TerrainLayer, ImageryLayer, RasterLayer } from '@/types/api';
 
 const props = defineProps<{
   show: boolean;
@@ -55,7 +55,7 @@ const PLUGIN_LABELS: Record<string, string> = {
 const pluginLabel = (name: string) => PLUGIN_LABELS[name] || name;
 
 const rasterOptions = computed(() => {
-  const imagery = store.state.geodata.imageryLayers?.content || [];
+  const imagery = store.state.geodata.projectRasters?.content || [];
   const terrain = store.state.geodata.terrainLayers?.content || [];
   
   const items: any[] = imagery.map((l: ImageryLayer) => ({

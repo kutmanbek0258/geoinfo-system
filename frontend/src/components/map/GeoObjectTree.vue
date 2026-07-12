@@ -55,6 +55,14 @@
                 title="Показать/скрыть все объекты слоя"
                 @click.stop="toggleLayerVisibility(layer.id)"
               ></v-btn>
+              <v-btn
+                icon="mdi-delete"
+                variant="text"
+                density="compact"
+                color="error"
+                title="Удалить слой"
+                @click.stop="confirmDeleteLayer(layer)"
+              ></v-btn>
             </template>
           </v-list-item>
         </template>
@@ -244,6 +252,25 @@
     :layer-id="activeLayerIdForFolder"
     @saved="onFolderSaved"
   />
+
+  <!-- Delete Layer Confirmation Dialog -->
+  <v-dialog v-model="deleteLayerDialog" max-width="500px">
+    <v-card>
+      <v-card-title class="bg-error text-white py-3 px-4">
+        <v-icon class="mr-2">mdi-alert-circle</v-icon>
+        <span class="font-weight-bold">Удалить слой</span>
+      </v-card-title>
+      <v-card-text class="pa-4">
+        <p>Вы действительно хотите удалить слой <strong>"{{ layerToDelete?.name }}"</strong>?</p>
+        <p class="text-error mt-2">Это действие необратимо. Все связанные объекты (точки, линии, полигоны, растры) и их файлы в хранилище будут удалены.</p>
+      </v-card-text>
+      <v-card-actions class="pa-4 pt-0">
+        <v-spacer></v-spacer>
+        <v-btn variant="text" @click="deleteLayerDialog = false">Отмена</v-btn>
+        <v-btn color="error" variant="elevated" @click="deleteLayer" :loading="deletingLayer">Удалить</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -585,13 +612,37 @@ const saveLayer = async () => {
     });
     layerDialog.value = false;
     
-    // Refresh folders and project rasters to reflect new layers
+    // Refresh layers, folders and project rasters to reflect new layers
+    store.dispatch('geodata/fetchProjectLayers', projectId.value);
     store.dispatch('geodata/fetchFolders', projectId.value);
     store.dispatch('geodata/fetchProjectRasters');
   } catch (err) {
     console.error('Failed to create layer:', err);
   } finally {
     savingLayer.value = false;
+  }
+};
+
+const deleteLayerDialog = ref(false);
+const deletingLayer = ref(false);
+const layerToDelete = ref<Layer | null>(null);
+
+const confirmDeleteLayer = (layer: Layer) => {
+  layerToDelete.value = layer;
+  deleteLayerDialog.value = true;
+};
+
+const deleteLayer = async () => {
+  if (!layerToDelete.value) return;
+  deletingLayer.value = true;
+  try {
+    await store.dispatch('geodata/deleteProjectLayer', layerToDelete.value.id);
+    deleteLayerDialog.value = false;
+    layerToDelete.value = null;
+  } catch (err) {
+    console.error('Failed to delete layer:', err);
+  } finally {
+    deletingLayer.value = false;
   }
 };
 

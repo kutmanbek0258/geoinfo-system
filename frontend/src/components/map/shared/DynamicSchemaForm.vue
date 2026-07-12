@@ -20,7 +20,7 @@ const store = useStore();
 
 // --- Списки слоев для селекторов ---
 const rasterOptions = computed(() => {
-  const imagery = store.state.geodata.imageryLayers?.content || [];
+  const imagery = store.state.geodata.projectRasters?.content || [];
   const terrain = store.state.geodata.terrainLayers?.content || [];
   
   const items: any[] = imagery.map((l: any) => ({
