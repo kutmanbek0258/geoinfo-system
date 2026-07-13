@@ -1,6 +1,0 @@
-databaseChangeLog:
-  #  Objects
-  - include:
-      file: object/init_schema.sql
-      relativeToChangelogFile: true
-      contextFilter: dev

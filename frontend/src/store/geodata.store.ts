@@ -428,11 +428,13 @@ const actions = {
             const layersRes = await geodataService.getLayersByProjectId(state.selectedProjectId);
             const rasterLayersList = layersRes.data.filter(l => l.type === 'RASTER');
             
+            const rastersPromises = rasterLayersList.map(layer => geodataService.getProjectRastersByLayerId(layer.id));
+            const rastersResults = await Promise.all(rastersPromises);
+            
             const allRasters: any[] = [];
-            for (const layer of rasterLayersList) {
-                const rastersRes = await geodataService.getProjectRastersByLayerId(layer.id);
-                allRasters.push(...rastersRes.data);
-            }
+            rastersResults.forEach(res => {
+                allRasters.push(...res.data);
+            });
             
             const regularRasters = allRasters.filter(r => !r.characteristics?.isTerrain);
             

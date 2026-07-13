@@ -66,9 +66,9 @@ public class LayerServiceImpl implements LayerService {
                 .orElseThrow(() -> new RuntimeException("Layer not found: " + id));
 
         // 1. Delete all points, lines, polygons under this layer
-        pointRepository.findAllByLayerId(id).forEach(pointRepository::delete);
-        multilineRepository.findAllByLayerId(id).forEach(multilineRepository::delete);
-        polygonRepository.findAllByLayerId(id).forEach(polygonRepository::delete);
+        pointRepository.deleteAllByLayerId(id);
+        multilineRepository.deleteAllByLayerId(id);
+        polygonRepository.deleteAllByLayerId(id);
 
         // 2. Delete all raster files from MinIO under this layer
         List<ProjectRaster> rasters = rasterRepository.findAllByLayerId(id);

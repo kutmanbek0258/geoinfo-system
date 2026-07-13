@@ -21,6 +21,10 @@ public interface ProjectPointRepository extends JpaRepository<ProjectPoint, UUID
     List<ProjectPoint> findAllByLayerId(UUID layerId);
     List<ProjectPoint> findAllByLayerIdAndFolderIdIsNull(UUID layerId);
 
+    @Modifying
+    @Query("DELETE FROM ProjectPoint p WHERE p.layer.id = :layerId")
+    void deleteAllByLayerId(@Param("layerId") UUID layerId);
+
     @Query(value = "SELECT (parts.path)[1] as subId, ST_AsGeoJSON(parts.geom) as geojson " +
             "FROM (SELECT (ST_Dump(geom)).* FROM geodata.project_points WHERE id = :id) as parts " +
             "WHERE ST_Intersects(parts.geom, ST_MakeEnvelope(:minX, :minY, :maxX, :maxY, 4326))", nativeQuery = true)

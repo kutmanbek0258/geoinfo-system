@@ -1,4 +1,0 @@
-databaseChangeLog:
-  - include:
-      file: object/add_bbox_to_geo_objects.sql
-      relativeToChangelogFile: true

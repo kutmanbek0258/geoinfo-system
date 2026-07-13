@@ -1,7 +1,0 @@
-databaseChangeLog:
-  - include:
-      file: object/temp_data.sql
-      relativeToChangelogFile: true
-  - include:
-      file: object/staging_rpc.sql
-      relativeToChangelogFile: true

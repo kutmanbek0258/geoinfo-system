@@ -136,45 +136,6 @@ class GeoAbstractionService {
     });
   }
 
-  // --- Layers ---
-  getLayers(page: number, size: number, projectId?: string) {
-    return api.get(`${API_URL}/layers`, {
-      params: { page, size, projectId }
-    });
-  }
-
-  deleteLayer(id: string) {
-    return api.delete(`${API_URL}/layers/${id}`);
-  }
-
-  // --- Imagery Layers ---
-  getImageryLayers(page = 0, size = 10, projectId?: string) {
-    return api.get<Page<ImageryLayer>>(`${API_URL}/imagery-layer/page-query`, { 
-      params: { page, size, projectId } 
-    });
-  }
-
-  getImageryLayerById(id: string) {
-    return api.get<ImageryLayer>(`${API_URL}/imagery-layer/${id}`);
-  }
-
-  createImageryLayer(layer: Omit<ImageryLayer, 'id'>) {
-    return api.post<ImageryLayer>(`${API_URL}/imagery-layer`, layer);
-  }
-
-  updateImageryLayer(id: string, layer: Partial<Omit<ImageryLayer, 'id'>>) {
-    return api.put<ImageryLayer>(`${API_URL}/imagery-layer/${id}`, layer);
-  }
-
-  deleteImageryLayer(id: string) {
-    return api.delete(`${API_URL}/imagery-layer/${id}`);
-  }
-
-  async getImageryPresignedUrl(id: string) {
-    const response = await api.get<{ url: string }>(`${API_URL}/imagery-layer/${id}/presigned-url`);
-    return response.data.url;
-  }
-
   getStyles() {
     return api.get<string[]>(`${API_URL}/imagery-layer/styles`);
   }

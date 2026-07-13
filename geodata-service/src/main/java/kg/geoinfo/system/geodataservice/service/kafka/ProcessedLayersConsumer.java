@@ -47,6 +47,7 @@ public class ProcessedLayersConsumer {
             }
         } catch (Exception e) {
             log.error("Failed to process geo.raster.processed event: {}", e.getMessage(), e);
+            throw new RuntimeException("Error processing geo.raster.processed event", e);
         }
     }
 
@@ -159,6 +160,7 @@ public class ProcessedLayersConsumer {
 
         } catch (Exception e) {
             log.error("Failed to process geo.terrain.processed event: {}", e.getMessage(), e);
+            throw new RuntimeException("Error processing geo.terrain.processed event", e);
         }
     }
 

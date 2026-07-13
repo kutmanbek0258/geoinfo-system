@@ -38,8 +38,8 @@
 
 | Микросервис | Основные Функции | Хранилище (DB) | Kafka Topic (Источник / Потребитель) |
 | :---- | :---- | :---- | :---- |
-| **Geo Data Service** | CRUD векторных объектов, управление иерархией папок (неограниченная вложенность), импорт KML. | **PostgreSQL/PostGIS** | geo.data.events (Источник) |
-| **Geo Abstraction Service** | Оркестрация задач обработки растров и рельефа, генерация Presigned URLs для Direct Upload. | **PostgreSQL/PostGIS** | geoabstraction.terrain.events, geoabstraction.raster.events (Источник) |
+| **Geo Data Service** | CRUD векторных объектов, управление иерархией папок (неограниченная вложенность), импорт KML, хранение метаданных слоев (Layer), проектных растров (ProjectRaster), подложек (RasterLayer), рельефа (TerrainLayer) и их стилей (RasterStyle). | **PostgreSQL/PostGIS** | geo.data.events (Источник) |
+| **Geo Abstraction Service** | Оркестрация фоновых задач импорта и обработки растров, рельефов и ГИС-анализа, верификация загружаемых тяжелых файлов, генерация Presigned URLs для Direct Upload. | **PostgreSQL/PostGIS** | geoabstraction.tasks (Источник) |
 | **Document Service** | CRUD метаданных документов, управление файлами в MinIO. | **PostgreSQL** | doc.data.events (Источник) |
 | **Search Service** | Асинхронное потребление событий из Kafka, выполнение поисковых запросов. | **Elasticsearch** | geo.data.events, doc.data.events (Потребитель) |
 | **Geo Print Service** | Асинхронная оркестрация печати карт (сбор векторов через Kafka, передача воркеру, управление статусом задачи). | **PostgreSQL** | geo.print.tasks (Источник / Потребитель), geo.vector.export.results (Потребитель), geo.print.results (Потребитель) |
@@ -75,7 +75,7 @@
 
 1. **Растры (TiTiler):** Воркеры преобразуют GeoTIFF в формат COG и загружают напрямую в MinIO. Клиентские приложения запрашивают тайлы у TiTiler по протоколу XYZ, указывая путь к файлу в S3.
 2. **Векторы (pg_tileserv):** Высокопроизводительный рендеринг векторных данных через протокол MVT. Позволяет отображать десятки тысяч объектов без деградации производительности фронтенда.
-3. **Метаданные:** Ссылки на слои и конфигурации стилей сохраняются в **Imagery Layers** и **Geodata Service**.
+3. **Метаданные:** Ссылки на растровые/рельефные слои и конфигурации их стилей сохраняются непосредственно в **Geodata Service** (в таблицах `project_rasters`, `raster_layers`, `terrain_layers` и `raster_styles`).
 4. **Отображение:** **OpenLayers** и **Cesium** запрашивают векторные тайлы у **pg_tileserv**, а растровые — у **TiTiler** (с ограничением запросов по bbox слоя).
 
 #### **4.5. Оптимизация загрузки тяжелых данных (Двухэтапная загрузка и верификация)**

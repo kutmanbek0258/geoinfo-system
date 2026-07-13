@@ -1,4 +1,0 @@
-databaseChangeLog:
-  - include:
-      file: object/analysis.sql
-      relativeToChangelogFile: true
