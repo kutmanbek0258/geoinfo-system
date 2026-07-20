@@ -3,7 +3,7 @@ import streamService from "@/services/stream.service";
 import geoAbstractionService from "@/services/geo-abstraction.service";
 import documentService from "@/services/document.service";
 import RasterStyleService from "@/services/raster-style.service";
-import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, ProjectRaster, RasterLayer, RasterStyle, Layer, TerrainLayer, TerrainJob, Page, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, AnalysisTask, CreateAnalysisTaskDto, Document } from "@/types/api";
+import type { Project, ProjectPoint, ProjectMultiline, ProjectPolygon, ImageryLayer, ProjectRaster, RasterLayer, RasterStyle, Layer, TerrainLayer, ThreeDTilesLayer, TerrainJob, Page, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, AnalysisTask, CreateAnalysisTaskDto, Document } from "@/types/api";
 import type { ActionContext } from "vuex";
 
 interface StagingLayer {
@@ -24,6 +24,8 @@ interface GeodataState {
     folders: GeoFolder[];
     projectRasters: Page<ProjectRaster> | null;
     terrainLayers: Page<TerrainLayer> | null;
+    threeDTilesLayers: Page<ThreeDTilesLayer> | null;
+    visible3DTilesIds: string[];
     terrainJobs: Page<TerrainJob> | null;
     analysisTasks: AnalysisTask[];
     stagingLayers: StagingLayer[];
@@ -57,6 +59,8 @@ const state: GeodataState = {
     folders: [],
     projectRasters: null,
     terrainLayers: null,
+    threeDTilesLayers: null,
+    visible3DTilesIds: [],
     terrainJobs: null,
     analysisTasks: [],
     stagingLayers: [],
@@ -198,6 +202,20 @@ const mutations = {
 
     SET_TERRAIN_LAYERS(state: GeodataState, layers: Page<TerrainLayer> | null) {
         state.terrainLayers = layers;
+    },
+
+    SET_3D_TILES_LAYERS(state: GeodataState, layers: Page<ThreeDTilesLayer> | null) {
+        state.threeDTilesLayers = layers;
+    },
+    SET_VISIBLE_3D_TILES_IDS(state: GeodataState, ids: string[]) {
+        state.visible3DTilesIds = ids;
+    },
+    TOGGLE_3D_TILES_VISIBILITY(state: GeodataState, layerId: string) {
+        if (state.visible3DTilesIds.includes(layerId)) {
+            state.visible3DTilesIds = state.visible3DTilesIds.filter(id => id !== layerId);
+        } else {
+            state.visible3DTilesIds = [...state.visible3DTilesIds, layerId];
+        }
     },
 
     SET_TERRAIN_JOBS(state: GeodataState, jobs: Page<TerrainJob> | null) {
@@ -574,6 +592,26 @@ const actions = {
     async deleteTerrainLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
         await geodataService.deleteTerrainLayer(layerId);
         dispatch('fetchTerrainLayers', { page, size });
+    },
+
+    // 3D Tiles Layer Actions
+    async fetch3DTilesLayers({ commit }: ActionContext<GeodataState, any>, params?: { page: number, size: number }) {
+        commit('SET_LOADING', true);
+        commit('SET_ERROR', null);
+        try {
+            const pageNum = params?.page || 0;
+            const pageSize = params?.size || 100;
+            const res = await geodataService.get3DTilesLayers(pageNum, pageSize);
+            commit('SET_3D_TILES_LAYERS', res.data);
+        } catch (err) {
+            commit('SET_ERROR', 'Failed to fetch 3D Tiles layers.');
+        } finally {
+            commit('SET_LOADING', false);
+        }
+    },
+    async delete3DTilesLayer({ dispatch }: ActionContext<GeodataState, any>, { layerId, page, size }: { layerId: string, page: number, size: number }) {
+        await geodataService.delete3DTilesLayer(layerId);
+        dispatch('fetch3DTilesLayers', { page, size });
     },
 
     async fetchAnalysisTasksByProject({ commit }: ActionContext<GeodataState, any>, projectId: string) {

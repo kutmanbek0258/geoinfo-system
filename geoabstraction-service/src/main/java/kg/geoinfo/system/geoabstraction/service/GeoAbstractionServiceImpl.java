@@ -374,6 +374,20 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             return;
         }
 
+        if (("3D_TILES".equals(taskType) || "CITYGML".equals(taskType)) && "READY".equals(status)) {
+            Map<String, Object> tilesPayload = new HashMap<>();
+            tilesPayload.put("projectId", job.getProjectId());
+            tilesPayload.put("jobId", job.getId());
+            tilesPayload.put("outputPrefix", job.getOutputPrefix());
+            tilesPayload.put("name", job.getName());
+            tilesPayload.put("tilesetUrl", "/3dtiles/" + job.getOutputPrefix() + "/tileset.json");
+            tilesPayload.put("sourceObjectKey", job.getSourceObjectKey());
+            tilesPayload.put("taskType", taskType);
+            tilesPayload.put("status", "READY");
+            kafkaProducerService.sendTerrainProcessedEvent(tilesPayload);
+            return;
+        }
+
         if (jobStatus == GeoAbstractJobStatus.READY && "TERRAIN_MESH".equals(job.getTaskType())) {
 
             if (cogObjectKey == null) {

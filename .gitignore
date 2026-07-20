@@ -38,6 +38,7 @@ build/
 .vscode/
 
 /terrain_store/
+/3dtiles_store/
 /geoserver_uploads/
 /minio_data/
 .gemini

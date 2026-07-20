@@ -9,7 +9,7 @@ from app.processors.factory import get_processor
 def cleanup_on_startup():
     """Removes orphaned temporary directories from /tmp on startup."""
     temp_dir = tempfile.gettempdir()
-    prefixes = ["terrain-"]
+    prefixes = ["terrain-", "tiles3d-"]
     logger.info("Starting startup cleanup in %s", temp_dir)
     
     try:

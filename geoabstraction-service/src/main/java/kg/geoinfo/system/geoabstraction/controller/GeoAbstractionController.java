@@ -31,42 +31,6 @@ public class GeoAbstractionController {
         return ResponseEntity.ok(geoAbstractionService.createJob(name, file, projectId));
     }
 
-    @PostMapping("/sentinel/upload")
-    public ResponseEntity<GeoAbstractJobDto> createSentinelJob(
-            @RequestParam("name") String name,
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("channels") List<String> channels,
-            @RequestParam(value = "indexType", required = false) String indexType,
-            @RequestParam(value = "projectId", required = false) UUID projectId) {
-        return ResponseEntity.ok(geoAbstractionService.createSentinelJob(name, file, channels, indexType, projectId));
-    }
-
-    @PostMapping("/landsat/upload")
-    public ResponseEntity<GeoAbstractJobDto> createLandsatJob(
-            @RequestParam("name") String name,
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("channels") List<String> channels,
-            @RequestParam(value = "indexType", required = false) String indexType,
-            @RequestParam(value = "projectId", required = false) UUID projectId) {
-        return ResponseEntity.ok(geoAbstractionService.createLandsatJob(name, file, channels, indexType, projectId));
-    }
-
-    @PostMapping("/imagery-layer/upload")
-    public ResponseEntity<GeoAbstractJobDto> uploadRawGeoTiff(
-            @RequestParam("name") String name,
-            @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "projectId", required = false) UUID projectId) {
-        return ResponseEntity.ok(geoAbstractionService.createRawGeoTiffJob(name, file, projectId));
-    }
-
-    @PostMapping("/terrain/upload")
-    public ResponseEntity<GeoAbstractJobDto> uploadTerrain(
-            @RequestParam("name") String name,
-            @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "projectId", required = false) UUID projectId) {
-        return ResponseEntity.ok(geoAbstractionService.createTerrainJob(name, file, projectId));
-    }
-
     @GetMapping("/upload/presigned-url")
     public ResponseEntity<Map<String, String>> getPresignedUrl(@RequestParam("filename") String filename) {
         String result = geoAbstractionService.generateUploadUrl(filename);

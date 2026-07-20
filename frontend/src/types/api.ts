@@ -138,6 +138,18 @@ export interface TerrainLayer {
     isVisible: boolean;
 }
 
+export interface ThreeDTilesLayer {
+    id: string;
+    jobId?: string;
+    title: string;
+    description?: string;
+    tilesetUrl: string;
+    sourceObjectKey?: string;
+    status: string;
+    isVisible: boolean;
+    outputPrefix?: string;
+}
+
 export interface TerrainJob {
     id: string;
     projectId?: string;

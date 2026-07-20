@@ -98,16 +98,22 @@ class VerifierProcessor(BaseProcessor):
                             bbox = get_wgs84_extent(ref_band)
                             ds = None
 
-            elif data_type == "NETCDF":
-                # Check if it's zipped or directly NetCDF
-                extracted_file = self._try_extract_netcdf(input_file, work_dir)
-                ds = gdal.Open(extracted_file)
-                if not ds:
-                    raise RuntimeError("Failed to open file as NetCDF dataset using GDAL")
-                
-                metadata = self._extract_netcdf_metadata(ds, extracted_file)
-                bbox = get_wgs84_extent(extracted_file)
-                ds = None
+            elif data_type == "3D_TILES":
+                metadata = {"format": "OBJ_OR_ZIP", "fileSize": os.path.getsize(input_file)}
+                if zipfile.is_zipfile(input_file):
+                    with zipfile.ZipFile(input_file, "r") as z:
+                        file_list = z.namelist()
+                        obj_files = [f for f in file_list if f.lower().endswith(".obj")]
+                        if not obj_files:
+                            raise RuntimeError("ZIP archive does not contain any .obj files")
+                        metadata["containedObjFile"] = obj_files[0]
+                elif input_file.lower().endswith(".obj"):
+                    metadata["containedObjFile"] = os.path.basename(input_file)
+                else:
+                    raise RuntimeError("Uploaded file must be a .obj file or a .zip archive containing a .obj model")
+
+            elif data_type == "CITYGML":
+                metadata = self._verify_citygml(input_file, work_dir)
 
             else:
                 raise RuntimeError("Unsupported data type for verification: {0}".format(data_type))
@@ -232,3 +238,37 @@ class VerifierProcessor(BaseProcessor):
                     clean_name = clean_name.split("_")[1]
                 found_bands[clean_name] = matches[0]
         return found_bands
+
+    def _verify_citygml(self, input_file: str, work_dir: str) -> Dict[str, Any]:
+        gml_file = input_file
+        if zipfile.is_zipfile(input_file):
+            extract_dir = os.path.join(work_dir, "gml_extracted")
+            os.makedirs(extract_dir, exist_ok=True)
+            with zipfile.ZipFile(input_file, "r") as z:
+                z.extractall(extract_dir)
+            gml_files = [
+                os.path.join(root, f)
+                for root, _, files in os.walk(extract_dir)
+                for f in files if f.lower().endswith((".gml", ".xml"))
+            ]
+            if not gml_files:
+                raise RuntimeError("ZIP archive does not contain any .gml or .xml CityGML files")
+            gml_file = gml_files[0]
+        elif not input_file.lower().endswith((".gml", ".xml")):
+            raise RuntimeError("Uploaded file must be a .gml, .xml file or a .zip archive containing CityGML data")
+
+        with open(gml_file, "r", encoding="utf-8", errors="ignore") as f:
+            header = f.read(500000)
+
+        srs_match = re.search(r'srsName=["\']([^"\']+)["\']', header, re.IGNORECASE)
+        srs_name = srs_match.group(1) if srs_match else "Unknown SRS"
+        
+        building_matches = re.findall(r'<[^:]+:Building\b|<Building\b', header, re.IGNORECASE)
+
+        return {
+            "format": "CityGML",
+            "gmlFile": os.path.basename(gml_file),
+            "srsName": srs_name,
+            "buildingCount": len(building_matches),
+            "fileSize": os.path.getsize(input_file)
+        }

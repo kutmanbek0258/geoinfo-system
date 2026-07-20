@@ -46,6 +46,18 @@
                   </template>
                   <v-list-item-title>Данные NetCDF</v-list-item-title>
                 </v-list-item>
+                <v-list-item @click="openUploadDialog('3D_TILES')">
+                  <template v-slot:prepend>
+                    <v-icon color="deep-purple">mdi-cube-outline</v-icon>
+                  </template>
+                  <v-list-item-title>3D Модель (3D Tiles)</v-list-item-title>
+                </v-list-item>
+                <v-list-item @click="openUploadDialog('CITYGML')">
+                  <template v-slot:prepend>
+                    <v-icon color="teal">mdi-office-building-map</v-icon>
+                  </template>
+                  <v-list-item-title>3D Городская модель (CityGML)</v-list-item-title>
+                </v-list-item>
               </v-list>
             </v-menu>
 
@@ -83,6 +95,18 @@
 
             <NetcdfImportDialog
               v-model="showNetcdfImport"
+              :job="selectedJob"
+              @imported="fetchJobs"
+            />
+
+            <Tiles3DImportDialog
+              v-model="showTiles3DImport"
+              :job="selectedJob"
+              @imported="fetchJobs"
+            />
+
+            <CityGmlImportDialog
+              v-model="showCityGmlImport"
               :job="selectedJob"
               @imported="fetchJobs"
             />
@@ -176,6 +200,8 @@ import LandsatImportDialog from './LandsatImportDialog.vue';
 import GeoTiffImportDialog from './GeoTiffImportDialog.vue';
 import TerrainImportDialog from './TerrainImportDialog.vue';
 import NetcdfImportDialog from './NetcdfImportDialog.vue';
+import Tiles3DImportDialog from './Tiles3DImportDialog.vue';
+import CityGmlImportDialog from './CityGmlImportDialog.vue';
 
 const store = useStore();
 
@@ -191,6 +217,8 @@ const showLandsatImport = ref(false);
 const showGeoTiffImport = ref(false);
 const showTerrainImport = ref(false);
 const showNetcdfImport = ref(false);
+const showTiles3DImport = ref(false);
+const showCityGmlImport = ref(false);
 
 const isLoadingJobs = ref(false);
 
@@ -239,6 +267,10 @@ const openImportDialog = (job: any) => {
     showTerrainImport.value = true;
   } else if (dataType === 'NETCDF') {
     showNetcdfImport.value = true;
+  } else if (dataType === '3D_TILES') {
+    showTiles3DImport.value = true;
+  } else if (dataType === 'CITYGML') {
+    showCityGmlImport.value = true;
   }
 };
 
@@ -280,6 +312,10 @@ const getTaskIcon = (taskType: string | undefined, dataType: string | undefined)
         return { icon: 'mdi-terrain', color: 'amber-darken-3', label: 'Terrain (Проверка...)' };
       case 'NETCDF':
         return { icon: 'mdi-file-chart', color: 'amber-darken-3', label: 'NetCDF (Проверка...)' };
+      case '3D_TILES':
+        return { icon: 'mdi-cube-outline', color: 'amber-darken-3', label: '3D Tiles (Проверка...)' };
+      case 'CITYGML':
+        return { icon: 'mdi-office-building-map', color: 'amber-darken-3', label: 'CityGML (Проверка...)' };
       default:
         return { icon: 'mdi-file-check-outline', color: 'amber-darken-3', label: 'Верификация...' };
     }
@@ -296,6 +332,10 @@ const getTaskIcon = (taskType: string | undefined, dataType: string | undefined)
       return { icon: 'mdi-terrain', color: 'brown', label: 'Terrain' };
     case 'NETCDF_COG':
       return { icon: 'mdi-file-chart', color: 'blue', label: 'NetCDF' };
+    case '3D_TILES':
+      return { icon: 'mdi-cube-outline', color: 'deep-purple', label: '3D Tiles' };
+    case 'CITYGML':
+      return { icon: 'mdi-office-building-map', color: 'teal', label: 'CityGML' };
     default:
       return { icon: 'mdi-file-cog', color: 'grey', label: 'Task' };
   }

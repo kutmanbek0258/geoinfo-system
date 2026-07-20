@@ -26,7 +26,14 @@ ENV PYTHONUNBUFFERED=1
 RUN pip3 install --no-cache-dir \
     kafka-python==2.0.2 \
     minio==7.1.15 \
-    importlib-metadata==6.7.0
+    importlib-metadata==6.7.0 \
+    py3dtiles \
+    trimesh \
+    pillow \
+    lxml \
+    mapbox-earcut \
+    shapely \
+    scipy==1.7.3
 
 WORKDIR /app
 

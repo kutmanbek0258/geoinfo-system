@@ -28,6 +28,7 @@ public class ProcessedLayersConsumer {
     private final ProjectRasterRepository projectRasterRepository;
     private final RasterLayerRepository rasterLayerRepository;
     private final TerrainLayerRepository terrainLayerRepository;
+    private final ThreeDTilesLayerRepository threeDTilesLayerRepository;
 
     @KafkaListener(topics = "geo.raster.processed",
                    containerFactory = "processedLayersListenerContainerFactory",
@@ -138,25 +139,50 @@ public class ProcessedLayersConsumer {
             String name = (String) payload.get("name");
             String terrainUrl = (String) payload.get("terrainUrl");
             String cogObjectKey = (String) payload.get("cogObjectKey");
+            String taskType = (String) payload.get("taskType");
 
-            TerrainLayer terrainLayer = null;
-            if (jobId != null) {
-                terrainLayer = terrainLayerRepository.findByJobId(jobId).orElse(null);
+            if ("3D_TILES".equals(taskType) || "CITYGML".equals(taskType)) {
+                String tilesetUrl = (String) payload.get("tilesetUrl");
+                String sourceObjectKey = (String) payload.get("sourceObjectKey");
+
+                ThreeDTilesLayer layer = null;
+                if (jobId != null) {
+                    layer = threeDTilesLayerRepository.findByJobId(jobId).orElse(null);
+                }
+                if (layer == null) {
+                    layer = new ThreeDTilesLayer();
+                }
+
+                layer.setJobId(jobId);
+                layer.setOutputPrefix(outputPrefix);
+                layer.setTitle(name);
+                layer.setTilesetUrl(tilesetUrl != null ? tilesetUrl : "/3dtiles/" + outputPrefix + "/tileset.json");
+                layer.setSourceObjectKey(sourceObjectKey);
+                layer.setStatus("READY");
+                layer.setIsVisible(true);
+
+                threeDTilesLayerRepository.save(layer);
+                log.info("Successfully saved/updated ThreeDTilesLayer for jobId: {}", jobId);
+            } else {
+                TerrainLayer terrainLayer = null;
+                if (jobId != null) {
+                    terrainLayer = terrainLayerRepository.findByJobId(jobId).orElse(null);
+                }
+                if (terrainLayer == null) {
+                    terrainLayer = new TerrainLayer();
+                }
+
+                terrainLayer.setJobId(jobId);
+                terrainLayer.setOutputPrefix(outputPrefix);
+                terrainLayer.setTitle(name);
+                terrainLayer.setTerrainUrl(terrainUrl);
+                terrainLayer.setCogObjectKey(cogObjectKey);
+                terrainLayer.setStatus("READY");
+                terrainLayer.setIsVisible(true);
+
+                terrainLayerRepository.save(terrainLayer);
+                log.info("Successfully saved/updated TerrainLayer for jobId: {}", jobId);
             }
-            if (terrainLayer == null) {
-                terrainLayer = new TerrainLayer();
-            }
-
-            terrainLayer.setJobId(jobId);
-            terrainLayer.setOutputPrefix(outputPrefix);
-            terrainLayer.setTitle(name);
-            terrainLayer.setTerrainUrl(terrainUrl);
-            terrainLayer.setCogObjectKey(cogObjectKey);
-            terrainLayer.setStatus("READY");
-            terrainLayer.setIsVisible(true);
-
-            terrainLayerRepository.save(terrainLayer);
-            log.info("Successfully saved/updated TerrainLayer for jobId: {}", jobId);
 
         } catch (Exception e) {
             log.error("Failed to process geo.terrain.processed event: {}", e.getMessage(), e);

@@ -145,7 +145,9 @@ const dataTypes = [
   { title: 'Снимки Landsat-8', value: 'LANDSAT_8' },
   { title: 'Файл GeoTIFF', value: 'GEOTIFF' },
   { title: '3D Рельеф (Terrain DEM)', value: 'TERRAIN' },
-  { title: 'Данные NetCDF', value: 'NETCDF' }
+  { title: 'Данные NetCDF', value: 'NETCDF' },
+  { title: '3D Модель (3D Tiles OBJ)', value: '3D_TILES' },
+  { title: '3D Городская модель CityGML (.gml, .xml)', value: 'CITYGML' }
 ];
 
 const currentDataType = computed(() => {
@@ -167,6 +169,10 @@ const fileInputLabel = computed(() => {
       return 'Выберите растр GeoTIFF (.tif, .tiff) или ZIP-архив';
     case 'NETCDF':
       return 'Выберите файл NetCDF (.nc, .nc4) или ZIP-архив';
+    case '3D_TILES':
+      return 'Выберите 3D-модель (.obj) или ZIP-архив (.zip)';
+    case 'CITYGML':
+      return 'Выберите файл CityGML (.gml, .xml) или ZIP-архив (.zip)';
     default:
       return 'Выберите файл';
   }
@@ -202,6 +208,10 @@ const fileRules = computed(() => {
           return ['.tif', '.tiff', '.zip'].includes(ext) || 'Разрешены только файлы .tif, .tiff или .zip';
         case 'NETCDF':
           return ['.nc', '.nc4', '.zip'].includes(ext) || 'Разрешены только файлы .nc, .nc4 или .zip';
+        case '3D_TILES':
+          return ['.obj', '.zip'].includes(ext) || 'Разрешены только файлы .obj или .zip';
+        case 'CITYGML':
+          return ['.gml', '.xml', '.zip'].includes(ext) || 'Разрешены только файлы .gml, .xml или .zip';
         default:
           return true;
       }

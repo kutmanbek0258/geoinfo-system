@@ -205,6 +205,23 @@ CREATE TABLE IF NOT EXISTS geodata.terrain_layers (
     last_modified_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- -------------------- 3D TILES LAYERS --------------------
+CREATE TABLE IF NOT EXISTS geodata.three_d_tiles_layers (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id             UUID,
+    output_prefix      VARCHAR(512),
+    title              VARCHAR(255) NOT NULL,
+    description        TEXT,
+    tileset_url        VARCHAR(512),
+    source_object_key   VARCHAR(512),
+    status             VARCHAR(50),
+    is_visible         BOOLEAN DEFAULT TRUE,
+    created_by         VARCHAR(255),
+    created_date       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_modified_by   VARCHAR(255),
+    last_modified_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- -------------------- TEMP ANALYSIS GEOMETRIES --------------------
 CREATE TABLE IF NOT EXISTS geodata.temp_analysis_geometries (
     id BIGSERIAL       PRIMARY KEY,

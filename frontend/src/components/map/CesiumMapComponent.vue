@@ -37,6 +37,12 @@
 
         <CesiumTerrainControl v-model="selectedTerrainId" :layers="terrainLayers" />
 
+        <Cesium3DTilesControl
+          :layers="threeDTilesLayers"
+          v-model:visibleIds="visible3DTilesIds"
+          @zoom="zoomTo3DTileset"
+        />
+
         <v-btn icon="mdi-magnify-scan" color="white" class="mb-2" elevation="2" @click="zoomToExtent" title="Zoom to extent">
           <v-icon color="primary">mdi-magnify-scan</v-icon>
         </v-btn>
@@ -270,12 +276,14 @@ import SearchComponent from '@/components/search/SearchComponent.vue';
 import GeoObjectTree from './GeoObjectTree.vue';
 import ProjectPropertiesDialog from '../projects/ProjectPropertiesDialog.vue';
 import ProjectProcessJobsManager from './ProjectProcessJobsManager.vue';
+import Cesium3DTilesControl from './controls/Cesium3DTilesControl.vue';
 
 import { useMapCommonState } from '@/composables/map/shared/useMapCommonState';
 import { useMapMetadata } from '@/composables/map/shared/useMapMetadata';
 import { useMapImport } from '@/composables/map/shared/useMapImport';
 import { useCesiumMvt } from '@/composables/map/cesium/useCesiumMvt';
 import { useCesiumImagery } from '@/composables/map/cesium/useCesiumImagery';
+import { useCesium3DTiles } from '@/composables/map/cesium/useCesium3DTiles';
 import { useCesiumInteractions } from '@/composables/map/cesium/useCesiumInteractions';
 import { useCesiumShotFrame } from '@/composables/map/cesium/useCesiumShotFrame';
 import AnalysisTasksPanel from './shared/AnalysisTasksPanel.vue';
@@ -373,6 +381,7 @@ const raiseLayers = () => {
 };
 
 const { visibleLayerIds, visibleGlobalRasterIds, layerOpacities, globalRasterOpacities, selectedTerrainId, setLayerOpacity, setGlobalRasterOpacity, toggleImageryLayer, clearImageryLayers } = useCesiumImagery(viewer, terrainLayers, raiseLayers);
+const { threeDTilesLayers, visible3DTilesIds, toggle3DTileset, zoomTo3DTileset } = useCesium3DTiles(viewer);
 
 const globalRasters = computed(() => store.state.geodata.globalRasters || []);
 
@@ -820,6 +829,7 @@ onMounted(() => {
   });
   viewer.value = v;
   v.scene.globe.depthTestAgainstTerrain = true;
+  store.dispatch('geodata/fetch3DTilesLayers');
 
   v.screenSpaceEventHandler.setInputAction(async (click: any) => {
     // NEW LOGIC FOR RASTER VALUE

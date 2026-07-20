@@ -2,6 +2,7 @@ import {
     ApertureIcon,
     MapIcon,
     MountainIcon,
+    BoxIcon,
     LayoutDashboardIcon, LoginIcon, MoodHappyIcon, UserPlusIcon, ReportIcon, SettingsAutomationIcon
 } from 'vue-tabler-icons';
 
@@ -42,6 +43,11 @@ const sidebarItem: menu[] = [
         title: 'Terrain layers',
         icon: MountainIcon,
         to: '/ui/terrain'
+    },
+    {
+        title: '3D Tiles layers',
+        icon: BoxIcon,
+        to: '/ui/3dtiles'
     },
     {
         title: 'Process Jobs',

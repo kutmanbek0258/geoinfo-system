@@ -31,8 +31,12 @@ public class KafkaConsumerService {
 
         if (event.getEventType() == GeoAbstractJobEvent.EventType.READY || event.getEventType() == GeoAbstractJobEvent.EventType.FAILED) {
             String terrainUrl = event.getTerrainUrl();
-            if (terrainUrl == null && event.getEventType() == GeoAbstractJobEvent.EventType.READY && "TERRAIN_MESH".equals(event.getTaskType())) {
-                terrainUrl = "/terrain/" + event.getOutputPrefix() + "/";
+            if (terrainUrl == null && event.getEventType() == GeoAbstractJobEvent.EventType.READY) {
+                if ("TERRAIN_MESH".equals(event.getTaskType())) {
+                    terrainUrl = "/terrain/" + event.getOutputPrefix() + "/";
+                } else if ("3D_TILES".equals(event.getTaskType()) || "CITYGML".equals(event.getTaskType())) {
+                    terrainUrl = "/3dtiles/" + event.getOutputPrefix() + "/tileset.json";
+                }
             }
 
             MultiPolygon bbox = null;

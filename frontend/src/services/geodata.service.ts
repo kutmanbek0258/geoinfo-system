@@ -1,5 +1,5 @@
 import api from './api';
-import type { Page, Project, ProjectPoint, ProjectMultiline, ProjectPolygon, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, Layer, ProjectRaster, RasterLayer, TerrainLayer } from '@/types/api';
+import type { Page, Project, ProjectPoint, ProjectMultiline, ProjectPolygon, GeoFolder, ProjectPointSummary, ProjectMultilineSummary, ProjectPolygonSummary, Layer, ProjectRaster, RasterLayer, TerrainLayer, ThreeDTilesLayer } from '@/types/api';
 
 class GeodataService {
     // --- Projects ---
@@ -194,6 +194,14 @@ class GeodataService {
     }
     deleteTerrainLayer(id: string) {
         return api.delete(`/geodata/terrain-layers/${id}`);
+    }
+
+    // --- 3D Tiles Layers ---
+    get3DTilesLayers(page = 0, size = 100) {
+        return api.get<Page<ThreeDTilesLayer>>('/geodata/3dtiles-layers', { params: { page, size } });
+    }
+    delete3DTilesLayer(id: string) {
+        return api.delete(`/geodata/3dtiles-layers/${id}`);
     }
 }
 

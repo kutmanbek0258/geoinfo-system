@@ -32,6 +32,7 @@ GDAL_CACHEMAX = os.getenv("GDAL_CACHEMAX", "2048")  # MB
 GDAL_WARP_SRS = os.getenv("GDAL_WARP_SRS", "EPSG:4326")
 
 BASE_DIR = os.getenv("TERRAIN_STORE", "/data/terrain-store")
+TILES_3D_BASE_DIR = os.getenv("TILES_3D_STORE", "/data/3dtiles-store")
 
 def log_config() -> None:
     logger.info("===== TERRAIN WORKER CONFIG =====")

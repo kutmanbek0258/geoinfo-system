@@ -27,6 +27,11 @@ const MainRoutes = {
             component: () => import('@/views/components/TerrainLayers.vue')
         },
         {
+            name: '3D Tiles layers',
+            path: '/ui/3dtiles',
+            component: () => import('@/views/components/ThreeDTilesLayers.vue')
+        },
+        {
             name: 'Process Jobs',
             path: '/ui/jobs',
             component: () => import('@/views/components/ProcessJobs.vue')
