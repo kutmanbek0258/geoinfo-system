@@ -104,4 +104,20 @@ public class ProjectRasterServiceImpl implements ProjectRasterService {
     public List<ProjectRasterDto> getByFolder(UUID folderId) {
         return rasterMapper.toDto(rasterRepository.findAllByFolderId(folderId));
     }
+
+    @Override
+    public List<ProjectRasterDto> getByProject(UUID projectId) {
+        return rasterMapper.toDto(rasterRepository.findAllByLayerProjectId(projectId));
+    }
+
+    @Override
+    public String generatePresignedUrl(UUID id) {
+        ProjectRaster raster = rasterRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("ProjectRaster not found: " + id));
+        if (raster.getCogObjectKey() == null) {
+            throw new RuntimeException("ProjectRaster has no cogObjectKey: " + id);
+        }
+        return fileStoreService.generateDownloadUrl(raster.getCogObjectKey());
+    }
 }
+

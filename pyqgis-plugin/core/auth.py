@@ -6,6 +6,7 @@ import requests
 from urllib.parse import urlencode, urlparse, parse_qs
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from qgis.core import QgsMessageLog, Qgis
+from .config import DEFAULT_SSO_URL, DEFAULT_DOMAIN
 
 class OAuth2CallbackHandler(BaseHTTPRequestHandler):
     """Temporary HTTP server to handle the OAuth2 callback."""
@@ -30,17 +31,19 @@ class OAuth2CallbackHandler(BaseHTTPRequestHandler):
         return
 
 class AuthService:
-    def __init__(self, base_url="http://sso.localhost", client_id="test-client", redirect_port=5678):
+
+    def __init__(self, base_url=DEFAULT_SSO_URL, client_id="test-client", redirect_port=5678):
         self.base_url = base_url.rstrip('/')
         self.client_id = client_id
         self.redirect_port = redirect_port
-        self.redirect_uri = f"http://localhost:{redirect_port}/code"
+        self.redirect_uri = f"http://{DEFAULT_DOMAIN}:{redirect_port}/code"
         # Basic auth header for test-client:test-client as seen in frontend
         self.auth_header_value = 'Basic dGVzdC1jbGllbnQ6dGVzdC1jbGllbnQ='
         self.access_token = None
         self.refresh_token = None
         self.id_token = None
         self.scopes = 'SSO.USER_PROFILE_INFO SSO.USER_AVATAR SSO.USER_IDENTIFICATION SSO.USER_AUTHORITIES'
+
 
     def _generate_pkce(self):
         """Generates Code Verifier and Code Challenge for PKCE."""

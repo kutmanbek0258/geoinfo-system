@@ -1,7 +1,9 @@
 import requests
 from qgis.core import QgsMessageLog, Qgis
+from .config import DEFAULT_SSO_HOST, DEFAULT_DOMAIN
 
 class GeoInfoAPIClient:
+
     def __init__(self, gateway_url, auth_service):
         self.gateway_url = gateway_url.rstrip('/')
         self.auth = auth_service
@@ -46,21 +48,46 @@ class GeoInfoAPIClient:
         except Exception:
             return []
 
+    def get_project_layers(self, project_id):
+        """Fetches logical layers for a specific project."""
+        url = f"{self.gateway_url}/geodata/layers/project/{project_id}"
+        try:
+            response = self._request('GET', url)
+            res_data = response.json()
+            if isinstance(res_data, list):
+                return res_data
+            elif isinstance(res_data, dict):
+                return res_data.get('content', [])
+            return []
+        except Exception:
+            return []
+
     def get_folders(self, project_id):
         """Fetches the folder structure for a specific project."""
         url = f"{self.gateway_url}/geodata/folders/project/{project_id}"
         try:
             response = self._request('GET', url)
-            return response.json()
+            res_data = response.json()
+            if isinstance(res_data, list):
+                return res_data
+            elif isinstance(res_data, dict):
+                return res_data.get('content', [])
+            return []
         except Exception:
             return []
+
 
     def get_points(self, project_id, page=0, size=1000):
         url = f"{self.gateway_url}/geodata/points/by-project-id/{project_id}"
         params = {'page': page, 'size': size}
         try:
             response = self._request('GET', url, params=params)
-            return response.json().get('content', [])
+            res_data = response.json()
+            if isinstance(res_data, list):
+                return res_data
+            elif isinstance(res_data, dict):
+                return res_data.get('content', [])
+            return []
         except Exception:
             return []
 
@@ -69,7 +96,12 @@ class GeoInfoAPIClient:
         params = {'page': page, 'size': size}
         try:
             response = self._request('GET', url, params=params)
-            return response.json().get('content', [])
+            res_data = response.json()
+            if isinstance(res_data, list):
+                return res_data
+            elif isinstance(res_data, dict):
+                return res_data.get('content', [])
+            return []
         except Exception:
             return []
 
@@ -78,18 +110,29 @@ class GeoInfoAPIClient:
         params = {'page': page, 'size': size}
         try:
             response = self._request('GET', url, params=params)
-            return response.json().get('content', [])
+            res_data = response.json()
+            if isinstance(res_data, list):
+                return res_data
+            elif isinstance(res_data, dict):
+                return res_data.get('content', [])
+            return []
         except Exception:
             return []
 
+
     def get_imagery_layers(self, page=0, size=100):
-        """Fetches available imagery layers."""
-        url = f"{self.gateway_url}/geo-abstraction/imagery-layer/page-query"
-        params = {'page': page, 'size': size}
+        """Fetches available global raster layers."""
+        url = f"{self.gateway_url}/geodata/raster-layers"
         try:
-            response = self._request('GET', url, params=params)
-            return response.json().get('content', [])
-        except Exception:
+            response = self._request('GET', url)
+            res_data = response.json()
+            if isinstance(res_data, list):
+                return res_data
+            elif isinstance(res_data, dict):
+                return res_data.get('content', [])
+            return []
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Error fetching raster layers: {str(e)}", "GeoInfoSystem", Qgis.Warning)
             return []
             
     def get_terrain_layers(self, page=0, size=100):
@@ -98,9 +141,30 @@ class GeoInfoAPIClient:
         params = {'page': page, 'size': size}
         try:
             response = self._request('GET', url, params=params)
-            return response.json().get('content', [])
+            res_data = response.json()
+            if isinstance(res_data, list):
+                return res_data
+            elif isinstance(res_data, dict):
+                return res_data.get('content', [])
+            return []
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Error fetching terrain layers: {str(e)}", "GeoInfoSystem", Qgis.Warning)
+            return []
+
+    def get_project_rasters_by_layer(self, layer_id):
+        """Fetches project rasters for a specific layer."""
+        url = f"{self.gateway_url}/geodata/project-rasters/layer/{layer_id}"
+        try:
+            response = self._request('GET', url)
+            res_data = response.json()
+            if isinstance(res_data, list):
+                return res_data
+            elif isinstance(res_data, dict):
+                return res_data.get('content', [])
+            return []
         except Exception:
             return []
+
 
     def get_terrain_layer_presigned_url(self, layer_id):
         """Requests a presigned URL for a specific terrain layer's COG."""
@@ -112,13 +176,24 @@ class GeoInfoAPIClient:
             return None
 
     def get_imagery_layer_presigned_url(self, layer_id):
-        """Requests a presigned URL for a specific imagery layer's COG."""
-        url = f"{self.gateway_url}/geo-abstraction/imagery-layer/{layer_id}/presigned-url"
+        """Requests a presigned URL for a specific raster layer's COG."""
+        url = f"{self.gateway_url}/geodata/raster-layers/{layer_id}/presigned-url"
         try:
             response = self._request('GET', url)
             return response.json().get('url')
         except Exception:
             return None
+
+    def get_project_raster_presigned_url(self, raster_id):
+        """Requests a presigned URL for a specific project raster's COG."""
+        url = f"{self.gateway_url}/geodata/project-rasters/{raster_id}/presigned-url"
+        try:
+            response = self._request('GET', url)
+            return response.json().get('url')
+        except Exception:
+            return None
+
+
 
     def get_upload_url_info(self, filename):
         """Requests a presigned URL and object key for direct S3 upload."""
@@ -134,13 +209,13 @@ class GeoInfoAPIClient:
         """Uploads a file using PUT method with progress tracking and io.BufferedReader."""
         import io
         import os
-        
+
         # Build full URL if relative
+
         if url.startswith('/'):
             base_url = self.gateway_url
-            # gateway_url might be http://localhost/api or http://sso.localhost/api
-            if 'sso.localhost' in base_url:
-                base_url = base_url.replace('sso.localhost', 'localhost')
+            if DEFAULT_SSO_HOST in base_url:
+                base_url = base_url.replace(DEFAULT_SSO_HOST, DEFAULT_DOMAIN)
             
             # Extract protocol and host
             if base_url.endswith('/api'):
@@ -150,6 +225,7 @@ class GeoInfoAPIClient:
             
             url = base_url.rstrip('/') + url
             QgsMessageLog.logMessage(f"GeoInfoSystem: Reconstructed absolute upload URL: {url}", "GeoInfoSystem", Qgis.Info)
+
 
         file_size = os.path.getsize(file_path)
         
@@ -188,23 +264,45 @@ class GeoInfoAPIClient:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Upload failed: {error_details}", "GeoInfoSystem", Qgis.Critical)
             return False
 
-    def confirm_raster_upload(self, name, object_key, file_size, task_type="RAW_GEOTIFF_OPTIMIZE", projectId=None):
-        """Confirms the upload to trigger backend processing."""
-        url = f"{self.gateway_url}/geo-abstraction/jobs/confirm"
+    def verify_upload(self, name, object_key, file_size, data_type, project_id=None):
+        """Registers uploaded file and triggers VERIFY_FILE task."""
+        url = f"{self.gateway_url}/geo-abstraction/jobs/verify-upload"
         params = {
             'name': name,
             'objectKey': object_key,
             'fileSize': file_size,
-            'taskType': task_type
+            'dataType': data_type
         }
-        if projectId:
-            params['projectId'] = projectId
+        if project_id:
+            params['projectId'] = project_id
             
         try:
             response = self._request('POST', url, params=params)
             return response.json()
-        except Exception:
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: verify_upload failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
             return None
+
+    def start_import(self, job_id, params):
+        """Starts final import processing for a verified job."""
+        url = f"{self.gateway_url}/geo-abstraction/jobs/{job_id}/import"
+        try:
+            response = self._request('POST', url, json=params)
+            return response.json()
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: start_import failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
+            return None
+
+    def confirm_raster_upload(self, name, object_key, file_size, task_type="RAW_GEOTIFF_OPTIMIZE", projectId=None):
+        """2-Step compatibility helper: verifier -> import."""
+        job = self.verify_upload(name, object_key, file_size, "GEOTIFF", project_id=projectId)
+        if not job:
+            return None
+        job_id = job.get('id')
+        if not job_id:
+            return None
+        return self.start_import(job_id, {"taskType": task_type})
+
 
     # --- Create / Update Methods ---
 

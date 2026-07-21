@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface ProjectRasterRepository extends JpaRepository<ProjectRaster, UUID> {
     List<ProjectRaster> findAllByLayerId(UUID layerId);
     List<ProjectRaster> findAllByFolderId(UUID folderId);
+    List<ProjectRaster> findAllByLayerProjectId(UUID projectId);
 }
+

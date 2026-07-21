@@ -46,4 +46,18 @@ public class ProjectRasterController {
     public ResponseEntity<List<ProjectRasterDto>> getByFolder(@PathVariable UUID folderId) {
         return ResponseEntity.ok(rasterService.getByFolder(folderId));
     }
+
+    @GetMapping("/project/{projectId}")
+    public ResponseEntity<List<ProjectRasterDto>> getByProject(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(rasterService.getByProject(projectId));
+    }
+
+    @GetMapping("/{id}/presigned-url")
+    public ResponseEntity<java.util.Map<String, String>> getPresignedUrl(@PathVariable UUID id) {
+        String url = rasterService.generatePresignedUrl(id);
+        java.util.Map<String, String> response = new java.util.HashMap<>();
+        response.put("url", url);
+        return ResponseEntity.ok(response);
+    }
 }
+

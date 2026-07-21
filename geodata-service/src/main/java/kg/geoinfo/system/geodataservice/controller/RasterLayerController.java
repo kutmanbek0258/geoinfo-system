@@ -41,4 +41,13 @@ public class RasterLayerController {
     public ResponseEntity<List<RasterLayerDto>> getAll() {
         return ResponseEntity.ok(layerService.getAll());
     }
+
+    @GetMapping("/{id}/presigned-url")
+    public ResponseEntity<java.util.Map<String, String>> getPresignedUrl(@PathVariable UUID id) {
+        String url = layerService.generatePresignedUrl(id);
+        java.util.Map<String, String> response = new java.util.HashMap<>();
+        response.put("url", url);
+        return ResponseEntity.ok(response);
+    }
 }
+

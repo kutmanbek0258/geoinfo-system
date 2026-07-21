@@ -13,6 +13,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+import kg.geoinfo.system.geodataservice.service.FileStoreService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -20,6 +29,7 @@ public class RasterLayerServiceImpl implements RasterLayerService {
 
     private final RasterLayerRepository repository;
     private final RasterLayerMapper mapper;
+    private final FileStoreService fileStoreService;
 
     @Override
     @Transactional
@@ -59,4 +69,15 @@ public class RasterLayerServiceImpl implements RasterLayerService {
     public List<RasterLayerDto> getAll() {
         return mapper.toDto(repository.findAll());
     }
+
+    @Override
+    public String generatePresignedUrl(UUID id) {
+        RasterLayer layer = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("RasterLayer not found: " + id));
+        if (layer.getCogObjectKey() == null) {
+            throw new RuntimeException("RasterLayer has no cogObjectKey: " + id);
+        }
+        return fileStoreService.generateDownloadUrl(layer.getCogObjectKey());
+    }
 }
+

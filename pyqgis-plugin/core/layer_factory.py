@@ -18,8 +18,10 @@ from qgis.core import (
     NULL
 )
 from PyQt5.QtCore import QVariant
+from .config import DEFAULT_DOMAIN, DEFAULT_SSO_HOST
 
 class LayerFactory:
+
     def __init__(self, api_client):
         self.api = api_client
 
@@ -127,19 +129,33 @@ class LayerFactory:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Layer ID missing for {title}", "GeoInfoSystem", Qgis.Critical)
             return None
 
-        # Request COG presigned URL
+        # Request COG presigned URL for terrain layer
         cog_url = self.api.get_terrain_layer_presigned_url(layer_id)
         if not cog_url:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Could not get COG URL for terrain layer {title}", "GeoInfoSystem", Qgis.Critical)
             return None
 
+        QgsMessageLog.logMessage(f"GeoInfoSystem: Raw Terrain COG URL received from API: {cog_url}", "GeoInfoSystem", Qgis.Info)
+
+        # Rewrite internal minio container URL to public Nginx /terrain/cog/ route only if internal minio:9000 is present
+        if 'minio:9000/geo-abstraction-input/terrain-cog/' in cog_url:
+            QgsMessageLog.logMessage("GeoInfoSystem: Internal minio:9000 detected in Terrain URL, rewriting to /terrain/cog/...", "GeoInfoSystem", Qgis.Info)
+            cog_url = cog_url.replace('http://minio:9000/geo-abstraction-input/terrain-cog/', '/terrain/cog/')
+            cog_url = cog_url.replace('https://minio:9000/geo-abstraction-input/terrain-cog/', '/terrain/cog/')
+        elif 'minio:9000' in cog_url:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Internal minio:9000 detected in Terrain URL, replacing with {DEFAULT_DOMAIN}:9000...", "GeoInfoSystem", Qgis.Info)
+            cog_url = cog_url.replace('http://minio:9000/', f'http://{DEFAULT_DOMAIN}:9000/')
+            cog_url = cog_url.replace('https://minio:9000/', f'https://{DEFAULT_DOMAIN}:9000/')
+        else:
+            QgsMessageLog.logMessage("GeoInfoSystem: minio:9000 is NOT present in Terrain URL. Keeping URL unchanged.", "GeoInfoSystem", Qgis.Info)
+
+
         # Build full URL if relative
         if cog_url.startswith('/'):
             base_url = self.api.gateway_url
-            # gateway_url might be http://localhost/api or http://sso.localhost/api
-            # We must ensure we use the host that handles /terrain/cog/ (default_server)
-            if 'sso.localhost' in base_url:
-                base_url = base_url.replace('sso.localhost', 'localhost')
+            if DEFAULT_SSO_HOST in base_url:
+                base_url = base_url.replace(DEFAULT_SSO_HOST, DEFAULT_DOMAIN)
+
                 
             if base_url.endswith('/api'):
                 base_url = base_url[:-4]
@@ -152,6 +168,7 @@ class LayerFactory:
             
         # Wrap in /vsicurl/ - NO literal quotes here
         vsi_url = f"/vsicurl/{cog_url}"
+
 
         QgsMessageLog.logMessage(f"GeoInfoSystem: Adding {title} as Raster Elevation layer. URI: {vsi_url}", "GeoInfoSystem", Qgis.Info)
         
@@ -194,19 +211,37 @@ class LayerFactory:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Layer ID missing for {title}", "GeoInfoSystem", Qgis.Critical)
             return None
 
-        # Request COG presigned URL for imagery layer
-        cog_url = self.api.get_imagery_layer_presigned_url(layer_id)
+        # Request COG presigned URL based on type
+        is_project_raster = (imagery_layer_data.get('type') == 'ProjectRaster')
+        if is_project_raster:
+            cog_url = self.api.get_project_raster_presigned_url(layer_id)
+        else:
+            cog_url = self.api.get_imagery_layer_presigned_url(layer_id)
+
         if not cog_url:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Could not get COG URL for imagery layer {title}", "GeoInfoSystem", Qgis.Critical)
             return None
 
+        QgsMessageLog.logMessage(f"GeoInfoSystem: Raw Imagery COG URL received from API: {cog_url}", "GeoInfoSystem", Qgis.Info)
+
+        # Rewrite internal minio container URL to public Nginx /imagery/cog/ route only if minio:9000 is present
+        if 'minio:9000/geo-abstraction-input/imagery-cog/' in cog_url:
+            QgsMessageLog.logMessage("GeoInfoSystem: Internal minio:9000 detected in Imagery URL, rewriting to /imagery/cog/...", "GeoInfoSystem", Qgis.Info)
+            cog_url = cog_url.replace('http://minio:9000/geo-abstraction-input/imagery-cog/', '/imagery/cog/')
+            cog_url = cog_url.replace('https://minio:9000/geo-abstraction-input/imagery-cog/', '/imagery/cog/')
+        elif 'minio:9000' in cog_url:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Internal minio:9000 detected in Imagery URL, replacing with {DEFAULT_DOMAIN}:9000...", "GeoInfoSystem", Qgis.Info)
+            cog_url = cog_url.replace('http://minio:9000/', f'http://{DEFAULT_DOMAIN}:9000/')
+            cog_url = cog_url.replace('https://minio:9000/', f'https://{DEFAULT_DOMAIN}:9000/')
+        else:
+            QgsMessageLog.logMessage("GeoInfoSystem: minio:9000 is NOT present in Imagery URL. Keeping URL unchanged.", "GeoInfoSystem", Qgis.Info)
+
+
         # Build full URL if relative
         if cog_url.startswith('/'):
             base_url = self.api.gateway_url
-            # gateway_url might be http://localhost/api or http://sso.localhost/api
-            # We must ensure we use the host that handles /imagery/cog/ (default_server)
-            if 'sso.localhost' in base_url:
-                base_url = base_url.replace('sso.localhost', 'localhost')
+            if DEFAULT_SSO_HOST in base_url:
+                base_url = base_url.replace(DEFAULT_SSO_HOST, DEFAULT_DOMAIN)
             
             if base_url.endswith('/api'):
                 base_url = base_url[:-4]
@@ -216,6 +251,8 @@ class LayerFactory:
                 base_url = base_url.split(':9005')[0]
                 
             cog_url = base_url.rstrip('/') + cog_url
+
+
             
         # Wrap in /vsicurl/ - NO literal quotes here as they break GDAL connection (Code 0)
         vsi_url = f"/vsicurl/{cog_url}"

@@ -10,4 +10,6 @@ public interface RasterLayerService {
     void delete(UUID id);
     RasterLayerDto getById(UUID id);
     List<RasterLayerDto> getAll();
+    String generatePresignedUrl(UUID id);
 }
+

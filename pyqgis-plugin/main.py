@@ -4,6 +4,7 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 from qgis.core import QgsMessageLog, Qgis
 
+from .core.config import DEFAULT_GATEWAY_URL, DEFAULT_SSO_URL
 from .core.auth import AuthService
 from .core.api_client import GeoInfoAPIClient
 from .core.layer_factory import LayerFactory
@@ -19,10 +20,9 @@ class GeoInfoSystemConnector:
         providers = QgsProviderRegistry.instance().providerList()
         QgsMessageLog.logMessage(f"GeoInfoSystem: Available providers: {', '.join(providers)}", "GeoInfoSystem", Qgis.Info)
         
-        # Initialize Services
-        # Default settings aligned with frontend and sso.localhost requirements
-        self.gateway_url = "http://localhost/api"
-        self.auth_url = "http://sso.localhost"
+        # Initialize Services using domain constants
+        self.gateway_url = DEFAULT_GATEWAY_URL
+        self.auth_url = DEFAULT_SSO_URL
         self.client_id = "test-client"
         
         self.auth = AuthService(self.auth_url, self.client_id)
@@ -30,6 +30,7 @@ class GeoInfoSystemConnector:
         self.layer_factory = LayerFactory(self.api)
         
         self.dock_widget = None
+
 
     def initGui(self):
         """Initializes the plugin UI."""

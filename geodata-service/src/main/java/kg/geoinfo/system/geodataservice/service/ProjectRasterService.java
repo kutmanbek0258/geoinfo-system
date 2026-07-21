@@ -11,4 +11,7 @@ public interface ProjectRasterService {
     ProjectRasterDto getById(UUID id);
     List<ProjectRasterDto> getByLayer(UUID layerId);
     List<ProjectRasterDto> getByFolder(UUID folderId);
+    List<ProjectRasterDto> getByProject(UUID projectId);
+    String generatePresignedUrl(UUID id);
 }
+

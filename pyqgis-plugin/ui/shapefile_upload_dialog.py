@@ -4,45 +4,46 @@ from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, 
     QComboBox, QPushButton, QLabel, 
     QLineEdit, QProgressBar, QMessageBox,
-    QApplication
+    QFileDialog, QApplication
 )
-from qgis.core import QgsProject, QgsRasterLayer, QgsMessageLog, Qgis
+from qgis.core import QgsProject, QgsMessageLog, Qgis
 
-class RasterUploadDialog(QDialog):
+class ShapefileUploadDialog(QDialog):
     def __init__(self, iface, api_client, parent=None):
         super().__init__(parent)
         self.iface = iface
         self.api = api_client
-        self.setWindowTitle("Upload Raster to GeoInfoSystem")
-        self.setMinimumWidth(450)
+        self.setWindowTitle("Upload Shapefile Archive (.zip) to GeoInfoSystem")
+        self.setMinimumWidth(480)
 
         self.layout = QVBoxLayout(self)
 
         # Instructions
-        self.layout.addWidget(QLabel("Upload a local GeoTIFF layer as an Imagery Layer (COG)."))
+        self.layout.addWidget(QLabel("Upload a local Shapefile ZIP package to convert and import into project layers."))
         self.layout.addSpacing(10)
 
-        # Project Selection
-        self.layout.addWidget(QLabel("Associate with Project (Optional):"))
+        # Target Project Selection (Required)
+        self.layout.addWidget(QLabel("Target Project (Required):"))
         self.project_combo = QComboBox()
-        self.project_combo.addItem("--- Global / No Project ---", None)
         self.populate_projects()
         self.layout.addWidget(self.project_combo)
 
-        # Layer Selection
-        self.layout.addWidget(QLabel("Select Raster Layer from Map:"))
-        self.layer_combo = QComboBox()
-        self.populate_layers()
-        self.layout.addWidget(self.layer_combo)
+        # File Selection
+        self.layout.addWidget(QLabel("Select Shapefile ZIP Archive (.zip):"))
+        file_layout = QHBoxLayout()
+        self.file_edit = QLineEdit()
+        self.file_edit.setPlaceholderText("Select .zip archive containing .shp, .dbf, .shx...")
+        file_layout.addWidget(self.file_edit)
+
+        self.browse_btn = QPushButton("Browse...")
+        self.browse_btn.clicked.connect(self.browse_file)
+        file_layout.addWidget(self.browse_btn)
+        self.layout.addLayout(file_layout)
 
         # Display Name
         self.layout.addWidget(QLabel("Layer Name (Display in System):"))
         self.name_edit = QLineEdit()
         self.layout.addWidget(self.name_edit)
-        
-        # Connect combo change to update name
-        self.layer_combo.currentIndexChanged.connect(self.on_layer_changed)
-        self.on_layer_changed()
 
         self.layout.addSpacing(10)
 
@@ -59,7 +60,7 @@ class RasterUploadDialog(QDialog):
 
         # Buttons
         btns = QHBoxLayout()
-        self.upload_btn = QPushButton("Start Upload")
+        self.upload_btn = QPushButton("Start Upload & Import")
         self.upload_btn.setStyleSheet("font-weight: bold; padding: 5px;")
         self.upload_btn.clicked.connect(self.start_upload)
         btns.addWidget(self.upload_btn)
@@ -76,53 +77,41 @@ class RasterUploadDialog(QDialog):
             for p in projects:
                 self.project_combo.addItem(p.get('name', 'Unnamed Project'), p.get('id'))
         except Exception as e:
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to fetch projects for upload dialog: {str(e)}", "GeoInfoSystem", Qgis.Warning)
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to fetch projects: {str(e)}", "GeoInfoSystem", Qgis.Warning)
 
-    def populate_layers(self):
-        layers = QgsProject.instance().mapLayers().values()
-        raster_layers_found = False
-        for layer in layers:
-            if isinstance(layer, QgsRasterLayer):
-                # Try to filter only file-based layers
-                source = layer.source()
-                if os.path.exists(source):
-                    self.layer_combo.addItem(layer.name(), layer.id())
-                    raster_layers_found = True
-        
-        if not raster_layers_found:
-            self.upload_btn.setEnabled(False)
-            self.layout.addWidget(QLabel("<font color='red'>No local raster layers found in project.</font>"))
-
-    def on_layer_changed(self):
-        self.name_edit.setText(self.layer_combo.currentText())
+    def browse_file(self):
+        filename, _ = QFileDialog.getOpenFileName(self, "Select Shapefile ZIP Archive", "", "ZIP Archives (*.zip)")
+        if filename:
+            self.file_edit.setText(filename)
+            if not self.name_edit.text().strip():
+                base_name = os.path.splitext(os.path.basename(filename))[0]
+                self.name_edit.setText(base_name)
 
     def start_upload(self):
-        layer_id = self.layer_combo.currentData()
-        if not layer_id:
+        source_path = self.file_edit.text().strip()
+        if not source_path or not os.path.exists(source_path):
+            QMessageBox.warning(self, "Validation Failed", "Please select a valid .zip Shapefile archive.")
             return
 
-        layer = QgsProject.instance().mapLayer(layer_id)
-        if not layer:
+        if not source_path.lower().endswith('.zip'):
+            QMessageBox.warning(self, "Validation Failed", "Only .zip archives containing Shapefile components are supported.")
             return
 
-        source_path = layer.source()
-        if not os.path.exists(source_path):
-            QMessageBox.critical(self, "Error", f"Source file not found: {source_path}")
-            return
-
-        # Explicit GeoTIFF validation
-        if not (source_path.lower().endswith('.tif') or source_path.lower().endswith('.tiff')):
-            QMessageBox.warning(self, "Validation Failed", "The selected layer source is not a GeoTIFF file. Only .tif and .tiff are supported.")
+        project_id = self.project_combo.currentData()
+        if not project_id:
+            QMessageBox.warning(self, "Validation Failed", "Vectors must be imported into a target project. Please select a project.")
             return
 
         name = self.name_edit.text().strip()
         if not name:
-            QMessageBox.warning(self, "Validation Failed", "Please provide a name for the imagery layer.")
+            QMessageBox.warning(self, "Validation Failed", "Please provide a name for the layer.")
             return
 
         # Prepare UI
         self.upload_btn.setEnabled(False)
-        self.layer_combo.setEnabled(False)
+        self.browse_btn.setEnabled(False)
+        self.file_edit.setEnabled(False)
+        self.project_combo.setEnabled(False)
         self.name_edit.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.progress_label.setVisible(True)
@@ -132,8 +121,6 @@ class RasterUploadDialog(QDialog):
 
         try:
             filename = os.path.basename(source_path)
-            project_id = self.project_combo.currentData()
-            
             upload_info = self.api.get_upload_url_info(filename)
             if not upload_info:
                 raise Exception("API Error: Could not obtain presigned upload URL.")
@@ -149,40 +136,43 @@ class RasterUploadDialog(QDialog):
                 self.progress_label.setText(f"Uploading: {percent}% ({current // 1024} / {total // 1024} KB)")
                 QApplication.processEvents()
 
-            # Upload using the new API client method (io.BufferedReader inside)
             success = self.api.upload_file(url, source_path, progress_cb)
             if not success:
                 raise Exception("Transfer Error: File upload to storage failed.")
 
-            self.progress_label.setText("Upload complete. Registering layer in system...")
+            self.progress_label.setText("Upload complete. Verifying Shapefile...")
             QApplication.processEvents()
 
             file_size = os.path.getsize(source_path)
-            # 2-Step Verify & Import
-            job = self.api.verify_upload(name, object_key, file_size, "GEOTIFF", project_id=project_id)
+            
+            # 1. Verify
+            job = self.api.verify_upload(name, object_key, file_size, "SHAPEFILE", project_id=project_id)
             if not job or not job.get('id'):
-                raise Exception("API Error: Upload verification failed.")
+                raise Exception("API Error: Shapefile verification failed.")
 
             job_id = job.get('id')
-            confirm_res = self.api.start_import(job_id, {"taskType": "RAW_GEOTIFF_OPTIMIZE"})
+
+            # 2. Trigger SHAPEFILE_TO_GEOJSON import
+            confirm_res = self.api.start_import(job_id, {"taskType": "SHAPEFILE_TO_GEOJSON"})
             
             if confirm_res:
                 QMessageBox.information(self, "Success", 
-                    f"Raster '{name}' uploaded successfully!\n\n"
-                    "The system has started COG optimization and TiTiler publishing. "
-                    "The layer will appear in the system after background processing completes.")
+                    f"Shapefile archive '{name}' uploaded successfully!\n\n"
+                    "Background worker will convert features to GeoJSON WGS84 and "
+                    "ingest them into project layers. Refresh project tree after a few moments.")
                 self.accept()
             else:
-                raise Exception("API Error: Upload import task creation failed.")
-
+                raise Exception("API Error: Shapefile import task creation failed.")
 
         except Exception as e:
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Raster upload failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
-            QMessageBox.critical(self, "Upload Failed", f"An error occurred during upload:\n{str(e)}")
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Shapefile upload failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
+            QMessageBox.critical(self, "Upload Failed", f"An error occurred during Shapefile upload:\n{str(e)}")
             
             # Reset UI
             self.upload_btn.setEnabled(True)
-            self.layer_combo.setEnabled(True)
+            self.browse_btn.setEnabled(True)
+            self.file_edit.setEnabled(True)
+            self.project_combo.setEnabled(True)
             self.name_edit.setEnabled(True)
             self.progress_bar.setVisible(False)
             self.progress_label.setVisible(False)
