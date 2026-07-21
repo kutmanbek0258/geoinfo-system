@@ -141,6 +141,7 @@ const uploadStatusText = ref('');
 const uploadError = ref('');
 
 const dataTypes = [
+  { title: 'Векторные данные Shapefile (.zip)', value: 'SHAPEFILE' },
   { title: 'Снимки Sentinel-2', value: 'SENTINEL_2' },
   { title: 'Снимки Landsat-8', value: 'LANDSAT_8' },
   { title: 'Файл GeoTIFF', value: 'GEOTIFF' },
@@ -161,6 +162,8 @@ const dataTypeLabel = computed(() => {
 
 const fileInputLabel = computed(() => {
   switch (currentDataType.value) {
+    case 'SHAPEFILE':
+      return 'Выберите ZIP-архив с Shapefile (.zip)';
     case 'SENTINEL_2':
     case 'LANDSAT_8':
       return 'Выберите архив со снимками (.zip, .tar, .tar.gz)';
@@ -212,6 +215,8 @@ const fileRules = computed(() => {
           return ['.obj', '.zip'].includes(ext) || 'Разрешены только файлы .obj или .zip';
         case 'CITYGML':
           return ['.gml', '.xml', '.zip'].includes(ext) || 'Разрешены только файлы .gml, .xml или .zip';
+        case 'SHAPEFILE':
+          return ['.zip'].includes(ext) || 'Разрешены только файлы .zip';
         default:
           return true;
       }

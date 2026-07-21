@@ -35,7 +35,14 @@
                     </template>
                     <v-list-item-title>Снимки Landsat-8</v-list-item-title>
                   </v-list-item>
+                  <v-list-item @click="openUploadDialog('SHAPEFILE')">
+                    <template v-slot:prepend>
+                      <v-icon color="deep-orange">mdi-shape-polygon-plus</v-icon>
+                    </template>
+                    <v-list-item-title>Векторный Shapefile (.zip)</v-list-item-title>
+                  </v-list-item>
                   <v-list-item @click="openUploadDialog('GEOTIFF')">
+
                     <template v-slot:prepend>
                       <v-icon color="teal">mdi-file-image</v-icon>
                     </template>
@@ -61,11 +68,17 @@
           />
 
           <!-- Import Dialogs -->
+          <ShapefileImportDialog
+            v-model="showShapefileImport"
+            :job="selectedJob"
+            @imported="onImported"
+          />
           <SentinelImportDialog
             v-model="showSentinelImport"
             :job="selectedJob"
             @imported="onImported"
           />
+
           <LandsatImportDialog
             v-model="showLandsatImport"
             :job="selectedJob"
@@ -170,6 +183,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import type { TerrainJob } from '@/types/api';
 import GeodataUploadDialog from '../geo-abstraction/GeodataUploadDialog.vue';
+import ShapefileImportDialog from '../geo-abstraction/ShapefileImportDialog.vue';
 import SentinelImportDialog from '../geo-abstraction/SentinelImportDialog.vue';
 import LandsatImportDialog from '../geo-abstraction/LandsatImportDialog.vue';
 import GeoTiffImportDialog from '../geo-abstraction/GeoTiffImportDialog.vue';
@@ -186,6 +200,7 @@ const showUploadDialog = ref(false);
 const uploadDataType = ref('');
 
 const selectedJob = ref<any>(null);
+const showShapefileImport = ref(false);
 const showSentinelImport = ref(false);
 const showLandsatImport = ref(false);
 const showGeoTiffImport = ref(false);
@@ -229,7 +244,9 @@ const openImportDialog = (job: any) => {
   selectedJob.value = job;
   const dataType = job.characteristics?.dataType;
   
-  if (dataType === 'SENTINEL_2') {
+  if (dataType === 'SHAPEFILE') {
+    showShapefileImport.value = true;
+  } else if (dataType === 'SENTINEL_2') {
     showSentinelImport.value = true;
   } else if (dataType === 'LANDSAT_8') {
     showLandsatImport.value = true;
@@ -241,6 +258,7 @@ const openImportDialog = (job: any) => {
 };
 
 const getJobStatusLabel = (status: string) => {
+
   switch (status?.toUpperCase()) {
     case 'READY': return 'Готов';
     case 'FAILED': return 'Ошибка';
@@ -267,6 +285,8 @@ const getJobStatusColor = (status: string) => {
 const getTaskIcon = (taskType: string | undefined, dataType: string | undefined) => {
   if (taskType === 'VERIFY_FILE' || !taskType) {
     switch (dataType) {
+      case 'SHAPEFILE':
+        return { icon: 'mdi-shape-polygon-plus', color: 'deep-orange', label: 'Shapefile (Проверка...)' };
       case 'SENTINEL_2':
         return { icon: 'mdi-satellite-variant', color: 'amber-darken-3', label: 'Sentinel-2 (Проверка...)' };
       case 'LANDSAT_8':
@@ -281,6 +301,8 @@ const getTaskIcon = (taskType: string | undefined, dataType: string | undefined)
   }
 
   switch (taskType) {
+    case 'SHAPEFILE_TO_GEOJSON':
+      return { icon: 'mdi-shape-polygon-plus', color: 'deep-orange', label: 'Shapefile' };
     case 'SENTINEL_COG':
       return { icon: 'mdi-satellite-variant', color: 'primary', label: 'Sentinel-2' };
     case 'LANDSAT_COG':
@@ -293,6 +315,7 @@ const getTaskIcon = (taskType: string | undefined, dataType: string | undefined)
       return { icon: 'mdi-file-cog', color: 'grey', label: 'Task' };
   }
 };
+
 
 const startPolling = () => {
   if (pollingInterval) return;

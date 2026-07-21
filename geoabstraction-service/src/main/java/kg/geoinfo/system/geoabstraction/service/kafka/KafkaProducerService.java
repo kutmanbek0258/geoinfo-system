@@ -14,4 +14,6 @@ public interface KafkaProducerService {
     void sendVectorExportRequest(GeoVectorExportRequest request);
     void sendRasterProcessedEvent(Map<String, Object> payload);
     void sendTerrainProcessedEvent(Map<String, Object> payload);
+    void sendVectorProcessedEvent(Map<String, Object> payload);
 }
+

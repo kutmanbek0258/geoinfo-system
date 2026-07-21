@@ -33,6 +33,7 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
                 "RAW_GEOTIFF_OPTIMIZE".equals(event.getTaskType()) ||
                 "NETCDF_COG".equals(event.getTaskType()) ||
                 "VERIFY_FILE".equals(event.getTaskType()) ||
+                "SHAPEFILE_TO_GEOJSON".equals(event.getTaskType()) ||
                 "TERRAIN_COG".equals(event.getTaskType())) {
                 topic = RASTER_TOPIC;
             }
@@ -106,6 +107,18 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
             log.info("Sent terrain processed event to topic geo.terrain.processed: {}", key);
         } catch (Exception e) {
             log.error("Error sending terrain processed event: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendVectorProcessedEvent(Map<String, Object> payload) {
+        try {
+            Object id = payload.get("id");
+            String key = id != null ? id.toString() : java.util.UUID.randomUUID().toString();
+            kafkaTemplate.send("geo.vector.processed", key, payload);
+            log.info("Sent vector processed event to topic geo.vector.processed: {}", key);
+        } catch (Exception e) {
+            log.error("Error sending vector processed event: {}", e.getMessage());
         }
     }
 }

@@ -302,6 +302,8 @@ const getTaskIcon = (taskType: string | undefined, dataType: string | undefined)
   // If verifying, we check the dataType parameter
   if (taskType === 'VERIFY_FILE' || !taskType) {
     switch (dataType) {
+      case 'SHAPEFILE':
+        return { icon: 'mdi-shape-polygon-plus', color: 'amber-darken-3', label: 'Shapefile (Проверка...)' };
       case 'SENTINEL_2':
         return { icon: 'mdi-satellite-variant', color: 'amber-darken-3', label: 'Sentinel-2 (Проверка...)' };
       case 'LANDSAT_8':
@@ -322,6 +324,8 @@ const getTaskIcon = (taskType: string | undefined, dataType: string | undefined)
   }
 
   switch (taskType) {
+    case 'SHAPEFILE_TO_GEOJSON':
+      return { icon: 'mdi-shape-polygon-plus', color: 'deep-orange', label: 'Shapefile' };
     case 'SENTINEL_COG':
       return { icon: 'mdi-satellite-variant', color: 'primary', label: 'Sentinel-2' };
     case 'LANDSAT_COG':

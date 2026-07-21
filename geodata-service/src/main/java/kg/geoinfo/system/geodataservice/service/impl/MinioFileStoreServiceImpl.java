@@ -74,4 +74,20 @@ public class MinioFileStoreServiceImpl implements FileStoreService {
             throw new RuntimeException("MinIO URL generation failed", e);
         }
     }
+
+    @Override
+    public InputStream getFileStream(String bucket, String key) {
+        try {
+            return minioClient.getObject(
+                    io.minio.GetObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(key)
+                            .build()
+            );
+        } catch (Exception e) {
+            log.error("Failed to get file stream from MinIO: bucket={}, key={}, error={}", bucket, key, e.getMessage());
+            throw new RuntimeException("MinIO stream fetch failed", e);
+        }
+    }
 }
+

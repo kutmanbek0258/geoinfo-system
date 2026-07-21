@@ -407,8 +407,24 @@ public class GeoAbstractionServiceImpl implements GeoAbstractionService {
             }
         }
 
+        if (jobStatus == GeoAbstractJobStatus.READY && "SHAPEFILE_TO_GEOJSON".equals(job.getTaskType())) {
+            Map<String, Object> vectorPayload = new HashMap<>();
+            UUID projectId = job.getProjectId();
+            vectorPayload.put("id", job.getId().toString());
+            vectorPayload.put("projectId", projectId != null ? projectId.toString() : null);
+            if (job.getCharacteristics() != null) {
+                vectorPayload.put("folderId", job.getCharacteristics().get("folderId"));
+            }
+            vectorPayload.put("layerName", job.getName());
+            vectorPayload.put("geojsonObjectKey", cogObjectKey);
+            vectorPayload.put("crs", job.getCrs() != null ? job.getCrs() : "EPSG:4326");
+            vectorPayload.put("characteristics", job.getCharacteristics());
+            kafkaProducerService.sendVectorProcessedEvent(vectorPayload);
+        }
+
         if (jobStatus == GeoAbstractJobStatus.READY && 
            ("SENTINEL_COG".equals(job.getTaskType()) || "LANDSAT_COG".equals(job.getTaskType()) || "NETCDF_COG".equals(job.getTaskType()) || "RAW_GEOTIFF_OPTIMIZE".equals(job.getTaskType()))) {
+
             
             String layerName = job.getOutputPrefix();
             

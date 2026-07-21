@@ -5,6 +5,7 @@ from .landsat8 import Landsat8Processor
 from .raw_raster import RawRasterProcessor
 from .verifier import VerifierProcessor
 from .netcdf import NetcdfProcessor
+from .shapefile import ShapefileProcessor
 
 def get_processor(task_type: str, producer: KafkaProducer) -> BaseProcessor:
     if task_type == "SENTINEL_COG":
@@ -15,6 +16,9 @@ def get_processor(task_type: str, producer: KafkaProducer) -> BaseProcessor:
         return RawRasterProcessor(producer)
     elif task_type == "NETCDF_COG":
         return NetcdfProcessor(producer)
+    elif task_type == "SHAPEFILE_TO_GEOJSON":
+        return ShapefileProcessor(producer)
     elif task_type == "VERIFY_FILE":
         return VerifierProcessor(producer)
     return None
+

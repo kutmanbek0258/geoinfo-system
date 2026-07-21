@@ -7,4 +7,6 @@ public interface FileStoreService {
     void deleteFile(String bucket, String key);
     String generateDownloadUrl(String objectKey);
     String generateDownloadUrl(String bucket, String objectKey);
+    InputStream getFileStream(String bucket, String key);
 }
+

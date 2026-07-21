@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import kg.geoinfo.system.geodataservice.service.VectorIngestionService;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,11 +31,26 @@ public class ProcessedLayersConsumer {
     private final RasterLayerRepository rasterLayerRepository;
     private final TerrainLayerRepository terrainLayerRepository;
     private final ThreeDTilesLayerRepository threeDTilesLayerRepository;
+    private final VectorIngestionService vectorIngestionService;
+
+    @KafkaListener(topics = "geo.vector.processed",
+                   containerFactory = "processedLayersListenerContainerFactory",
+                   groupId = "${spring.kafka.consumer.group-id:geodata-service-processed-vector-group}")
+    public void listenVectorProcessed(Map<String, Object> payload) {
+        log.info("Received geo.vector.processed event: {}", payload);
+        try {
+            vectorIngestionService.processVectorImport(payload);
+        } catch (Exception e) {
+            log.error("Failed to process geo.vector.processed event: {}", e.getMessage(), e);
+            throw new RuntimeException("Error processing geo.vector.processed event", e);
+        }
+    }
 
     @KafkaListener(topics = "geo.raster.processed",
                    containerFactory = "processedLayersListenerContainerFactory",
                    groupId = "${spring.kafka.consumer.group-id:geodata-service-processed-raster-group}")
     public void listenRasterProcessed(Map<String, Object> payload) {
+
         log.info("Received geo.raster.processed event: {}", payload);
         try {
             UUID id = UUID.fromString((String) payload.get("id"));

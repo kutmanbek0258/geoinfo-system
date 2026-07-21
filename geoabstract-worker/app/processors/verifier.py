@@ -115,8 +115,31 @@ class VerifierProcessor(BaseProcessor):
             elif data_type == "CITYGML":
                 metadata = self._verify_citygml(input_file, work_dir)
 
+            elif data_type == "SHAPEFILE":
+                from osgeo import ogr
+                vsi_path = f"/vsizip/{input_file}"
+                ds = ogr.Open(vsi_path)
+                if not ds:
+                    raise RuntimeError("Uploaded ZIP archive is not a valid Shapefile package")
+                total_features = 0
+                layer_names = []
+                geom_types = set()
+                for i in range(ds.GetLayerCount()):
+                    layer = ds.GetLayerByIndex(i)
+                    total_features += layer.GetFeatureCount()
+                    layer_names.append(layer.GetName())
+                    geom_type_code = layer.GetGeomType()
+                    geom_types.add(ogr.GeometryTypeToName(geom_type_code))
+                
+                metadata["totalFeatures"] = total_features
+                metadata["layerNames"] = layer_names
+                metadata["geomTypes"] = list(geom_types)
+                metadata["format"] = "SHAPEFILE_ZIP"
+                ds = None
+
             else:
                 raise RuntimeError("Unsupported data type for verification: {0}".format(data_type))
+
 
             # Send back READY with characteristics containing metadata
             self.send_status(
