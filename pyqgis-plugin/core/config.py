@@ -1,0 +1,10 @@
+# System Domain & Connectivity Constants
+
+DEFAULT_DOMAIN = "localhost"
+
+# Derived URLs and Hosts
+DEFAULT_SSO_HOST = f"sso.{DEFAULT_DOMAIN}"
+DEFAULT_SSO_URL = f"http://{DEFAULT_SSO_HOST}"
+DEFAULT_GATEWAY_URL = f"http://{DEFAULT_DOMAIN}/api"
+DEFAULT_PUBLIC_BASE_URL = f"http://{DEFAULT_DOMAIN}"
+DEFAULT_MINIO_PUBLIC_URL = f"http://{DEFAULT_DOMAIN}:9000"
