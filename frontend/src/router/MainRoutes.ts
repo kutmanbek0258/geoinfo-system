@@ -37,6 +37,11 @@ const MainRoutes = {
             component: () => import('@/views/components/ProcessJobs.vue')
         },
         {
+            name: 'Interpolation styles',
+            path: '/ui/styles',
+            component: () => import('@/views/components/RasterStyles.vue')
+        },
+        {
             name: 'Icons',
             path: '/icons',
             component: () => import('@/views/pages/Icons.vue')

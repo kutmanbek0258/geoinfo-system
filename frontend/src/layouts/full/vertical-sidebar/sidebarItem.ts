@@ -3,7 +3,8 @@ import {
     MapIcon,
     MountainIcon,
     BoxIcon,
-    LayoutDashboardIcon, LoginIcon, MoodHappyIcon, UserPlusIcon, ReportIcon, SettingsAutomationIcon
+    LayoutDashboardIcon, LoginIcon, MoodHappyIcon, UserPlusIcon, ReportIcon, SettingsAutomationIcon,
+    PaletteIcon
 } from 'vue-tabler-icons';
 
 export interface menu {
@@ -48,6 +49,11 @@ const sidebarItem: menu[] = [
         title: '3D Tiles layers',
         icon: BoxIcon,
         to: '/ui/3dtiles'
+    },
+    {
+        title: 'Interpolation styles',
+        icon: PaletteIcon,
+        to: '/ui/styles'
     },
     {
         title: 'Process Jobs',
