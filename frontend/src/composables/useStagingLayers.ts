@@ -21,12 +21,34 @@ const stagingStyle = new Style({
     }),
 });
 
-type StagingLayerMeta = { taskId: string; type: string; url: string; s3Url?: string; interpolation?: string; colormap?: string; styleId?: string | null; colormapId?: string | null; label: string };
+type StagingLayerMeta = {
+    taskId: string;
+    type: string;
+    url: string;
+    s3Url?: string;
+    interpolation?: string;
+    colormap?: string;
+    styleId?: string | null;
+    colormapId?: string | null;
+    rescaleMin?: number | null;
+    rescaleMax?: number | null;
+    label: string;
+};
 
-function buildTiTilerUrl(s3Url: string, interpolation: string, colormap?: string, colormapId?: string | null): string {
+function buildTiTilerUrl(
+    s3Url: string,
+    interpolation: string,
+    colormap?: string,
+    colormapId?: string | null,
+    rescaleMin?: number | null,
+    rescaleMax?: number | null
+): string {
     let url = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}`;
     if (colormapId) {
         url += `&colormap_name=${colormapId}&resampling=${interpolation}`;
+        if (rescaleMin !== undefined && rescaleMin !== null && rescaleMax !== undefined && rescaleMax !== null) {
+            url += `&rescale=${rescaleMin},${rescaleMax}`;
+        }
     } else {
         url += `&resampling=${interpolation}`;
         if (colormap) {
@@ -95,7 +117,7 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
             if (existingLayer) {
                 if (sl.type === 'RASTER' && sl.s3Url) {
                     const currentSource = (existingLayer as any).getSource() as XYZ;
-                    const newTileUrl = buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId);
+                    const newTileUrl = buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId, sl.rescaleMin, sl.rescaleMax);
                     if (currentSource) {
                         const urls = currentSource.getUrls();
                         if (!urls || !urls.includes(newTileUrl)) {
@@ -116,7 +138,7 @@ export function useStagingLayers(mapOrRef: OlMap | Ref<OlMap | null>) {
                 olMap.addLayer(olLayer);
                 layerRegistry[sl.taskId] = olLayer;
              } else if (sl.type === 'RASTER') {
-                const tileUrl = sl.s3Url ? buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId) : sl.url;
+                const tileUrl = sl.s3Url ? buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId, sl.rescaleMin, sl.rescaleMax) : sl.url;
                 const olLayer = buildRasterLayer(tileUrl, sl.label);
                 olLayer.setVisible(isVisible);
                 olMap.addLayer(olLayer);

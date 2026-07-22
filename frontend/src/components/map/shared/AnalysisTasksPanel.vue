@@ -149,6 +149,30 @@
               class="style-select mb-1"
               @update:model-value="changeStagingColormapId(task.id, $event)"
             />
+
+            <div v-if="getUseTiTilerColormap(task.id)" class="d-flex align-center mb-1" style="max-width: 190px;">
+              <v-text-field
+                :model-value="getStagingLayer(task.id)?.rescaleMin ?? ''"
+                label="Rescale Min"
+                type="number"
+                density="compact"
+                variant="outlined"
+                hide-details
+                style="font-size: 11px;"
+                class="mr-2"
+                @update:model-value="val => changeStagingRescale(task.id, 'min', val)"
+              />
+              <v-text-field
+                :model-value="getStagingLayer(task.id)?.rescaleMax ?? ''"
+                label="Rescale Max"
+                type="number"
+                density="compact"
+                variant="outlined"
+                hide-details
+                style="font-size: 11px;"
+                @update:model-value="val => changeStagingRescale(task.id, 'max', val)"
+              />
+            </div>
             <v-select
               v-else
               :model-value="getStyleValue(task.id)"
@@ -365,7 +389,7 @@ const folderItems = computed(() => {
 
 // ── Getters ───────────────────────────────────────────────────────────────────
 const analysisTasks = computed<AnalysisTask[]>(() => store.state.geodata.analysisTasks || []);
-const stagingLayers = computed<{ taskId: string; type: string; url: string; s3Url?: string; interpolation?: string; colormap?: string; styleId?: string | null; colormapId?: string | null; style?: any; label: string; pluginName?: string }[]>(
+const stagingLayers = computed<{ taskId: string; type: string; url: string; s3Url?: string; interpolation?: string; colormap?: string; styleId?: string | null; colormapId?: string | null; rescaleMin?: number | null; rescaleMax?: number | null; style?: any; label: string; pluginName?: string }[]>(
   () => store.state.geodata.stagingLayers || []
 );
 
@@ -535,6 +559,15 @@ function toggleStagingTiTilerColormap(taskId: string, checked: boolean | null) {
 
 function changeStagingColormapId(taskId: string, colormapId: string | null) {
   store.commit('geodata/UPDATE_STAGING_LAYER_COLORMAP', { taskId, colormap: '', styleId: null, colormapId });
+}
+
+function changeStagingRescale(taskId: string, type: 'min' | 'max', val: string) {
+  const numVal = val !== '' ? parseFloat(val) : null;
+  if (type === 'min') {
+    store.commit('geodata/UPDATE_STAGING_LAYER_RESCALE', { taskId, rescaleMin: numVal });
+  } else {
+    store.commit('geodata/UPDATE_STAGING_LAYER_RESCALE', { taskId, rescaleMax: numVal });
+  }
 }
 
 function changeRasterStyle(taskId: string, styleId: string | null) {

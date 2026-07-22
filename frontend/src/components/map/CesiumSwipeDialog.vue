@@ -186,7 +186,7 @@ const initCesium = async () => {
   }
 
   // Add Left Layer
-  const leftColormapParam = buildTiTilerStyleParams(leftInfo.style, leftInfo.colormapId, leftInfo.resampling);
+  const leftColormapParam = buildTiTilerStyleParams(leftInfo.style, leftInfo.colormapId, leftInfo.resampling, leftInfo.characteristics);
   const leftS3Url = `s3://geo-abstraction-input/${leftInfo.cogObjectKey}`;
   const leftTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(leftS3Url)}${leftColormapParam}`;
 
@@ -205,7 +205,7 @@ const initCesium = async () => {
   leftLayer.splitDirection = Cesium.SplitDirection.LEFT;
 
   // Add Right Layer
-  const rightColormapParam = buildTiTilerStyleParams(rightInfo.style, rightInfo.colormapId, rightInfo.resampling);
+  const rightColormapParam = buildTiTilerStyleParams(rightInfo.style, rightInfo.colormapId, rightInfo.resampling, rightInfo.characteristics);
   const rightS3Url = `s3://geo-abstraction-input/${rightInfo.cogObjectKey}`;
   const rightTileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(rightS3Url)}${rightColormapParam}`;
 

@@ -81,6 +81,30 @@
                 @update:model-value="val => emit('update:colormapId', { layerId: layer.id, colormapId: val })"
               />
 
+              <div v-if="getUseTiTilerColormap(layer)" class="d-flex align-center mb-2">
+                <v-text-field
+                  :model-value="layer.characteristics?.rescaleMin ?? ''"
+                  label="Rescale Min"
+                  type="number"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  style="font-size: 11px;"
+                  class="mr-2"
+                  @update:model-value="val => handleGlobalLayerRescaleChange(layer, 'min', val)"
+                />
+                <v-text-field
+                  :model-value="layer.characteristics?.rescaleMax ?? ''"
+                  label="Rescale Max"
+                  type="number"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  style="font-size: 11px;"
+                  @update:model-value="val => handleGlobalLayerRescaleChange(layer, 'max', val)"
+                />
+              </div>
+
               <v-select
                 v-else
                 :model-value="layer.style?.id || null"
@@ -135,7 +159,8 @@ const emit = defineEmits([
   'update:opacity',
   'update:style',
   'update:colormapId',
-  'update:resampling'
+  'update:resampling',
+  'update:characteristics'
 ]);
 
 const menuOpen = ref(false);
@@ -169,6 +194,17 @@ const toggleTiTilerColormap = (layer: any, val: boolean) => {
   } else {
     emit('update:colormapId', { layerId: layer.id, colormapId: null });
   }
+};
+
+const handleGlobalLayerRescaleChange = (layer: any, type: 'min' | 'max', val: string) => {
+  const characteristics = { ...layer.characteristics };
+  const numVal = val !== '' ? parseFloat(val) : null;
+  if (type === 'min') {
+    characteristics.rescaleMin = numVal;
+  } else {
+    characteristics.rescaleMax = numVal;
+  }
+  emit('update:characteristics', { layerId: layer.id, characteristics });
 };
 
 const fetchAvailableStyles = async () => {

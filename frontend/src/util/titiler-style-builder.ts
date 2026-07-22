@@ -69,13 +69,21 @@ export function getExtentFromGeometry(geom: any): [number, number, number, numbe
 export function buildTiTilerStyleParams(
   style: any,
   colormapId?: string | null,
-  resampling?: string | null
+  resampling?: string | null,
+  characteristics?: Record<string, any> | null
 ): string {
   let params = "";
   const res = resampling || 'nearest';
   const titilerColormaps = ['cividis', 'inferno', 'magma', 'plasma', 'rdylgn', 'spectral', 'terrain', 'viridis'];
   if (colormapId && titilerColormaps.includes(colormapId)) {
     params = `&colormap_name=${colormapId}&resampling=${res}`;
+    if (characteristics && characteristics.rescaleMin !== undefined && characteristics.rescaleMax !== undefined) {
+      const min = characteristics.rescaleMin;
+      const max = characteristics.rescaleMax;
+      if (min !== null && max !== null && min !== '' && max !== '') {
+        params += `&rescale=${min},${max}`;
+      }
+    }
   } else {
     params = `&resampling=${res}`;
     if (style && style.config) {

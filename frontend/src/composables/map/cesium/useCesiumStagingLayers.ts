@@ -13,13 +13,25 @@ type StagingLayerMeta = {
     colormap?: string;
     styleId?: string | null;
     colormapId?: string | null;
+    rescaleMin?: number | null;
+    rescaleMax?: number | null;
     label: string;
 };
 
-function buildTiTilerUrl(s3Url: string, interpolation: string, colormap?: string, colormapId?: string | null): string {
+function buildTiTilerUrl(
+    s3Url: string,
+    interpolation: string,
+    colormap?: string,
+    colormapId?: string | null,
+    rescaleMin?: number | null,
+    rescaleMax?: number | null
+): string {
     let url = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}`;
     if (colormapId) {
         url += `&colormap_name=${colormapId}&resampling=${interpolation}`;
+        if (rescaleMin !== undefined && rescaleMin !== null && rescaleMax !== undefined && rescaleMax !== null) {
+            url += `&rescale=${rescaleMin},${rescaleMax}`;
+        }
     } else {
         url += `&resampling=${interpolation}`;
         if (colormap) {
@@ -55,7 +67,7 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
             if (existingLayer) {
                 // If it is RASTER and url changes
                 if (sl.type === 'RASTER' && sl.s3Url) {
-                    const newTileUrl = buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId);
+                    const newTileUrl = buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId, sl.rescaleMin, sl.rescaleMax);
                     const currentProvider = existingLayer.imageryProvider as Cesium.UrlTemplateImageryProvider;
                     if (currentProvider && (currentProvider as any).urlTemplate !== newTileUrl) {
                         v.imageryLayers.remove(existingLayer);
@@ -101,7 +113,7 @@ export function useCesiumStagingLayers(viewer: Ref<Cesium.Viewer | null>) {
                 layerRegistry[sl.taskId] = layer;
                 visibleStagingLayerIds.value[sl.taskId] = isVisible;
             } else if (sl.type === 'RASTER') {
-                const tileUrl = sl.s3Url ? buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId) : sl.url;
+                const tileUrl = sl.s3Url ? buildTiTilerUrl(sl.s3Url, sl.interpolation || 'bilinear', sl.colormap, sl.colormapId, sl.rescaleMin, sl.rescaleMax) : sl.url;
                 const provider = new Cesium.UrlTemplateImageryProvider({
                     url: tileUrl
                 });

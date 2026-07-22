@@ -98,7 +98,7 @@
 
           <!-- Raster item directly under layer -->
           <div v-else class="pr-2 py-1 border-bottom d-flex flex-column" style="margin-left: 24px;">
-            <div class="d-flex align-center justify-space-between">
+            <div class="d-flex align-center justify-space-between draggable-item" draggable="true" @dragstart="onDragStart($event, obj, 'object')">
               <div class="d-flex align-center">
                 <v-icon color="secondary" class="mr-2">mdi-image-filter-hdr</v-icon>
                 <span class="text-body-2 font-weight-medium">{{ obj.name }}</span>
@@ -164,6 +164,30 @@
                 class="mb-2"
                 @update:model-value="val => handleLayerColormapChange(obj.id, val)"
               />
+
+              <div v-if="getUseTiTilerColormap(obj)" class="d-flex align-center mb-2">
+                <v-text-field
+                  :model-value="obj.characteristics?.rescaleMin ?? ''"
+                  label="Rescale Min"
+                  type="number"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  style="font-size: 11px;"
+                  class="mr-2"
+                  @update:model-value="val => handleLayerRescaleChange(obj, 'min', val)"
+                />
+                <v-text-field
+                  :model-value="obj.characteristics?.rescaleMax ?? ''"
+                  label="Rescale Max"
+                  type="number"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  style="font-size: 11px;"
+                  @update:model-value="val => handleLayerRescaleChange(obj, 'max', val)"
+                />
+              </div>
 
               <v-select
                 v-else
@@ -505,6 +529,29 @@ const handleLayerResamplingChange = async (layerId: string, resampling: string) 
   });
 };
 
+const handleLayerRescaleChange = async (layer: any, type: 'min' | 'max', val: string) => {
+  const layerInfo = store.state.geodata.projectRasters?.content?.find((l: any) => l.id === layer.id);
+  if (!layerInfo) return;
+
+  const characteristics = { ...layerInfo.characteristics };
+  const numVal = val !== '' ? parseFloat(val) : null;
+  if (type === 'min') {
+    characteristics.rescaleMin = numVal;
+  } else {
+    characteristics.rescaleMax = numVal;
+  }
+
+  store.commit('geodata/UPDATE_PROJECT_RASTER_STYLE', {
+    layerId: layer.id,
+    characteristics
+  });
+
+  await store.dispatch('geodata/updateProjectRaster', {
+    layerData: { ...layerInfo, characteristics },
+    page: 0, size: 100
+  });
+};
+
 provide('availableStyles', availableStyles);
 provide('titilerColormaps', titilerColormaps);
 provide('customStylesSelectItems', customStylesSelectItems);
@@ -513,6 +560,7 @@ provide('toggleTiTilerColormap', toggleTiTilerColormap);
 provide('handleLayerCustomStyleChange', handleLayerCustomStyleChange);
 provide('handleLayerColormapChange', handleLayerColormapChange);
 provide('handleLayerResamplingChange', handleLayerResamplingChange);
+provide('handleLayerRescaleChange', handleLayerRescaleChange);
 provide('openStyleEditor', () => { showStyleEditor.value = true; });
 provide('isRasterVisible', isRasterVisible);
 provide('toggleRasterVisibility', toggleRasterVisibility);
@@ -676,11 +724,21 @@ const onDropToRoot = async (event: DragEvent) => {
     }
   } else if (itemType === 'object') {
     // Move object to root
-    await store.dispatch('geodata/updateFeature', {
-      id: itemId,
-      type: objectType,
-      data: { folderId: null }
-    });
+    if (objectType === 'Raster') {
+      const rasterInfo = store.state.geodata.projectRasters?.content?.find((r: any) => r.id === itemId);
+      if (rasterInfo) {
+        await store.dispatch('geodata/updateProjectRaster', {
+          layerData: { ...rasterInfo, folderId: null },
+          page: 0, size: 100
+        });
+      }
+    } else {
+      await store.dispatch('geodata/updateFeature', {
+        id: itemId,
+        type: objectType,
+        data: { folderId: null }
+      });
+    }
   }
 };
 

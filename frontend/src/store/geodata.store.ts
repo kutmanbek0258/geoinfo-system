@@ -14,6 +14,9 @@ interface StagingLayer {
     interpolation?: string; // Interpolation style (e.g. 'bilinear')
     colormap?: string;     // TiTiler colormap string
     styleId?: string | null; // Selected RasterStyle ID
+    colormapId?: string | null;
+    rescaleMin?: number | null;
+    rescaleMax?: number | null;
     pluginName: string;
     label: string;
 }
@@ -264,8 +267,20 @@ const mutations = {
             return l;
         });
     },
+    UPDATE_STAGING_LAYER_RESCALE(state: GeodataState, { taskId, rescaleMin, rescaleMax }: { taskId: string, rescaleMin?: number | null, rescaleMax?: number | null }) {
+        state.stagingLayers = state.stagingLayers.map(l => {
+            if (l.taskId === taskId) {
+                return {
+                    ...l,
+                    rescaleMin: rescaleMin !== undefined ? rescaleMin : l.rescaleMin,
+                    rescaleMax: rescaleMax !== undefined ? rescaleMax : l.rescaleMax
+                };
+            }
+            return l;
+        });
+    },
 
-    UPDATE_PROJECT_RASTER_STYLE(state: GeodataState, { layerId, style, colormapId, resampling }: { layerId: string, style?: any, colormapId?: string | null, resampling?: string }) {
+    UPDATE_PROJECT_RASTER_STYLE(state: GeodataState, { layerId, style, colormapId, resampling, characteristics }: { layerId: string, style?: any, colormapId?: string | null, resampling?: string, characteristics?: any }) {
         if (state.projectRasters && state.projectRasters.content) {
             state.projectRasters.content = state.projectRasters.content.map(l => {
                 if (l.id === layerId) {
@@ -273,21 +288,23 @@ const mutations = {
                         ...l,
                         style: style !== undefined ? style : l.style,
                         colormapId: colormapId !== undefined ? colormapId : l.colormapId,
-                        resampling: resampling !== undefined ? resampling : l.resampling
+                        resampling: resampling !== undefined ? resampling : l.resampling,
+                        characteristics: characteristics !== undefined ? characteristics : l.characteristics
                     };
                 }
                 return l;
             });
         }
     },
-    UPDATE_GLOBAL_RASTER_STYLE(state: GeodataState, { layerId, style, colormapId, resampling }: { layerId: string, style?: any, colormapId?: string | null, resampling?: string }) {
+    UPDATE_GLOBAL_RASTER_STYLE(state: GeodataState, { layerId, style, colormapId, resampling, characteristics }: { layerId: string, style?: any, colormapId?: string | null, resampling?: string, characteristics?: any }) {
         state.globalRasters = state.globalRasters.map(l => {
             if (l.id === layerId) {
                 return {
                     ...l,
                     style: style !== undefined ? style : l.style,
                     colormapId: colormapId !== undefined ? colormapId : l.colormapId,
-                    resampling: resampling !== undefined ? resampling : l.resampling
+                    resampling: resampling !== undefined ? resampling : l.resampling,
+                    characteristics: characteristics !== undefined ? characteristics : l.characteristics
                 };
             }
             return l;
@@ -499,11 +516,12 @@ const actions = {
 
         const payload = {
             layerId: targetLayer.id,
+            folderId: layerData.folderId,
             name: layerData.name,
             description: layerData.description,
             cogObjectKey: layerData.cogObjectKey,
             crs: layerData.crs || 'EPSG:4326',
-            colormapId: layerData.colormapId,
+            colormapId: layerData.colormapId || layerData.style?.id || null,
             resampling: layerData.resampling,
             status: layerData.status,
             characteristics: layerData.characteristics
@@ -513,11 +531,12 @@ const actions = {
     },
     async updateProjectRaster({ dispatch, state }: ActionContext<GeodataState, any>, { layerData, page, size }: { layerData: ProjectRaster, page: number, size: number }) {
         await geodataService.updateProjectRaster(layerData.id, {
+            folderId: layerData.folderId,
             name: layerData.name,
             description: layerData.description,
             cogObjectKey: layerData.cogObjectKey,
             crs: layerData.crs,
-            colormapId: layerData.colormapId,
+            colormapId: layerData.colormapId || layerData.style?.id || null,
             resampling: layerData.resampling,
             status: layerData.status,
             characteristics: layerData.characteristics

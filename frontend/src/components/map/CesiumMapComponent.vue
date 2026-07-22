@@ -33,6 +33,7 @@
           @update:style="handleGlobalLayerStyleChange"
           @update:colormapId="handleGlobalLayerColormapChange"
           @update:resampling="handleGlobalLayerResamplingChange"
+          @update:characteristics="handleGlobalLayerCharacteristicsChange"
         />
 
         <CesiumTerrainControl v-model="selectedTerrainId" :layers="terrainLayers" />
@@ -454,6 +455,15 @@ const handleGlobalLayerColormapChange = ({ layerId, colormapId }: { layerId: str
 
 const handleGlobalLayerResamplingChange = ({ layerId, resampling }: { layerId: string; resampling: string }) => {
   store.commit('geodata/UPDATE_GLOBAL_RASTER_STYLE', { layerId, resampling });
+  
+  const layerInfo = globalRasters.value.find((l: any) => l.id === layerId);
+  if (layerInfo) {
+    toggleImageryLayer(layerInfo, true);
+  }
+};
+
+const handleGlobalLayerCharacteristicsChange = ({ layerId, characteristics }: { layerId: string; characteristics: any }) => {
+  store.commit('geodata/UPDATE_GLOBAL_RASTER_STYLE', { layerId, characteristics });
   
   const layerInfo = globalRasters.value.find((l: any) => l.id === layerId);
   if (layerInfo) {

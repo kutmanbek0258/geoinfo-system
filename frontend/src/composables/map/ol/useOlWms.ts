@@ -53,7 +53,7 @@ export function useOlWms(map: Ref<Map | null>) {
         activeImageLayers.value = nextLayers;
       }
 
-      const colormapParam = buildTiTilerStyleParams(layerInfo.style, layerInfo.colormapId, layerInfo.resampling);
+      const colormapParam = buildTiTilerStyleParams(layerInfo.style, layerInfo.colormapId, layerInfo.resampling, layerInfo.characteristics);
 
       const s3Url = `s3://geo-abstraction-input/${layerInfo.cogObjectKey}`;
       const tileUrl = `/raster/cog/cog/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(s3Url)}${colormapParam}`;
@@ -165,6 +165,74 @@ export function useOlWms(map: Ref<Map | null>) {
       }
     }
   }, { deep: true });
+
+  watch(
+    () => {
+      const visibleRasters = store.state.geodata.projectRasters?.content?.filter((r: any) =>
+        visibleLayerIds.value.includes(r.id)
+      ) || [];
+      return visibleRasters.map((r: any) => ({
+        id: r.id,
+        colormapId: r.colormapId,
+        resampling: r.resampling,
+        styleId: r.style?.id,
+        rescaleMin: r.characteristics?.rescaleMin,
+        rescaleMax: r.characteristics?.rescaleMax,
+      }));
+    },
+    (newVal, oldVal) => {
+      newVal.forEach((newLayer: any) => {
+        const oldLayer = oldVal?.find((o: any) => o.id === newLayer.id);
+        if (!oldLayer ||
+            oldLayer.colormapId !== newLayer.colormapId ||
+            oldLayer.resampling !== newLayer.resampling ||
+            oldLayer.styleId !== newLayer.styleId ||
+            oldLayer.rescaleMin !== newLayer.rescaleMin ||
+            oldLayer.rescaleMax !== newLayer.rescaleMax
+        ) {
+          const layerInfo = store.state.geodata.projectRasters?.content?.find((l: any) => l.id === newLayer.id);
+          if (layerInfo) {
+            toggleImageryLayer(layerInfo, true);
+          }
+        }
+      });
+    },
+    { deep: true }
+  );
+
+  watch(
+    () => {
+      const visibleRasters = store.state.geodata.globalRasters?.filter((r: any) =>
+        visibleGlobalRasterIds.value.includes(r.id)
+      ) || [];
+      return visibleRasters.map((r: any) => ({
+        id: r.id,
+        colormapId: r.colormapId,
+        resampling: r.resampling,
+        styleId: r.style?.id,
+        rescaleMin: r.characteristics?.rescaleMin,
+        rescaleMax: r.characteristics?.rescaleMax,
+      }));
+    },
+    (newVal, oldVal) => {
+      newVal.forEach((newLayer: any) => {
+        const oldLayer = oldVal?.find((o: any) => o.id === newLayer.id);
+        if (!oldLayer ||
+            oldLayer.colormapId !== newLayer.colormapId ||
+            oldLayer.resampling !== newLayer.resampling ||
+            oldLayer.styleId !== newLayer.styleId ||
+            oldLayer.rescaleMin !== newLayer.rescaleMin ||
+            oldLayer.rescaleMax !== newLayer.rescaleMax
+        ) {
+          const layerInfo = store.state.geodata.globalRasters?.find((l: any) => l.id === newLayer.id);
+          if (layerInfo) {
+            toggleImageryLayer(layerInfo, true);
+          }
+        }
+      });
+    },
+    { deep: true }
+  );
 
   watch(layerOpacities, (newOpacities) => {
     for (const id in activeImageLayers.value) {
