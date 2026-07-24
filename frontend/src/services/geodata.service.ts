@@ -18,6 +18,9 @@ class GeodataService {
     getProjectById(id: string) {
         return api.get<Project>(`/geodata/project/${id}`);
     }
+    getProjectHierarchy(projectId: string) {
+        return api.get<any>(`/geodata/project/${projectId}/hierarchy`);
+    }
 
     shareProject(projectId: string, email: string, permissionLevel: string) {
         return api.post(`/geodata/project/${projectId}/share`, { email, permissionLevel });

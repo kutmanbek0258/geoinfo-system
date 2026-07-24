@@ -32,6 +32,7 @@ public class ProcessedLayersConsumer {
     private final TerrainLayerRepository terrainLayerRepository;
     private final ThreeDTilesLayerRepository threeDTilesLayerRepository;
     private final VectorIngestionService vectorIngestionService;
+    private final GeoFolderRepository folderRepository;
 
     @KafkaListener(topics = "geo.vector.processed",
                    containerFactory = "processedLayersListenerContainerFactory",
@@ -102,22 +103,28 @@ public class ProcessedLayersConsumer {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
 
-        // Find or create default RASTER layer
-        Layer layer = layerRepository.findAllByProjectId(projectId).stream()
-                .filter(l -> l.getType() == LayerType.RASTER)
-                .findFirst()
-                .orElseGet(() -> {
-                    Layer newLayer = Layer.builder()
-                            .project(project)
-                            .name("Растровые данные")
-                            .type(LayerType.RASTER)
-                            .build();
-                    return layerRepository.save(newLayer);
-                });
+        String rasterName = (String) payload.get("name");
+        if (rasterName == null || rasterName.isBlank()) {
+            rasterName = "Растровые данные";
+        }
+
+        Layer newLayer = Layer.builder()
+                .project(project)
+                .name(rasterName)
+                .type(LayerType.RASTER)
+                .build();
+        Layer layer = layerRepository.save(newLayer);
+
+        GeoFolder folder = GeoFolder.builder()
+                .layer(layer)
+                .name(rasterName)
+                .build();
+        folder = folderRepository.save(folder);
 
         ProjectRaster raster = projectRasterRepository.findById(id).orElse(new ProjectRaster());
         raster.setId(id);
         raster.setLayer(layer);
+        raster.setFolder(folder);
         raster.setName((String) payload.get("name"));
         raster.setDescription((String) payload.get("description"));
         raster.setCogObjectKey((String) payload.get("cogObjectKey"));

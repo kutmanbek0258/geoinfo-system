@@ -32,7 +32,6 @@ public class StagingCommitController {
         commitService.commitTask(
                 taskId,
                 dto.getProjectId(),
-                dto.getFolderId(),
                 dto.getTaskName() != null ? dto.getTaskName() : "Analysis " + taskId
         );
         return ResponseEntity.ok().build();

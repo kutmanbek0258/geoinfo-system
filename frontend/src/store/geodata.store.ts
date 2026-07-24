@@ -864,46 +864,86 @@ const actions = {
     },
 
     // Vector Data Actions
-    async fetchVectorDataForProject({ commit, dispatch }: ActionContext<GeodataState, any>, projectId: string) {
+    async fetchVectorDataForProject({ commit }: ActionContext<GeodataState, any>, projectId: string) {
         commit('SET_LOADING', true);
         commit('SET_ERROR', null);
         try {
-            await dispatch('fetchProjectLayers', projectId);
-            await dispatch('fetchFolders', projectId);
-            const [pointsRes, multilinesRes, polygonsRes] = await Promise.all([
-                geodataService.getPointsByProjectId(projectId),
-                geodataService.getMultilinesByProjectId(projectId),
-                geodataService.getPolygonsByProjectId(projectId),
-            ]);
-            commit('SET_VECTOR_DATA', { type: 'points', data: pointsRes.data.content });
-            commit('SET_VECTOR_DATA', { type: 'multilines', data: multilinesRes.data.content });
-            commit('SET_VECTOR_DATA', { type: 'polygons', data: polygonsRes.data.content });
+            const response = await geodataService.getProjectHierarchy(projectId);
+            const hierarchy = response.data;
+
+            const allLayers: any[] = [];
+            const allFolders: any[] = [];
+            const allObjects: any[] = [];
+
+            const traverseFolder = (folder: any) => {
+                allFolders.push({
+                    id: folder.id,
+                    name: folder.name,
+                    description: folder.description,
+                    layerId: folder.layerId,
+                    parentId: folder.parentId,
+                    projectId: folder.projectId,
+                    characteristics: folder.characteristics
+                });
+
+                if (folder.objects) {
+                    allObjects.push(...folder.objects);
+                }
+
+                if (folder.subfolders) {
+                    for (const sub of folder.subfolders) {
+                        traverseFolder(sub);
+                    }
+                }
+            };
+
+            for (const layer of hierarchy.layers || []) {
+                allLayers.push({
+                    id: layer.id,
+                    name: layer.name,
+                    type: layer.type,
+                    projectId: layer.projectId
+                });
+
+                if (layer.objects) {
+                    allObjects.push(...layer.objects);
+                }
+
+                if (layer.folders) {
+                    for (const folder of layer.folders) {
+                        traverseFolder(folder);
+                    }
+                }
+            }
+
+            const points = allObjects.filter(obj => obj.type === 'Point');
+            const multilines = allObjects.filter(obj => obj.type === 'MultiLineString');
+            const polygons = allObjects.filter(obj => obj.type === 'Polygon');
+            const rasters = allObjects.filter(obj => obj.type === 'Raster');
+
+            commit('SET_PROJECT_LAYERS', allLayers);
+            commit('SET_FOLDERS', allFolders);
+            commit('SET_VECTOR_DATA', { type: 'points', data: points });
+            commit('SET_VECTOR_DATA', { type: 'multilines', data: multilines });
+            commit('SET_VECTOR_DATA', { type: 'polygons', data: polygons });
+            
+            commit('SET_PROJECT_RASTERS', {
+                content: rasters,
+                totalElements: rasters.length,
+                totalPages: 1,
+                size: rasters.length,
+                number: 0
+            });
         } catch (err) {
-            commit('SET_ERROR', 'Failed to fetch vector data.');
+            console.error('Failed to fetch project hierarchy:', err);
+            commit('SET_ERROR', 'Failed to fetch project hierarchy data.');
         } finally {
             commit('SET_LOADING', false);
         }
     },
 
-    async fetchVectorSummaryForProject({ commit, dispatch }: ActionContext<GeodataState, any>, projectId: string) {
-        commit('SET_LOADING', true);
-        commit('SET_ERROR', null);
-        try {
-            await dispatch('fetchProjectLayers', projectId);
-            await dispatch('fetchFolders', projectId);
-            const [pointsRes, multilinesRes, polygonsRes] = await Promise.all([
-                geodataService.getPointsSummaryByProjectId(projectId),
-                geodataService.getMultilinesSummaryByProjectId(projectId),
-                geodataService.getPolygonsSummaryByProjectId(projectId),
-            ]);
-            commit('SET_VECTOR_DATA', { type: 'points', data: pointsRes.data.content });
-            commit('SET_VECTOR_DATA', { type: 'multilines', data: multilinesRes.data.content });
-            commit('SET_VECTOR_DATA', { type: 'polygons', data: polygonsRes.data.content });
-        } catch (err) {
-            commit('SET_ERROR', 'Failed to fetch vector summary data.');
-        } finally {
-            commit('SET_LOADING', false);
-        }
+    async fetchVectorSummaryForProject({ dispatch }: ActionContext<GeodataState, any>, projectId: string) {
+        return dispatch('fetchVectorDataForProject', projectId);
     },
     async fetchProjectLayers({ commit }: ActionContext<GeodataState, any>, projectId: string) {
         if (!projectId) return;

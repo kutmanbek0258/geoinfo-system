@@ -13,6 +13,8 @@ public class CommitAnalysisTaskDto {
     private UUID projectId;
     /** Опциональная папка для новых объектов */
     private UUID folderId;
+    /** Опциональный слой для новых объектов */
+    private UUID layerId;
     /** Человекочитаемое имя задачи — используется как префикс имён объектов */
     private String taskName;
 }

@@ -16,10 +16,12 @@ public interface ProjectPointMapper {
 
     @Mapping(source = "project.id", target = "projectId")
     @Mapping(source = "folder.id", target = "folderId")
+    @Mapping(source = "layer.id", target = "layerId")
     ProjectPointDto toDto(ProjectPoint projectPoint);
 
     @Mapping(source = "project.id", target = "projectId")
     @Mapping(source = "folder.id", target = "folderId")
+    @Mapping(source = "layer.id", target = "layerId")
     ProjectPointSummaryDto toSummaryDto(ProjectPoint projectPoint);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")

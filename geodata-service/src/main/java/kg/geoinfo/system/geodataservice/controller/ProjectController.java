@@ -18,15 +18,19 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
 import java.util.UUID;
+import kg.geoinfo.system.geodataservice.dto.hierarchy.ProjectHierarchyDto;
+import kg.geoinfo.system.geodataservice.service.ProjectHierarchyService;
 
 @RequestMapping("/api/geodata/project")
 @RestController
 @Slf4j
 public class ProjectController {
     private final ProjectService projectService;
+    private final ProjectHierarchyService projectHierarchyService;
 
-    public ProjectController(ProjectService projectService) {
+    public ProjectController(ProjectService projectService, ProjectHierarchyService projectHierarchyService) {
         this.projectService = projectService;
+        this.projectHierarchyService = projectHierarchyService;
     }
 
     @PostMapping
@@ -67,5 +71,13 @@ public class ProjectController {
     public ResponseEntity<Void> shareProject(@AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal, @PathVariable("projectId") UUID projectId, @RequestBody @Validated ShareProjectDto shareDto) {
         projectService.shareProject(principal.getName(), projectId, shareDto);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{projectId}/hierarchy")
+    @PreAuthorize("hasAuthority('GEO_PROJECT_READ')")
+    public ResponseEntity<ProjectHierarchyDto> getHierarchy(
+            @AuthenticationPrincipal OAuth2AuthenticatedPrincipal principal,
+            @PathVariable("projectId") UUID projectId) {
+        return ResponseEntity.ok(projectHierarchyService.getProjectHierarchy(principal.getName(), projectId));
     }
 }

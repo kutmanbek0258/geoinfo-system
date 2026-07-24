@@ -17,6 +17,7 @@ public class ProjectMultilineDto {
     private UUID id;
     private UUID projectId;
     private UUID folderId;
+    private UUID layerId;
     private String name;
     private String description;
     private Status status;

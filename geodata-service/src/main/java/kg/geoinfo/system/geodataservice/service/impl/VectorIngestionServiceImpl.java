@@ -63,19 +63,13 @@ public class VectorIngestionServiceImpl implements VectorIngestionService {
                 layerName = "Импортированные векторы";
             }
 
-            // 1. Find or Create Layer
-            String finalLayerName = layerName;
-            Layer layer = layerRepository.findAllByProjectId(projectId).stream()
-                    .filter(l -> l.getName().equalsIgnoreCase(finalLayerName))
-                    .findFirst()
-                    .orElseGet(() -> {
-                        Layer newLayer = Layer.builder()
-                                .project(project)
-                                .name(finalLayerName)
-                                .type(LayerType.VECTOR)
-                                .build();
-                        return layerRepository.save(newLayer);
-                    });
+            // 1. Always Create a New Layer
+            Layer newLayer = Layer.builder()
+                    .project(project)
+                    .name(layerName)
+                    .type(LayerType.VECTOR)
+                    .build();
+            Layer layer = layerRepository.save(newLayer);
 
             String geojsonObjectKey = (String) payload.get("geojsonObjectKey");
             if (geojsonObjectKey == null) {

@@ -264,6 +264,56 @@ class GeoInfoAPIClient:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Upload failed: {error_details}", "GeoInfoSystem", Qgis.Critical)
             return False
 
+    def get_point(self, id):
+        url = f"{self.gateway_url}/geodata/points/{id}"
+        try:
+            response = self._request('GET', url)
+            return response.json()
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: get_point failed: {str(e)}", "GeoInfoSystem", Qgis.Warning)
+            return None
+
+    def get_multiline(self, id):
+        url = f"{self.gateway_url}/geodata/multilines/{id}"
+        try:
+            response = self._request('GET', url)
+            return response.json()
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: get_multiline failed: {str(e)}", "GeoInfoSystem", Qgis.Warning)
+            return None
+
+    def get_polygon(self, id):
+        url = f"{self.gateway_url}/geodata/polygons/{id}"
+        try:
+            response = self._request('GET', url)
+            return response.json()
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: get_polygon failed: {str(e)}", "GeoInfoSystem", Qgis.Warning)
+            return None
+
+    def get_project_hierarchy(self, project_id):
+        """Fetches the complete, ordered tree hierarchy of layers, folders, and features for a project."""
+        url = f"{self.gateway_url}/geodata/project/{project_id}/hierarchy"
+        try:
+            response = self._request('GET', url)
+            return response.json()
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: get_project_hierarchy failed: {str(e)}", "GeoInfoSystem", Qgis.Warning)
+            return None
+
+    def get_jobs(self, project_id=None, page=0, size=20):
+        """Fetches the list of background jobs/tasks from geo-abstraction service."""
+        url = f"{self.gateway_url}/geo-abstraction/jobs"
+        params = {'page': page, 'size': size}
+        if project_id:
+            params['projectId'] = project_id
+        try:
+            response = self._request('GET', url, params=params)
+            return response.json()
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: get_jobs failed: {str(e)}", "GeoInfoSystem", Qgis.Warning)
+            return {'content': [], 'totalPages': 0}
+
     def verify_upload(self, name, object_key, file_size, data_type, project_id=None):
         """Registers uploaded file and triggers VERIFY_FILE task."""
         url = f"{self.gateway_url}/geo-abstraction/jobs/verify-upload"

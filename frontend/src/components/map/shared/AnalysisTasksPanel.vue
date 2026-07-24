@@ -224,24 +224,10 @@
 
           <v-text-field
             v-model="commitTaskName"
-            label="Префикс названия объектов"
+            label="Название для нового слоя и папки"
             variant="outlined"
             density="compact"
             class="mb-3"
-            hide-details
-          />
-
-          <!-- Folder selection only for Vector staging layers -->
-          <v-select
-            v-if="commitLayerType === 'VECTOR'"
-            v-model="commitFolderId"
-            :items="folderItems"
-            item-title="name"
-            item-value="id"
-            label="Папка проекта (Куда сохранить)"
-            variant="outlined"
-            density="compact"
-            clearable
             hide-details
           />
         </v-card-text>
@@ -635,7 +621,7 @@ async function executeCommit() {
     await store.dispatch('geodata/commitStagingLayer', {
       taskId: commitTaskId.value,
       projectId: store.state.geodata.selectedProjectId,
-      folderId: commitFolderId.value,
+      folderId: null,
       taskName: commitTaskName.value
     });
     commitDialog.value = false;

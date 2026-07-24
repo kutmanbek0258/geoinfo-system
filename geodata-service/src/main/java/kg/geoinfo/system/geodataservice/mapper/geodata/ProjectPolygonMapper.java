@@ -16,10 +16,12 @@ public interface ProjectPolygonMapper {
 
     @Mapping(source = "project.id", target = "projectId")
     @Mapping(source = "folder.id", target = "folderId")
+    @Mapping(source = "layer.id", target = "layerId")
     ProjectPolygonDto toDto(ProjectPolygon projectPolygon);
 
     @Mapping(source = "project.id", target = "projectId")
     @Mapping(source = "folder.id", target = "folderId")
+    @Mapping(source = "layer.id", target = "layerId")
     ProjectPolygonSummaryDto toSummaryDto(ProjectPolygon projectPolygon);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")

@@ -1,4 +1,7 @@
 import os
+import glob
+import zipfile
+import tempfile
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, 
@@ -6,32 +9,33 @@ from qgis.PyQt.QtWidgets import (
     QLineEdit, QProgressBar, QMessageBox,
     QApplication
 )
-from qgis.core import QgsProject, QgsRasterLayer, QgsMessageLog, Qgis
+from qgis.core import QgsProject, QgsVectorLayer, QgsMessageLog, Qgis
 
-class RasterUploadDialog(QDialog):
+class VectorUploadDialog(QDialog):
     def __init__(self, iface, api_client, project_id=None, parent=None):
         super().__init__(parent)
         self.iface = iface
         self.api = api_client
         self.project_id = project_id
-        self.setWindowTitle("Upload Raster to GeoInfoSystem")
+        
+        self.setWindowTitle("Upload Vector Layer to GeoInfoSystem")
         self.setMinimumWidth(450)
 
         self.layout = QVBoxLayout(self)
 
         # Instructions
-        self.layout.addWidget(QLabel("Upload a local GeoTIFF layer as an Imagery Layer (COG)."))
+        self.layout.addWidget(QLabel("Upload a local Shapefile vector layer to convert and import into project layers."))
         self.layout.addSpacing(10)
 
-        # Project Selection
-        self.layout.addWidget(QLabel("Associate with Project (Optional):"))
+        # Target Project Selection (Optional)
+        self.layout.addWidget(QLabel("Target Project (Optional):"))
         self.project_combo = QComboBox()
         self.project_combo.addItem("--- Global / No Project ---", None)
         self.populate_projects()
         self.layout.addWidget(self.project_combo)
 
         # Layer Selection
-        self.layout.addWidget(QLabel("Select Raster Layer from Map:"))
+        self.layout.addWidget(QLabel("Select Vector Layer from Map (Shapefile):"))
         self.layer_combo = QComboBox()
         self.populate_layers()
         self.layout.addWidget(self.layer_combo)
@@ -60,7 +64,7 @@ class RasterUploadDialog(QDialog):
 
         # Buttons
         btns = QHBoxLayout()
-        self.upload_btn = QPushButton("Start Upload")
+        self.upload_btn = QPushButton("Start Upload & Import")
         self.upload_btn.setStyleSheet("font-weight: bold; padding: 5px;")
         self.upload_btn.clicked.connect(self.start_upload)
         btns.addWidget(self.upload_btn)
@@ -86,22 +90,23 @@ class RasterUploadDialog(QDialog):
                 self.project_combo.setCurrentIndex(selected_index)
                 self.project_combo.setEnabled(False)
         except Exception as e:
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to fetch projects for upload dialog: {str(e)}", "GeoInfoSystem", Qgis.Warning)
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to fetch projects: {str(e)}", "GeoInfoSystem", Qgis.Warning)
 
     def populate_layers(self):
         layers = QgsProject.instance().mapLayers().values()
-        raster_layers_found = False
+        vector_layers_found = False
         for layer in layers:
-            if isinstance(layer, QgsRasterLayer):
-                # Try to filter only file-based layers
+            if isinstance(layer, QgsVectorLayer):
                 source = layer.source()
-                if os.path.exists(source):
+                # Verify that it is a local shapefile
+                if source and source.lower().endswith('.shp') and os.path.exists(source):
                     self.layer_combo.addItem(layer.name(), layer.id())
-                    raster_layers_found = True
+                    vector_layers_found = True
         
-        if not raster_layers_found:
+        if not vector_layers_found:
             self.upload_btn.setEnabled(False)
-            self.layout.addWidget(QLabel("<font color='red'>No local raster layers found in project.</font>"))
+            no_layers_lbl = QLabel("<font color='red'>No local Shapefile (.shp) layers found in map.</font>")
+            self.layout.addWidget(no_layers_lbl)
 
     def on_layer_changed(self):
         self.name_edit.setText(self.layer_combo.currentText())
@@ -115,19 +120,14 @@ class RasterUploadDialog(QDialog):
         if not layer:
             return
 
-        source_path = layer.source()
-        if not os.path.exists(source_path):
-            QMessageBox.critical(self, "Error", f"Source file not found: {source_path}")
-            return
-
-        # Explicit GeoTIFF validation
-        if not (source_path.lower().endswith('.tif') or source_path.lower().endswith('.tiff')):
-            QMessageBox.warning(self, "Validation Failed", "The selected layer source is not a GeoTIFF file. Only .tif and .tiff are supported.")
+        shp_path = layer.source()
+        if not os.path.exists(shp_path):
+            QMessageBox.critical(self, "Error", f"Source Shapefile not found: {shp_path}")
             return
 
         name = self.name_edit.text().strip()
         if not name:
-            QMessageBox.warning(self, "Validation Failed", "Please provide a name for the imagery layer.")
+            QMessageBox.warning(self, "Validation Failed", "Please provide a name for the layer.")
             return
 
         # Prepare UI
@@ -136,22 +136,40 @@ class RasterUploadDialog(QDialog):
         self.name_edit.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.progress_label.setVisible(True)
-        self.progress_label.setText("Requesting presigned URL...")
+        self.progress_label.setText("Archiving Shapefile files...")
         self.progress_bar.setValue(0)
         QApplication.processEvents()
 
+        temp_zip_path = None
         try:
-            filename = os.path.basename(source_path)
-            project_id = self.project_combo.currentData()
+            # 1. Collect all Shapefile companion files (.shp, .shx, .dbf, .prj, etc.)
+            dir_name = os.path.dirname(shp_path)
+            base_name = os.path.splitext(os.path.basename(shp_path))[0]
+            shapefile_files = glob.glob(os.path.join(dir_name, f"{base_name}.*"))
             
-            upload_info = self.api.get_upload_url_info(filename)
+            if not shapefile_files:
+                raise Exception("No shapefile component files found.")
+
+            # 2. Package them into a temporary ZIP file
+            temp_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+            temp_zip_path = temp_zip.name
+            temp_zip.close() # Close so we can write to it
+            
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Zipping shapefile files to {temp_zip_path}", "GeoInfoSystem", Qgis.Info)
+            with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for file in shapefile_files:
+                    zip_file.write(file, os.path.basename(file))
+
+            # 3. Request presigned URL for upload
+            zip_filename = f"{base_name}.zip"
+            upload_info = self.api.get_upload_url_info(zip_filename)
             if not upload_info:
                 raise Exception("API Error: Could not obtain presigned upload URL.")
 
             url = upload_info.get('url')
             object_key = upload_info.get('objectKey')
 
-            self.progress_label.setText(f"Uploading {filename}...")
+            self.progress_label.setText("Uploading archive...")
             
             def progress_cb(current, total):
                 percent = int((current / total) * 100)
@@ -159,36 +177,39 @@ class RasterUploadDialog(QDialog):
                 self.progress_label.setText(f"Uploading: {percent}% ({current // 1024} / {total // 1024} KB)")
                 QApplication.processEvents()
 
-            # Upload using the new API client method (io.BufferedReader inside)
-            success = self.api.upload_file(url, source_path, progress_cb)
+            # 4. Upload temporary ZIP
+            success = self.api.upload_file(url, temp_zip_path, progress_cb)
             if not success:
                 raise Exception("Transfer Error: File upload to storage failed.")
 
-            self.progress_label.setText("Upload complete. Registering layer in system...")
+            self.progress_label.setText("Upload complete. Verifying Shapefile...")
             QApplication.processEvents()
 
-            file_size = os.path.getsize(source_path)
-            # 2-Step Verify & Import
-            job = self.api.verify_upload(name, object_key, file_size, "GEOTIFF", project_id=project_id)
+            file_size = os.path.getsize(temp_zip_path)
+            project_id = self.project_combo.currentData()
+            
+            # 5. Trigger verify upload task
+            job = self.api.verify_upload(name, object_key, file_size, "SHAPEFILE", project_id=project_id)
             if not job or not job.get('id'):
-                raise Exception("API Error: Upload verification failed.")
+                raise Exception("API Error: Shapefile verification failed.")
 
             job_id = job.get('id')
-            confirm_res = self.api.start_import(job_id, {"taskType": "RAW_GEOTIFF_OPTIMIZE"})
+
+            # 6. Trigger final import task
+            confirm_res = self.api.start_import(job_id, {"taskType": "SHAPEFILE_TO_GEOJSON"})
             
             if confirm_res:
                 QMessageBox.information(self, "Success", 
-                    f"Raster '{name}' uploaded successfully!\n\n"
-                    "The system has started COG optimization and TiTiler publishing. "
-                    "The layer will appear in the system after background processing completes.")
+                    f"Shapefile '{name}' archived and uploaded successfully!\n\n"
+                    "Background worker will convert features to GeoJSON WGS84 and "
+                    "ingest them into project layers. Refresh project tree after a few moments.")
                 self.accept()
             else:
-                raise Exception("API Error: Upload import task creation failed.")
-
+                raise Exception("API Error: Shapefile import task creation failed.")
 
         except Exception as e:
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Raster upload failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
-            QMessageBox.critical(self, "Upload Failed", f"An error occurred during upload:\n{str(e)}")
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Shapefile upload failed: {str(e)}", "GeoInfoSystem", Qgis.Critical)
+            QMessageBox.critical(self, "Upload Failed", f"An error occurred during Shapefile upload:\n{str(e)}")
             
             # Reset UI
             self.upload_btn.setEnabled(True)
@@ -196,3 +217,12 @@ class RasterUploadDialog(QDialog):
             self.name_edit.setEnabled(True)
             self.progress_bar.setVisible(False)
             self.progress_label.setVisible(False)
+            
+        finally:
+            # Clean up the temporary zip file
+            if temp_zip_path and os.path.exists(temp_zip_path):
+                try:
+                    os.remove(temp_zip_path)
+                    QgsMessageLog.logMessage(f"GeoInfoSystem: Cleaned up temporary archive {temp_zip_path}", "GeoInfoSystem", Qgis.Info)
+                except Exception as ex:
+                    QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to remove temporary archive: {str(ex)}", "GeoInfoSystem", Qgis.Warning)

@@ -11,9 +11,7 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
 from qgis.core import QgsMessageLog, Qgis, NULL, QgsProject, QgsVectorLayer, QgsField
-from .raster_upload_dialog import RasterUploadDialog
-from .shapefile_upload_dialog import ShapefileUploadDialog
-# from .create_dialog import CreateObjectDialog
+from .jobs_manager_dialog import JobsManagerDialog
 
 class GeoInfoDockWidget(QDockWidget):
     def __init__(self, iface, api_client, layer_factory, parent=None):
@@ -43,59 +41,22 @@ class GeoInfoDockWidget(QDockWidget):
         self.model = QStandardItemModel()
         self.model.setHorizontalHeaderLabels(['Name', 'Type'])
         self.tree_view.setModel(self.model)
+        self.tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree_view.customContextMenuRequested.connect(self.show_tree_context_menu)
+        self.tree_view.doubleClicked.connect(self.on_tree_double_clicked)
         self.layout.addWidget(self.tree_view)
 
         # Buttons layout
-        self.btn_layout = QVBoxLayout()
+        self.btn_layout = QHBoxLayout()
         
-        main_btns = QHBoxLayout()
         self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self.refresh_data)
-        main_btns.addWidget(self.refresh_btn)
-
-        self.add_btn = QPushButton("Add to Map")
-        self.add_btn.clicked.connect(self.add_selected_layer)
-        main_btns.addWidget(self.add_btn)
-
-        self.sync_btn = QPushButton("Sync")
-        self.sync_btn.clicked.connect(self.synchronize_changes)
-        main_btns.addWidget(self.sync_btn)
+        self.btn_layout.addWidget(self.refresh_btn)
         
-        self.btn_layout.addLayout(main_btns)
-
-        # Raster/Vector Import Buttons
-        import_btns = QHBoxLayout()
-        self.bind_btn = QPushButton("Import Vectors")
-        self.bind_btn.setToolTip("Bind selected QGIS vector layers to the selected folder/project in the tree.")
-        self.bind_btn.clicked.connect(self.bind_layers_to_project)
-        import_btns.addWidget(self.bind_btn)
-
-        self.upload_shapefile_btn = QPushButton("Upload Shapefile (.zip)")
-        self.upload_shapefile_btn.setToolTip("Upload a local Shapefile ZIP package to convert and import into project layers.")
-        self.upload_shapefile_btn.clicked.connect(self.show_shapefile_upload_dialog)
-        import_btns.addWidget(self.upload_shapefile_btn)
-
-        self.upload_raster_btn = QPushButton("Upload Raster")
-        self.upload_raster_btn.setToolTip("Upload a GeoTIFF raster layer from QGIS to the system.")
-        self.upload_raster_btn.clicked.connect(self.show_raster_upload_dialog)
-        import_btns.addWidget(self.upload_raster_btn)
-        
-        self.btn_layout.addLayout(import_btns)
-
         self.layout.addLayout(self.btn_layout)
         self.setWidget(self.content_widget)
 
-    def show_raster_upload_dialog(self):
-        """Opens the dialog to upload a raster layer."""
-        dialog = RasterUploadDialog(self.iface, self.api, self)
-        if dialog.exec_():
-            self.refresh_data()
 
-    def show_shapefile_upload_dialog(self):
-        """Opens the dialog to upload a Shapefile .zip archive."""
-        dialog = ShapefileUploadDialog(self.iface, self.api, self)
-        if dialog.exec_():
-            self.refresh_data()
 
 
     def get_or_create_external_id_field(self, layer):
@@ -332,7 +293,13 @@ class GeoInfoDockWidget(QDockWidget):
             t_item.setEditable(False)
             terrain_root.appendRow([t_item, QStandardItem("Terrain")])
 
-        # 3. Projects and their Layers / Folders / Objects
+        # 3. Global Jobs Node
+        jobs_root = QStandardItem("Global Jobs (Задачи обработки)")
+        jobs_root.setData({'type': 'global_jobs'}, Qt.UserRole)
+        jobs_root.setEditable(False)
+        self.model.appendRow([jobs_root, QStandardItem("Global Tasks")])
+
+        # 4. Projects and their Layers / Folders / Objects
         for p in projects:
             project_id = p.get('id')
             p_item = QStandardItem(p.get('name', 'Unnamed Project'))
@@ -344,93 +311,74 @@ class GeoInfoDockWidget(QDockWidget):
 
     def _build_project_hierarchy(self, project_id, project_item):
         """Builds the Layer -> Folder -> Vector/Raster object structure for a project."""
-        layers = self.api.get_project_layers(project_id)
-        folders = self.api.get_folders(project_id)
-        points = self.api.get_points(project_id)
-        multilines = self.api.get_multilines(project_id)
-        polygons = self.api.get_polygons(project_id)
+        # Add Project Jobs node
+        jobs_item = QStandardItem("Project Jobs (Задачи проекта)")
+        jobs_item.setData({'type': 'project_jobs', 'projectId': project_id, 'projectName': project_item.text()}, Qt.UserRole)
+        jobs_item.setEditable(False)
+        project_item.appendRow([jobs_item, QStandardItem("Project Tasks")])
 
-        all_vectors = []
-        for p in points: all_vectors.append({**p, 'type': 'Point'})
-        for m in multilines: all_vectors.append({**m, 'type': 'MultiLineString'})
-        for poly in polygons: all_vectors.append({**poly, 'type': 'Polygon'})
+        # Fetch the unified hierarchy
+        hierarchy = self.api.get_project_hierarchy(project_id)
+        if not hierarchy:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to fetch hierarchy for project {project_id}", "GeoInfoSystem", Qgis.Warning)
+            return
 
-        # If no logical layers exist yet, fallback to default Layer node
-        if not layers:
-            layers = [{'id': None, 'name': 'Default Layer', 'layerType': 'VECTOR'}]
+        try:
+            import json
+            hierarchy_str = json.dumps(hierarchy, indent=2, ensure_ascii=False)
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Received hierarchy JSON for project {project_id}:\n{hierarchy_str}", "GeoInfoSystem", Qgis.Info)
+        except Exception as e:
+            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to log hierarchy JSON: {str(e)}", "GeoInfoSystem", Qgis.Warning)
 
-        known_layer_ids = set(str(l.get('id')) for l in layers if l.get('id'))
+        layers = hierarchy.get('layers', [])
+        
+        # Helper to recursively add folders
+        def add_folder_item(parent_node, folder_data):
+            f_item = QStandardItem(folder_data.get('name', 'Unnamed Folder'))
+            f_item.setData({**folder_data, 'type': 'folder', 'projectId': project_id}, Qt.UserRole)
+            f_item.setEditable(False)
+            parent_node.appendRow([f_item, QStandardItem("Folder")])
+            
+            # Add nested folders
+            for sub in folder_data.get('subfolders', []):
+                add_folder_item(f_item, sub)
+                
+            # Add features/rasters in this folder
+            for obj in folder_data.get('objects', []):
+                add_object_item(f_item, obj)
+
+        # Helper to add objects (features/rasters)
+        def add_object_item(parent_node, obj_data):
+            obj_type = obj_data.get('type')
+            if obj_type == 'Raster':
+                r_item = QStandardItem(obj_data.get('name', 'Project Raster'))
+                r_item.setData({**obj_data, 'type': 'ProjectRaster', 'layer_mode': 'cog', 'projectId': project_id}, Qt.UserRole)
+                r_item.setEditable(False)
+                parent_node.appendRow([r_item, QStandardItem("Raster (COG)")])
+            else:
+                v_item = QStandardItem(obj_data.get('name', 'Vector Feature'))
+                v_item.setData({**obj_data, 'projectId': project_id}, Qt.UserRole)
+                v_item.setEditable(False)
+                parent_node.appendRow([v_item, QStandardItem(obj_type)])
 
         # Process each logical layer in the project
-        for idx, layer in enumerate(layers):
+        for layer in layers:
             layer_id = layer.get('id')
             layer_name = layer.get('name', 'Unnamed Layer')
-            layer_type = layer.get('layerType', 'VECTOR')
+            layer_type = layer.get('type', 'VECTOR')
 
             layer_item = QStandardItem(layer_name)
-            layer_item.setData({**layer, 'type': 'layer', 'projectId': project_id}, Qt.UserRole)
+            layer_item.setData({**layer, 'layerType': layer_type, 'type': 'layer', 'projectId': project_id}, Qt.UserRole)
             layer_item.setEditable(False)
             project_item.appendRow([layer_item, QStandardItem(f"Layer ({layer_type})")])
 
-            # Filter folders: match layer_id OR assign to first layer if folder has no valid layer_id
-            layer_folders = []
-            for f in folders:
-                f_lid = str(f.get('layerId', '')) if f.get('layerId') else None
-                if f_lid == str(layer_id):
-                    layer_folders.append(f)
-                elif idx == 0 and (not f_lid or f_lid not in known_layer_ids):
-                    layer_folders.append(f)
+            # 1. Add top-level folders
+            for folder in layer.get('folders', []):
+                add_folder_item(layer_item, folder)
 
-            folder_items = {}
-            for f in layer_folders:
-                f_item = QStandardItem(f.get('name', 'Unnamed Folder'))
-                f_item.setData({**f, 'type': 'folder', 'projectId': project_id}, Qt.UserRole)
-                folder_items[str(f.get('id'))] = f_item
-
-            # Build nested folder hierarchy under layer
-            for f in layer_folders:
-                f_id = str(f.get('id'))
-                p_id = str(f.get('parentId')) if f.get('parentId') else None
-                f_item = folder_items[f_id]
-
-                if p_id and p_id in folder_items:
-                    folder_items[p_id].appendRow([f_item, QStandardItem("Folder")])
-                else:
-                    layer_item.appendRow([f_item, QStandardItem("Folder")])
-
-            # Filter vectors: match layer_id OR assign to first layer if vector has no valid layer_id
-            layer_vectors = []
-            for v in all_vectors:
-                v_lid = str(v.get('layerId', '')) if v.get('layerId') else None
-                if v_lid == str(layer_id):
-                    layer_vectors.append(v)
-                elif idx == 0 and (not v_lid or v_lid not in known_layer_ids):
-                    layer_vectors.append(v)
-
-            for v in layer_vectors:
-                v_item = QStandardItem(v.get('name', 'Vector Feature'))
-                v_item.setData({**v, 'projectId': project_id}, Qt.UserRole)
-                v_item.setEditable(False)
-
-                f_id = str(v.get('folderId')) if v.get('folderId') else None
-                if f_id and f_id in folder_items:
-                    folder_items[f_id].appendRow([v_item, QStandardItem(v['type'])])
-                else:
-                    layer_item.appendRow([v_item, QStandardItem(v['type'])])
-
-            # Add project rasters (either to folder or to layer root)
-            if layer_id:
-                project_rasters = self.api.get_project_rasters_by_layer(layer_id)
-                for r in project_rasters:
-                    r_item = QStandardItem(r.get('name', 'Project Raster'))
-                    r_item.setData({**r, 'type': 'ProjectRaster', 'layer_mode': 'cog', 'projectId': project_id}, Qt.UserRole)
-                    r_item.setEditable(False)
-
-                    f_id = str(r.get('folderId')) if r.get('folderId') else None
-                    if f_id and f_id in folder_items:
-                        folder_items[f_id].appendRow([r_item, QStandardItem("Raster (COG)")])
-                    else:
-                        layer_item.appendRow([r_item, QStandardItem("Raster (COG)")])
+            # 2. Add top-level objects (not in any folder)
+            for obj in layer.get('objects', []):
+                add_object_item(layer_item, obj)
 
 
     def add_selected_layer(self):
@@ -465,10 +413,168 @@ class GeoInfoDockWidget(QDockWidget):
                 if layer and data.get('project_id'):
                     layer.setCustomProperty("geoinfo_project_id", str(data.get('project_id')))
             else:
-                self.layer_factory.add_single_vector_object(data)
+                # Retrieve the full vector object (with geometry) from API
+                obj_id = data.get('id')
+                obj_type = data.get('type')
+                full_obj = None
+                if obj_type == 'Point':
+                    full_obj = self.api.get_point(obj_id)
+                elif obj_type == 'MultiLineString':
+                    full_obj = self.api.get_multiline(obj_id)
+                elif obj_type == 'Polygon':
+                    full_obj = self.api.get_polygon(obj_id)
+                
+                if full_obj:
+                    full_obj['type'] = obj_type
+                    self.layer_factory.add_single_vector_object(full_obj)
+                else:
+                    QMessageBox.warning(self, "GeoInfoSystem", f"Не удалось загрузить детальные данные объекта с ID: {obj_id}")
 
 
     def add_selected_folder(self):
         """Future: Add all objects within a folder/project."""
         pass
+
+    def on_tree_double_clicked(self, index):
+        if not index.isValid():
+            return
+        item = self.model.itemFromIndex(index)
+        data = item.data(Qt.UserRole) or {}
+        
+        item_type = data.get('type')
+        if item_type == 'global_jobs':
+            dialog = JobsManagerDialog(self.iface, self.api, parent=self)
+            dialog.exec_()
+        elif item_type == 'project_jobs':
+            project_id = data.get('projectId')
+            project_name = data.get('projectName')
+            dialog = JobsManagerDialog(self.iface, self.api, project_id=project_id, project_name=project_name, parent=self)
+            dialog.exec_()
+
+    def show_tree_context_menu(self, position):
+        index = self.tree_view.indexAt(position)
+        if not index.isValid():
+            return
+
+        item = self.model.itemFromIndex(index)
+        data = item.data(Qt.UserRole) or {}
+        
+        from qgis.PyQt.QtWidgets import QMenu
+        menu = QMenu(self)
+
+        item_type = data.get('type')
+        can_add = False
+        can_sync = False
+        
+        if item_type not in ['group', 'folder', 'layer', 'global_jobs', 'project_jobs'] and data:
+            if ('cogObjectKey' in data or 'layerName' in data or item_type == 'ProjectRaster' or 'layer_mode' in data or
+                'terrainUrl' in data or ('title' in data and 'id' in data and item_type != 'Point') or
+                'geom' in data or item_type in ['Point', 'MultiLineString', 'Polygon'] or data.get('is_new')):
+                can_add = True
+
+        if item_type == 'layer' and data.get('layerType') == 'VECTOR':
+            can_sync = True
+        elif item_type == 'folder':
+            can_sync = True
+        elif data.get('projectId') and not item_type: # feature item
+            can_sync = True
+            
+        if can_add:
+            add_action = menu.addAction("Добавить на карту (Add to Map)")
+            add_action.triggered.connect(self.add_selected_layer)
+            
+        if can_sync:
+            sync_action = menu.addAction("Синхронизировать слой (Sync changes)")
+            sync_action.triggered.connect(lambda: self.sync_layer_by_tree_item(item))
+
+        if menu.actions():
+            menu.exec_(self.tree_view.viewport().mapToGlobal(position))
+
+    def sync_layer_by_tree_item(self, item):
+        data = item.data(Qt.UserRole) or {}
+        project_id = data.get('projectId')
+        layer_id = None
+        folder_id = None
+        
+        item_type = data.get('type')
+        if item_type == 'layer':
+            layer_id = data.get('id')
+        elif item_type == 'folder':
+            folder_id = data.get('id')
+            layer_id = data.get('layerId')
+        else: # feature item
+            layer_id = data.get('layerId')
+            folder_id = data.get('folderId')
+            
+        if not project_id:
+            # Find project ID in parents
+            parent = item.parent()
+            while parent:
+                p_data = parent.data(Qt.UserRole) or {}
+                if p_data.get('id') and parent.text() != 'Imagery Layers' and parent.text() != 'Terrain Layers':
+                    project_id = p_data.get('id')
+                    break
+                parent = parent.parent()
+
+        if not project_id:
+            QMessageBox.warning(self, "GeoInfoSystem", "Не удалось определить целевой проект для синхронизации.")
+            return
+            
+        # Sync only layers in QGIS matching project_id and optionally layer_id / folder_id
+        layers = QgsProject.instance().mapLayers().values()
+        sync_count = 0
+        
+        for layer in layers:
+            if not isinstance(layer, QgsVectorLayer):
+                continue
+                
+            lyr_project_id = layer.customProperty("geoinfo_project_id")
+            lyr_folder_id = layer.customProperty("geoinfo_folder_id")
+            
+            if lyr_project_id != str(project_id):
+                continue
+                
+            if folder_id and lyr_folder_id != str(folder_id):
+                continue
+                
+            geom_type = layer.geometryType()
+            api_type = None
+            if geom_type == 0: api_type = "points"
+            elif geom_type == 1: api_type = "multilines"
+            elif geom_type == 2: api_type = "polygons"
+            
+            if not api_type:
+                continue
+                
+            layer.startEditing()
+            try:
+                id_field_idx, id_field_name = self.get_or_create_external_id_field(layer)
+                features = list(layer.getFeatures())
+                
+                for feature in features:
+                    feat_id = feature.attribute(id_field_name) if id_field_idx != -1 else None
+                    
+                    import re
+                    is_uuid = feat_id and feat_id != NULL and bool(re.match(r'^[0-9a-f]{8}-', str(feat_id), re.I))
+                    is_new = not is_uuid
+                    
+                    dto = self.layer_factory.export_feature_to_dto(feature, project_id, folder_id, api_type=api_type, source_layer=layer)
+                    if not dto:
+                       continue
+                       
+                    if is_uuid:
+                       dto["id"] = str(feat_id)
+                       
+                    result = self.api.sync_feature(api_type, dto, is_new=is_new)
+                    if result:
+                       sync_count += 1
+                       if is_new and id_field_idx != -1:
+                           new_id = str(result.get('id'))
+                           layer.changeAttributeValue(feature.id(), id_field_idx, new_id)
+                layer.commitChanges()
+            except Exception as e:
+                layer.rollBack()
+                QgsMessageLog.logMessage(f"GeoInfoSystem: Error during single layer sync of '{layer.name()}': {str(e)}", "GeoInfoSystem", Qgis.Critical)
+
+        self.iface.messageBar().pushMessage("GeoInfoSystem", f"Синхронизировано объектов: {sync_count}.", level=Qgis.Success)
 

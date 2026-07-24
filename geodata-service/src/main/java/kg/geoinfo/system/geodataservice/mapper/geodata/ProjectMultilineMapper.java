@@ -16,10 +16,12 @@ public interface ProjectMultilineMapper {
 
     @Mapping(source = "project.id", target = "projectId")
     @Mapping(source = "folder.id", target = "folderId")
+    @Mapping(source = "layer.id", target = "layerId")
     ProjectMultilineDto toDto(ProjectMultiline projectMultiline);
 
     @Mapping(source = "project.id", target = "projectId")
     @Mapping(source = "folder.id", target = "folderId")
+    @Mapping(source = "layer.id", target = "layerId")
     ProjectMultilineSummaryDto toSummaryDto(ProjectMultiline projectMultiline);
 
     @Mapping(target = "project", source = "projectId", qualifiedByName = "mapProject")

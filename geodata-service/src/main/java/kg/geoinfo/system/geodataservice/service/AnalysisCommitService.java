@@ -29,6 +29,7 @@ public class AnalysisCommitService {
     private final ProjectPointRepository pointRepository;
     private final ProjectMultilineRepository multilineRepository;
     private final ProjectPolygonRepository polygonRepository;
+    private final LayerRepository layerRepository;
 
     /**
      * Переносит все временные геометрии задачи в постоянные таблицы проекта.
@@ -39,7 +40,7 @@ public class AnalysisCommitService {
      * @param taskName  имя задачи — используется как префикс имён объектов
      */
     @Transactional
-    public void commitTask(UUID taskId, UUID projectId, UUID folderId, String taskName) {
+    public void commitTask(UUID taskId, UUID projectId, String targetName) {
         List<TempAnalysisGeometry> temps = tempRepository.findByTaskId(taskId);
         if (temps.isEmpty()) {
             log.warn("No staged geometries found for task {}", taskId);
@@ -49,10 +50,20 @@ public class AnalysisCommitService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
 
-        GeoFolder folder = null;
-        if (folderId != null) {
-            folder = folderRepository.findById(folderId).orElse(null);
-        }
+        // Create new Layer automatically with targetName
+        Layer layer = Layer.builder()
+                .project(project)
+                .name(targetName)
+                .type(kg.geoinfo.system.geodataservice.models.enums.LayerType.VECTOR)
+                .build();
+        layer = layerRepository.save(layer);
+
+        // Create new Folder automatically under the new layer with targetName
+        GeoFolder folder = GeoFolder.builder()
+                .layer(layer)
+                .name(targetName)
+                .build();
+        folder = folderRepository.save(folder);
 
         int index = 1;
         for (TempAnalysisGeometry temp : temps) {
@@ -63,21 +74,21 @@ public class AnalysisCommitService {
                 continue;
             }
 
-            String objectName = resolveObjectName(temp.getProperties(), taskName, index++);
+            String objectName = resolveObjectName(temp.getProperties(), targetName, index++);
 
             String geomType = geom.getGeometryType();
             switch (geomType) {
                 case "Point":
                 case "MultiPoint":
-                    commitPoint(project, folder, objectName, temp);
+                    commitPoint(project, folder, layer, objectName, temp);
                     break;
                 case "LineString":
                 case "MultiLineString":
-                    commitLine(project, folder, objectName, temp);
+                    commitLine(project, folder, layer, objectName, temp);
                     break;
                 case "Polygon":
                 case "MultiPolygon":
-                    commitPolygon(project, folder, objectName, temp);
+                    commitPolygon(project, folder, layer, objectName, temp);
                     break;
                 default:
                     log.warn("Unknown geometry type '{}' for task {} — skipping", geomType, taskId);
@@ -116,10 +127,11 @@ public class AnalysisCommitService {
         return taskName + " #" + index;
     }
 
-    private void commitPoint(Project project, GeoFolder folder, String name, TempAnalysisGeometry temp) {
+    private void commitPoint(Project project, GeoFolder folder, Layer layer, String name, TempAnalysisGeometry temp) {
         ProjectPoint point = new ProjectPoint();
         point.setProject(project);
         point.setFolder(folder);
+        point.setLayer(layer);
         point.setName(name);
         point.setStatus(Status.COMPLETED);
         point.setCharacteristics(temp.getProperties());
@@ -127,10 +139,11 @@ public class AnalysisCommitService {
         pointRepository.save(point);
     }
 
-    private void commitLine(Project project, GeoFolder folder, String name, TempAnalysisGeometry temp) {
+    private void commitLine(Project project, GeoFolder folder, Layer layer, String name, TempAnalysisGeometry temp) {
         ProjectMultiline line = new ProjectMultiline();
         line.setProject(project);
         line.setFolder(folder);
+        line.setLayer(layer);
         line.setName(name);
         line.setStatus(Status.COMPLETED);
         line.setCharacteristics(temp.getProperties());
@@ -138,10 +151,11 @@ public class AnalysisCommitService {
         multilineRepository.save(line);
     }
 
-    private void commitPolygon(Project project, GeoFolder folder, String name, TempAnalysisGeometry temp) {
+    private void commitPolygon(Project project, GeoFolder folder, Layer layer, String name, TempAnalysisGeometry temp) {
         ProjectPolygon polygon = new ProjectPolygon();
         polygon.setProject(project);
         polygon.setFolder(folder);
+        polygon.setLayer(layer);
         polygon.setName(name);
         polygon.setStatus(Status.COMPLETED);
         polygon.setCharacteristics(temp.getProperties());
