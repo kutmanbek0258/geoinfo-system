@@ -323,13 +323,6 @@ class GeoInfoDockWidget(QDockWidget):
             QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to fetch hierarchy for project {project_id}", "GeoInfoSystem", Qgis.Warning)
             return
 
-        try:
-            import json
-            hierarchy_str = json.dumps(hierarchy, indent=2, ensure_ascii=False)
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Received hierarchy JSON for project {project_id}:\n{hierarchy_str}", "GeoInfoSystem", Qgis.Info)
-        except Exception as e:
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Failed to log hierarchy JSON: {str(e)}", "GeoInfoSystem", Qgis.Warning)
-
         layers = hierarchy.get('layers', [])
         
         # Helper to recursively add folders

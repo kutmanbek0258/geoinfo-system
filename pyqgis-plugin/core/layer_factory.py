@@ -118,6 +118,7 @@ class LayerFactory:
         vlayer.updateExtents()
         
         QgsProject.instance().addMapLayer(vlayer)
+        QgsMessageLog.logMessage(f"GeoInfoSystem: Vector layer '{title}' added successfully.", "GeoInfoSystem", Qgis.Success)
         return vlayer
 
     def add_terrain_layer(self, terrain_data):
@@ -135,19 +136,13 @@ class LayerFactory:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Could not get COG URL for terrain layer {title}", "GeoInfoSystem", Qgis.Critical)
             return None
 
-        QgsMessageLog.logMessage(f"GeoInfoSystem: Raw Terrain COG URL received from API: {cog_url}", "GeoInfoSystem", Qgis.Info)
-
         # Rewrite internal minio container URL to public Nginx /terrain/cog/ route only if internal minio:9000 is present
         if 'minio:9000/geo-abstraction-input/terrain-cog/' in cog_url:
-            QgsMessageLog.logMessage("GeoInfoSystem: Internal minio:9000 detected in Terrain URL, rewriting to /terrain/cog/...", "GeoInfoSystem", Qgis.Info)
             cog_url = cog_url.replace('http://minio:9000/geo-abstraction-input/terrain-cog/', '/terrain/cog/')
             cog_url = cog_url.replace('https://minio:9000/geo-abstraction-input/terrain-cog/', '/terrain/cog/')
         elif 'minio:9000' in cog_url:
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Internal minio:9000 detected in Terrain URL, replacing with {DEFAULT_DOMAIN}:9000...", "GeoInfoSystem", Qgis.Info)
             cog_url = cog_url.replace('http://minio:9000/', f'http://{DEFAULT_DOMAIN}:9000/')
             cog_url = cog_url.replace('https://minio:9000/', f'https://{DEFAULT_DOMAIN}:9000/')
-        else:
-            QgsMessageLog.logMessage("GeoInfoSystem: minio:9000 is NOT present in Terrain URL. Keeping URL unchanged.", "GeoInfoSystem", Qgis.Info)
 
 
         # Build full URL if relative
@@ -222,19 +217,13 @@ class LayerFactory:
             QgsMessageLog.logMessage(f"GeoInfoSystem: Could not get COG URL for imagery layer {title}", "GeoInfoSystem", Qgis.Critical)
             return None
 
-        QgsMessageLog.logMessage(f"GeoInfoSystem: Raw Imagery COG URL received from API: {cog_url}", "GeoInfoSystem", Qgis.Info)
-
         # Rewrite internal minio container URL to public Nginx /imagery/cog/ route only if minio:9000 is present
         if 'minio:9000/geo-abstraction-input/imagery-cog/' in cog_url:
-            QgsMessageLog.logMessage("GeoInfoSystem: Internal minio:9000 detected in Imagery URL, rewriting to /imagery/cog/...", "GeoInfoSystem", Qgis.Info)
             cog_url = cog_url.replace('http://minio:9000/geo-abstraction-input/imagery-cog/', '/imagery/cog/')
             cog_url = cog_url.replace('https://minio:9000/geo-abstraction-input/imagery-cog/', '/imagery/cog/')
         elif 'minio:9000' in cog_url:
-            QgsMessageLog.logMessage(f"GeoInfoSystem: Internal minio:9000 detected in Imagery URL, replacing with {DEFAULT_DOMAIN}:9000...", "GeoInfoSystem", Qgis.Info)
             cog_url = cog_url.replace('http://minio:9000/', f'http://{DEFAULT_DOMAIN}:9000/')
             cog_url = cog_url.replace('https://minio:9000/', f'https://{DEFAULT_DOMAIN}:9000/')
-        else:
-            QgsMessageLog.logMessage("GeoInfoSystem: minio:9000 is NOT present in Imagery URL. Keeping URL unchanged.", "GeoInfoSystem", Qgis.Info)
 
 
         # Build full URL if relative
@@ -290,13 +279,11 @@ class LayerFactory:
                 dest_crs = QgsCoordinateReferenceSystem("EPSG:4326")
                 
                 if source_crs != dest_crs:
-                    QgsMessageLog.logMessage(f"GeoInfoSystem: Transforming geometry from {source_crs.authid()} to EPSG:4326", "GeoInfoSystem", Qgis.Info)
                     transform = QgsCoordinateTransform(source_crs, dest_crs, QgsProject.instance())
                     normalized_geom.transform(transform)
 
             # Universal Multi-type promotion and Topology Fix
             if not normalized_geom.isMultipart():
-                QgsMessageLog.logMessage(f"GeoInfoSystem: Promoting single {api_type} to Multi-type...", "GeoInfoSystem", Qgis.Info)
                 normalized_geom.convertToMultiType()
             
             # CRITICAL FIX: Ensure all polygon rings are closed. 
@@ -311,7 +298,6 @@ class LayerFactory:
                         normalized_geom = normalized_geom.makeValid()
 
             # Export to JSON
-            QgsMessageLog.logMessage("GeoInfoSystem: Exporting geometry to JSON...", "GeoInfoSystem", Qgis.Info)
             geom_json_str = normalized_geom.asJson()
             geom_obj = json.loads(geom_json_str)
             
@@ -321,7 +307,6 @@ class LayerFactory:
             else:
                 geom_data = geom_obj
 
-            QgsMessageLog.logMessage("GeoInfoSystem: Building DTO...", "GeoInfoSystem", Qgis.Info)
             dto = {
                 "name": feature.attribute("name") if "name" in feature.fields().names() else "New Object",
                 "description": feature.attribute("description") if "description" in feature.fields().names() else "",
