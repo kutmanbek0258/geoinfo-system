@@ -50,6 +50,15 @@ public class AnalysisCommitService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
 
+        // Проверяем, есть ли хотя бы одна векторная геометрия.
+        // Если векторных геометрий нет (например, только маркер растра), пропускаем создание векторного слоя/папки.
+        boolean hasVectorGeometries = temps.stream().anyMatch(t -> t.getGeom() != null);
+        if (!hasVectorGeometries) {
+            log.info("No vector geometries found for task {} (only raster marker) - skipping vector commit", taskId);
+            tempRepository.deleteByTaskId(taskId);
+            return;
+        }
+
         // Create new Layer automatically with targetName
         Layer layer = Layer.builder()
                 .project(project)
